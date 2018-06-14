@@ -214,8 +214,6 @@ void Source::BaseView::rename(const boost::filesystem::path &path) {
 
   if(update_status_file_path)
     update_status_file_path(this);
-  if(update_tab_label)
-    update_tab_label(this);
 }
 
 void Source::BaseView::monitor_file() {
