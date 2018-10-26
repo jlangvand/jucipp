@@ -14,8 +14,6 @@
 #include "selection_dialog.h"
 #include "usages_clang.h"
 
-clangmm::Index Source::ClangViewParse::clang_index(0, 0);
-
 const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)");
 
 Source::ClangViewParse::ClangViewParse(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language)
@@ -98,20 +96,24 @@ void Source::ClangViewParse::parse_initialize() {
   parse_state = ParseState::PROCESSING;
   parse_process_state = ParseProcessState::STARTING;
 
-  auto buffer = get_buffer()->get_text();
-  //Remove includes for first parse for initial syntax highlighting
-  std::size_t pos = 0;
-  while((pos = buffer.find("#include", pos)) != std::string::npos) {
-    auto start_pos = pos;
-    pos = buffer.find('\n', pos + 8);
-    if(pos == std::string::npos)
-      break;
-    if(start_pos == 0 || buffer[start_pos - 1] == '\n') {
-      buffer.replace(start_pos, pos - start_pos, pos - start_pos, ' ');
+  auto buffer_ = get_buffer()->get_text();
+  auto &buffer_raw = const_cast<std::string &>(buffer_.raw());
+
+  if(!Config::get().log.libclang) {
+    // Remove includes for first parse for initial syntax highlighting
+    std::size_t pos = 0;
+    while((pos = buffer_raw.find("#include", pos)) != std::string::npos) {
+      auto start_pos = pos;
+      pos = buffer_raw.find('\n', pos + 8);
+      if(pos == std::string::npos)
+        break;
+      if(start_pos == 0 || buffer_raw[start_pos - 1] == '\n') {
+        buffer_raw.replace(start_pos, pos - start_pos, pos - start_pos, ' ');
+      }
+      pos++;
     }
-    pos++;
   }
-  auto &buffer_raw = const_cast<std::string &>(buffer.raw());
+
   if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr"))
     clangmm::remove_include_guard(buffer_raw);
 
@@ -120,7 +122,7 @@ void Source::ClangViewParse::parse_initialize() {
     Info::get().print(file_path.filename().string() + ": could not find a supported build system");
   build->update_default();
   auto arguments = CompileCommands::get_arguments(build->get_default_path(), file_path);
-  clang_tu = std::make_unique<clangmm::TranslationUnit>(clang_index, file_path.string(), arguments, buffer_raw);
+  clang_tu = std::make_unique<clangmm::TranslationUnit>(std::make_shared<clangmm::Index>(1, Config::get().log.libclang), file_path.string(), arguments, &buffer_raw);
   clang_tokens = clang_tu->get_tokens();
   clang_tokens_offsets.clear();
   clang_tokens_offsets.reserve(clang_tokens->size());

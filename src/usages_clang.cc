@@ -228,7 +228,6 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
             path = *it;
             ++it;
           }
-          clangmm::Index index(0, 0);
 
           {
             static std::mutex mutex;
@@ -254,7 +253,8 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
           flags |= CXTranslationUnit_KeepGoing;
 #endif
 
-          clangmm::TranslationUnit translation_unit(index, path.string(), arguments, buffer, flags);
+          static auto index = std::make_shared<clangmm::Index>(1, 0);
+          clangmm::TranslationUnit translation_unit(index, path.string(), arguments, &buffer, flags);
 
           {
             static std::mutex mutex;

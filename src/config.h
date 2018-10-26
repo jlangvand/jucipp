@@ -96,6 +96,7 @@ public:
 
   class Log {
   public:
+    bool libclang;
     bool language_server;
   };
 

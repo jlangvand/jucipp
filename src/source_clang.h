@@ -53,8 +53,6 @@ namespace Source {
 
     void update_diagnostics();
     std::vector<clangmm::Diagnostic> clang_diagnostics;
-
-    static clangmm::Index clang_index;
   };
 
   class ClangViewAutocomplete : public virtual ClangViewParse {

@@ -193,6 +193,8 @@ const std::string default_config_file = R"RAW({
         }
     },
     "log": {
+        "libclang_comment": "Outputs diagnostics for new C/C++ buffers",
+        "libclang": false,
         "language_server": false
     }
 }

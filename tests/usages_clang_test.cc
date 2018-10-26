@@ -17,14 +17,14 @@ int main() {
   g_assert(build->project_path == project_path);
 
   {
-    clangmm::Index index(0, 0);
+    auto index = std::make_shared<clangmm::Index>(1, 0);
     auto path = project_path / "main.cpp";
     std::ifstream stream(path.string(), std::ifstream::binary);
     assert(stream);
     std::string buffer;
     buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
     auto arguments = CompileCommands::get_arguments(build_path, path);
-    clangmm::TranslationUnit translation_unit(index, path.string(), arguments, buffer);
+    clangmm::TranslationUnit translation_unit(index, path.string(), arguments, &buffer);
     auto tokens = translation_unit.get_tokens();
     clangmm::Token *found_token = nullptr;
     for(auto &token : *tokens) {
@@ -109,7 +109,7 @@ int main() {
       std::ifstream stream(path.string(), std::ifstream::binary);
       std::string buffer;
       buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
-      clangmm::TranslationUnit translation_unit(index, path.string(), arguments, buffer);
+      clangmm::TranslationUnit translation_unit(index, path.string(), arguments, &buffer);
       Usages::Clang::add_usages(project_path, build_path, path, usages, visited, spelling, cursor, &translation_unit, true);
       Usages::Clang::add_usages_from_includes(project_path, build_path, usages, visited, spelling, cursor, &translation_unit, true);
       assert(usages.size() == 3);

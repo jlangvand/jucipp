@@ -202,5 +202,6 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   terminal.history_size = cfg.get<int>("terminal.history_size");
   terminal.font = cfg.get<std::string>("terminal.font");
 
+  log.libclang = cfg.get<bool>("log.libclang");
   log.language_server = cfg.get<bool>("log.language_server");
 }
