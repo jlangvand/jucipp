@@ -540,6 +540,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(!is_code_iter(iter))
       return false;
 
+    enable_snippets = false;
     show_parameters = false;
 
     auto line = ' ' + get_line_before();
@@ -551,6 +552,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
       {
         std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
+        if(!sm.length(2) && !sm.length(4))
+          enable_snippets = true;
       }
       return true;
     }
@@ -567,8 +570,20 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
       }
       if(iter != end_iter)
         iter.forward_char();
-      std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
-      autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+
+      {
+        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+      }
+      auto prev1 = iter;
+      if(prev1.backward_char() && *prev1 != '.') {
+        auto prev2 = prev1;
+        if(!prev2.backward_char())
+          enable_snippets = true;
+        else if(!(*prev2 == ':' && *prev1 == ':') && !(*prev2 == '-' && *prev1 == '>'))
+          enable_snippets = true;
+      }
+
       return true;
     }
 
@@ -605,13 +620,15 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     }
 
     if(autocomplete.state == Autocomplete::State::STARTING) {
-      std::string prefix_copy;
+      std::string prefix;
       {
         std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
-        prefix_copy = autocomplete.prefix;
+        prefix = autocomplete.prefix;
       }
 
       completion_strings.clear();
+      snippet_inserts.clear();
+      snippet_comments.clear();
       for(unsigned i = 0; i < code_complete_results->size(); ++i) {
         auto result = code_complete_results->get(i);
         if(result.available()) {
@@ -654,7 +671,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
               if(kind != clangmm::CompletionChunk_Informative) {
                 auto chunk_cstr = clangmm::String(clang_getCompletionChunkText(result.cx_completion_string, i));
                 if(kind == clangmm::CompletionChunk_TypedText) {
-                  if(strlen(chunk_cstr.c_str) >= prefix_copy.size() && prefix_copy.compare(0, prefix_copy.size(), chunk_cstr.c_str, prefix_copy.size()) == 0)
+                  if(strlen(chunk_cstr.c_str) >= prefix.size() && prefix.compare(0, prefix.size(), chunk_cstr.c_str, prefix.size()) == 0)
                     match = true;
                   else
                     break;
@@ -670,6 +687,19 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
                 text += return_text;
               autocomplete.rows.emplace_back(std::move(text));
               completion_strings.emplace_back(result.cx_completion_string);
+            }
+          }
+        }
+      }
+      if(!show_parameters && enable_snippets) {
+        std::lock_guard<std::mutex> lock(snippets_mutex);
+        if(snippets) {
+          for(auto &snippet : *snippets) {
+            if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
+              autocomplete.rows.emplace_back(snippet.prefix);
+              completion_strings.emplace_back(nullptr);
+              snippet_inserts.emplace(autocomplete.rows.size() - 1, snippet.body);
+              snippet_comments.emplace(autocomplete.rows.size() - 1, snippet.description);
             }
           }
         }
@@ -691,6 +721,17 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
+    if(!completion_strings[index]) { // Insert snippet instead
+      get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+
+      if(!hide_window) {
+        get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), text);
+      }
+      else
+        insert_snippet(CompletionDialog::get()->start_mark->get_iter(), snippet_inserts[index]);
+      return;
+    }
+
     std::string row;
     auto pos = text.find("  →  ");
     if(pos != std::string::npos)
@@ -779,7 +820,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.get_tooltip = [this](unsigned int index) {
-    return clangmm::to_string(clang_getCompletionBriefComment(completion_strings[index]));
+    return completion_strings[index] ? clangmm::to_string(clang_getCompletionBriefComment(completion_strings[index])) : snippet_comments[index];
   };
 }
 

@@ -1251,6 +1251,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     if(!is_code_iter(iter))
       return false;
 
+    autocomplete_enable_snippets = false;
     autocomplete_show_parameters = false;
 
     auto line = ' ' + get_line_before();
@@ -1262,6 +1263,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       {
         std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
+        if(!sm.length(2) && !sm.length(4))
+          autocomplete_enable_snippets = true;
       }
       return true;
     }
@@ -1278,8 +1281,20 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }
       if(iter != end_iter)
         iter.forward_char();
-      std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
-      autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+
+      {
+        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+      }
+      auto prev1 = iter;
+      if(prev1.backward_char() && *prev1 != '.') {
+        auto prev2 = prev1;
+        if(!prev2.backward_char())
+          autocomplete_enable_snippets = true;
+        else if(!(*prev2 == ':' && *prev1 == ':'))
+          autocomplete_enable_snippets = true;
+      }
+
       return true;
     }
 
@@ -1382,6 +1397,24 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 autocomplete_insert.emplace_back(std::move(insert));
               }
             }
+
+            if(autocomplete_enable_snippets) {
+              std::string prefix;
+              {
+                std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+                prefix = autocomplete.prefix;
+              }
+              std::lock_guard<std::mutex> lock(snippets_mutex);
+              if(snippets) {
+                for(auto &snippet : *snippets) {
+                  if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
+                    autocomplete.rows.emplace_back(snippet.prefix);
+                    autocomplete_insert.emplace_back(snippet.body);
+                    autocomplete_comment.emplace_back(snippet.description);
+                  }
+                }
+              }
+            }
           }
           result_processed.set_value();
         });
@@ -1390,44 +1423,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
   };
 
-  signal_key_press_event().connect([this](GdkEventKey *event) {
-    if((event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) && (event->state & GDK_SHIFT_MASK) == 0) {
-      if(!argument_marks.empty()) {
-        auto it = argument_marks.begin();
-        auto start = it->first->get_iter();
-        auto end = it->second->get_iter();
-        if(start == end)
-          return false;
-        keep_argument_marks = true;
-        get_buffer()->select_range(it->first->get_iter(), it->second->get_iter());
-        keep_argument_marks = false;
-        get_buffer()->delete_mark(it->first);
-        get_buffer()->delete_mark(it->second);
-        argument_marks.erase(it);
-        return true;
-      }
-    }
-    return false;
-  }, false);
-
-  get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
-    if(mark->get_name() == "insert") {
-      if(!keep_argument_marks) {
-        for(auto &pair : argument_marks) {
-          get_buffer()->delete_mark(pair.first);
-          get_buffer()->delete_mark(pair.second);
-        }
-        argument_marks.clear();
-      }
-    }
-  });
-
   autocomplete.on_show = [this] {
-    for(auto &pair : argument_marks) {
-      get_buffer()->delete_mark(pair.first);
-      get_buffer()->delete_mark(pair.second);
-    }
-    argument_marks.clear();
     hide_tooltips();
   };
 
@@ -1452,56 +1448,18 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
     if(hide_window) {
       if(autocomplete_show_parameters) {
-        if(has_named_parameters()) { // Do not select named parameters in for instance Python
+        if(has_named_parameters()) // Do not select named parameters in for instance Python
           get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
-          return;
-        }
         else {
           get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
           int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
           int end_offset = CompletionDialog::get()->start_mark->get_iter().get_offset() + insert.size();
           get_buffer()->select_range(get_buffer()->get_iter_at_offset(start_offset), get_buffer()->get_iter_at_offset(end_offset));
-          return;
         }
+        return;
       }
 
-      // Find and add position marks that one can move to using tab-key
-      size_t pos1 = 0;
-      std::vector<std::pair<size_t, size_t>> mark_offsets;
-      while((pos1 = insert.find("${"), pos1) != Glib::ustring::npos) {
-        size_t pos2 = insert.find(":", pos1 + 2);
-        if(pos2 != Glib::ustring::npos) {
-          size_t pos3 = insert.find("}", pos2 + 1);
-          if(pos3 != Glib::ustring::npos) {
-            size_t length = pos3 - pos2 - 1;
-            insert.erase(pos3, 1);
-            insert.erase(pos1, pos2 - pos1 + 1);
-            mark_offsets.emplace_back(pos1, pos1 + length);
-            pos1 += length;
-          }
-          else
-            break;
-        }
-        else
-          break;
-      }
-      get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
-      for(auto &offset : mark_offsets) {
-        auto start = CompletionDialog::get()->start_mark->get_iter();
-        auto end = start;
-        start.forward_chars(offset.first);
-        end.forward_chars(offset.second);
-        argument_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
-      }
-      if(!argument_marks.empty()) {
-        auto it = argument_marks.begin();
-        keep_argument_marks = true;
-        get_buffer()->select_range(it->first->get_iter(), it->second->get_iter());
-        keep_argument_marks = false;
-        get_buffer()->delete_mark(it->first);
-        get_buffer()->delete_mark(it->second);
-        argument_marks.erase(it);
-      }
+      insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
     }
     else
       get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);

@@ -46,6 +46,10 @@ add_executable(source_clang_test source_clang_test.cc $<TARGET_OBJECTS:test_stub
 target_link_libraries(source_clang_test juci_shared)
 add_test(source_clang_test source_clang_test)
 
+add_executable(source_generic_test source_generic_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(source_generic_test juci_shared)
+add_test(source_generic_test source_generic_test)
+
 add_executable(source_key_test source_key_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(source_key_test juci_shared)
 add_test(source_key_test source_key_test)

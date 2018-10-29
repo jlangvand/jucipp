@@ -2,6 +2,7 @@
 #include "autocomplete.h"
 #include "process.hpp"
 #include "source.h"
+#include <atomic>
 #include <boost/property_tree/json_parser.hpp>
 #include <list>
 #include <map>
@@ -162,7 +163,7 @@ namespace Source {
     void setup_autocomplete();
     std::vector<std::string> autocomplete_comment;
     std::vector<std::string> autocomplete_insert;
-    std::list<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, Glib::RefPtr<Gtk::TextBuffer::Mark>>> argument_marks;
+    std::atomic<bool> autocomplete_enable_snippets = {false};
     bool autocomplete_show_parameters = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
 

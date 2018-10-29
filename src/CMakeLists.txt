@@ -11,10 +11,12 @@ set(JUCI_SHARED_FILES
   menu.cc
   meson.cc
   project_build.cc
+  snippets.cc
   source.cc
   source_base.cc
   source_clang.cc
   source_diff.cc
+  source_generic.cc
   source_language_protocol.cc
   source_spellcheck.cc
   terminal.cc

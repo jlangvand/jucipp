@@ -133,8 +133,6 @@ namespace Source {
     bool on_button_press_event(GdkEventButton *event) override;
     bool on_motion_notify_event(GdkEventMotion *motion_event) override;
 
-    /// After autocomplete, arguments could be marked so that one can use tab to select the next argument
-    bool keep_argument_marks = false;
     bool interactive_completion = true;
 
   private:
@@ -149,24 +147,6 @@ namespace Source {
     bool is_cpp = false;
     guint previous_non_modifier_keyval = 0;
 
-    bool multiple_cursors_signals_set = false;
-    std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, int>> multiple_cursors_extra_cursors;
-    Glib::RefPtr<Gtk::TextBuffer::Mark> multiple_cursors_last_insert;
-    int multiple_cursors_erase_backward_length;
-    int multiple_cursors_erase_forward_length;
-    bool on_key_press_event_multiple_cursors(GdkEventKey *key);
-  };
-
-  class GenericView : public View {
-  private:
-    class CompletionBuffer : public Gtk::TextBuffer {
-    public:
-      static Glib::RefPtr<CompletionBuffer> create() { return Glib::RefPtr<CompletionBuffer>(new CompletionBuffer()); }
-    };
-
-  public:
-    GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
-
-    void parse_language_file(Glib::RefPtr<CompletionBuffer> &completion_buffer, bool &has_context_class, const boost::property_tree::ptree &pt);
+    bool on_key_press_event_extra_cursors(GdkEventKey *key);
   };
 } // namespace Source

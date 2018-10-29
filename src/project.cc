@@ -12,6 +12,7 @@
 #endif
 #include "ctags.h"
 #include "info.h"
+#include "snippets.h"
 #include "source_clang.h"
 #include "source_language_protocol.h"
 #include "usages_clang.h"
@@ -46,6 +47,13 @@ void Project::on_save(size_t index) {
   auto view = Notebook::get().get_view(index);
   if(!view)
     return;
+
+  if(view->file_path == Config::get().home_juci_path / "snippets.json") {
+    Snippets::get().load();
+    for(auto view : Notebook::get().get_views())
+      view->set_snippets();
+  }
+
   boost::filesystem::path build_path;
   if(view->language && view->language->get_id() == "cmake") {
     if(view->file_path.filename() == "CMakeLists.txt")

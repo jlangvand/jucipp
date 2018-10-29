@@ -16,7 +16,7 @@ class Autocomplete {
 public:
   enum class State { IDLE, STARTING, RESTARTING, CANCELED };
 
-  std::string prefix;
+  Glib::ustring prefix;
   std::mutex prefix_mutex;
   std::vector<std::string> rows;
   Tooltips tooltips;

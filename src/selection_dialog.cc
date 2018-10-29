@@ -403,10 +403,7 @@ bool CompletionDialog::on_key_release(GdkEventKey *key) {
 }
 
 bool CompletionDialog::on_key_press(GdkEventKey *key) {
-  if((key->keyval >= GDK_KEY_0 && key->keyval <= GDK_KEY_9) ||
-     (key->keyval >= GDK_KEY_A && key->keyval <= GDK_KEY_Z) ||
-     (key->keyval >= GDK_KEY_a && key->keyval <= GDK_KEY_z) ||
-     key->keyval == GDK_KEY_underscore || key->keyval == GDK_KEY_BackSpace) {
+  if((key->keyval >= '0' && key->keyval <= '9') || (key->keyval >= 'a' && key->keyval <= 'z') || (key->keyval >= 'A' && key->keyval <= 'Z') || key->keyval == '_' || gdk_keyval_to_unicode(key->keyval) >= 0x00C0 || key->keyval == GDK_KEY_BackSpace) {
     if(row_in_entry) {
       text_view->get_buffer()->erase(start_mark->get_iter(), text_view->get_buffer()->get_insert()->get_iter());
       row_in_entry = false;

@@ -191,6 +191,9 @@ void Window::set_menu_actions() {
   menu.add_action("preferences", []() {
     Notebook::get().open(Config::get().home_juci_path / "config" / "config.json");
   });
+  menu.add_action("snippets", []() {
+    Notebook::get().open(Config::get().home_juci_path / "snippets.json");
+  });
   menu.add_action("quit", [this]() {
     close();
   });

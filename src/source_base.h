@@ -1,9 +1,13 @@
 #pragma once
 
+#include "snippets.h"
 #include <boost/filesystem.hpp>
 #include <gtksourceviewmm.h>
+#include <list>
 #include <mutex>
+#include <regex>
 #include <set>
+#include <vector>
 
 namespace Source {
   class BaseView : public Gsv::View {
@@ -75,6 +79,8 @@ namespace Source {
 
     bool disable_spellcheck = false;
 
+    void set_snippets();
+
   private:
     GtkSourceSearchContext *search_context;
     GtkSourceSearchSettings *search_settings;
@@ -121,5 +127,20 @@ namespace Source {
     void cleanup_whitespace_characters(const Gtk::TextIter &iter);
 
     bool enable_multiple_cursors = false;
+
+    std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, int>> extra_cursors;
+    std::vector<Glib::RefPtr<Gtk::TextBuffer::Mark>> extra_snippet_cursors;
+    void setup_extra_cursor_signals();
+    bool extra_cursors_signals_set = false;
+
+    /// After inserting a snippet, one can use tab to select the next argument
+    bool keep_snippet_marks = false;
+    std::vector<Snippets::Snippet> *snippets = nullptr;
+    std::mutex snippets_mutex;
+    std::list<std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, Glib::RefPtr<Gtk::TextBuffer::Mark>>>> snippets_marks;
+    Glib::RefPtr<Gtk::TextTag> snippet_argument_tag;
+    void insert_snippet(Gtk::TextIter iter, Glib::ustring snippet);
+    bool select_snippet_argument();
+    bool clear_snippet_marks();
   };
 } // namespace Source

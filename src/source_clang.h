@@ -65,6 +65,10 @@ namespace Source {
     std::vector<CXCompletionString> completion_strings;
     sigc::connection delayed_show_arguments_connection;
 
+    std::atomic<bool> enable_snippets = {false};
+    std::map<size_t, std::string> snippet_inserts;
+    std::map<size_t, std::string> snippet_comments;
+
   private:
     std::atomic<bool> show_parameters = {false};
 

@@ -6,6 +6,7 @@
 #include "project.h"
 #include "selection_dialog.h"
 #include "source_clang.h"
+#include "source_generic.h"
 #include "source_language_protocol.h"
 #include <fstream>
 #include <regex>
