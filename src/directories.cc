@@ -693,10 +693,16 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
           for(auto &child : children) {
             auto name = Glib::Markup::escape_text(child.get_value(column_record.name));
             auto path = child.get_value(column_record.path);
+            // Use canonical path to follow symbolic links
+            boost::system::error_code ec;
+            auto canonical_path = boost::filesystem::canonical(path, ec);
+            if(ec)
+              canonical_path = path;
+
             Gdk::RGBA *color;
-            if(status.modified.find(path.generic_string()) != status.modified.end())
+            if(status.modified.find(canonical_path.generic_string()) != status.modified.end())
               color = &yellow;
-            else if(status.added.find(path.generic_string()) != status.added.end())
+            else if(status.added.find(canonical_path.generic_string()) != status.added.end())
               color = &green;
             else
               color = &normal_color;
