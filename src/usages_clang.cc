@@ -253,7 +253,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
           flags |= CXTranslationUnit_KeepGoing;
 #endif
 
-          static auto index = std::make_shared<clangmm::Index>(1, 0);
+          static auto index = std::make_shared<clangmm::Index>(0, 0);
           clangmm::TranslationUnit translation_unit(index, path.string(), arguments, &buffer, flags);
 
           {
