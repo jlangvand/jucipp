@@ -853,6 +853,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
       bool monospace = false;
       bool script = false;
       bool html_tag = false;
+      bool table = false;
       int square_brackets = 0;
       do {
         if(iter.starts_line()) {
@@ -870,6 +871,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
             iter.forward_chars(3);
             continue;
           }
+          table = *iter == '|';
         }
         if(!script && *iter == '`')
           monospace = !monospace;
@@ -883,7 +885,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
           else if(*iter == ']')
             --square_brackets;
         }
-        if(!headline && !script && !monospace && !html_tag && square_brackets == 0) {
+        if(!headline && !script && !monospace && !html_tag && !table && square_brackets == 0) {
           if(*iter == ' ' && iter.get_line_offset() <= 80)
             last_space_offset = iter.get_offset();
           // Insert newline on long lines
