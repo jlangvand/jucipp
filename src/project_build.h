@@ -47,6 +47,11 @@ namespace Project {
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
   };
 
+  class CompileCommandsBuild : public Build {
+  public:
+    CompileCommandsBuild(const boost::filesystem::path &path);
+  };
+
   class CargoBuild : public Build {
   public:
     boost::filesystem::path get_default_path() override { return project_path / "target" / "debug"; }

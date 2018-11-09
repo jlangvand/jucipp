@@ -21,6 +21,11 @@ std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::
         return build;
     }
 
+    if(boost::filesystem::exists(search_path / Config::get().project.default_build_path / "compile_commands.json")) {
+      std::unique_ptr<Project::Build> build(new CompileCommandsBuild(search_path));
+      return build;
+    }
+
     if(boost::filesystem::exists(search_path / "Cargo.toml")) {
       std::unique_ptr<Project::Build> build(new CargoBuild());
       build->project_path = search_path;
@@ -119,4 +124,8 @@ std::string Project::MesonBuild::get_compile_command() {
 
 boost::filesystem::path Project::MesonBuild::get_executable(const boost::filesystem::path &path) {
   return meson.get_executable(get_default_path(), path);
+}
+
+Project::CompileCommandsBuild::CompileCommandsBuild(const boost::filesystem::path &path) {
+  project_path = path;
 }
