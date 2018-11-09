@@ -170,7 +170,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
   // Use cache
   for(auto it = potential_paths.begin(); it != potential_paths.end();) {
-    std::unique_lock<std::mutex> lock(caches_mutex);
+    std::lock_guard<std::mutex> lock(caches_mutex);
     auto caches_it = caches.find(*it);
 
     // Load cache from file if not found in memory and if cache file exists
@@ -222,7 +222,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
           boost::filesystem::path path;
           {
             static std::mutex mutex;
-            std::unique_lock<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex);
             if(it == potential_paths.end())
               return;
             path = *it;
@@ -231,7 +231,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
           {
             static std::mutex mutex;
-            std::unique_lock<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex);
             // std::cout << "parsing: " << path << std::endl;
           }
           // auto before_time = std::chrono::system_clock::now();
@@ -258,7 +258,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
           {
             static std::mutex mutex;
-            std::unique_lock<std::mutex> lock(mutex);
+            std::lock_guard<std::mutex> lock(mutex);
             add_usages(project_path, build_path, path, usages, visited, spelling, cursor, &translation_unit, true);
             add_usages_from_includes(project_path, build_path, usages, visited, spelling, cursor, &translation_unit, true);
           }
@@ -295,7 +295,7 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
     return;
 
   {
-    std::unique_lock<std::mutex> lock(caches_mutex);
+    std::lock_guard<std::mutex> lock(caches_mutex);
     if(project_paths_in_use.count(project_path)) {
       caches.erase(path);
       caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens));
@@ -330,7 +330,7 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
     if(file_size == static_cast<boost::uintmax_t>(-1) || ec)
       continue;
     auto tokens = translation_unit->get_tokens(path.string(), 0, file_size - 1);
-    std::unique_lock<std::mutex> lock(caches_mutex);
+    std::lock_guard<std::mutex> lock(caches_mutex);
     if(project_paths_in_use.count(project_path)) {
       caches.erase(path);
       caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens.get()));
@@ -341,7 +341,7 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
 }
 
 void Usages::Clang::erase_unused_caches(const PathSet &project_paths_in_use) {
-  std::unique_lock<std::mutex> lock(caches_mutex);
+  std::lock_guard<std::mutex> lock(caches_mutex);
   for(auto it = caches.begin(); it != caches.end();) {
     bool found = false;
     for(auto &project_path : project_paths_in_use) {
@@ -360,7 +360,7 @@ void Usages::Clang::erase_unused_caches(const PathSet &project_paths_in_use) {
 }
 
 void Usages::Clang::erase_cache(const boost::filesystem::path &path) {
-  std::unique_lock<std::mutex> lock(caches_mutex);
+  std::lock_guard<std::mutex> lock(caches_mutex);
 
   auto it = caches.find(path);
   if(it == caches.end())
@@ -378,7 +378,7 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
   if(cache_in_progress_count != 0)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  std::unique_lock<std::mutex> lock(caches_mutex);
+  std::lock_guard<std::mutex> lock(caches_mutex);
   boost::system::error_code ec;
   auto usages_clang_path = build_path / cache_folder;
   if(boost::filesystem::exists(usages_clang_path, ec) && boost::filesystem::is_directory(usages_clang_path, ec)) {
@@ -441,7 +441,7 @@ void Usages::Clang::add_usages(const boost::filesystem::path &project_path, cons
   }
 
   if(store_in_cache && filesystem::file_in_path(path, project_path)) {
-    std::unique_lock<std::mutex> lock(caches_mutex);
+    std::lock_guard<std::mutex> lock(caches_mutex);
     caches.erase(path);
     caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens.get()));
   }

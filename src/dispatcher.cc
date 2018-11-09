@@ -5,7 +5,7 @@ Dispatcher::Dispatcher() {
   connection = dispatcher.connect([this] {
     std::vector<std::list<std::function<void()>>::iterator> its;
     {
-      std::unique_lock<std::mutex> lock(functions_mutex);
+      std::lock_guard<std::mutex> lock(functions_mutex);
       if(functions.empty())
         return;
       its.reserve(functions.size());
@@ -15,7 +15,7 @@ Dispatcher::Dispatcher() {
     for(auto &it : its)
       (*it)();
     {
-      std::unique_lock<std::mutex> lock(functions_mutex);
+      std::lock_guard<std::mutex> lock(functions_mutex);
       for(auto &it : its)
         functions.erase(it);
     }

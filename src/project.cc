@@ -409,7 +409,7 @@ void Project::LLDB::debug_start() {
           boost::filesystem::path stop_path;
           unsigned stop_line = 0, stop_column = 0;
 
-          std::unique_lock<std::mutex> lock(Debug::LLDB::get().mutex);
+          std::lock_guard<std::mutex> lock(Debug::LLDB::get().mutex);
           auto process = lldb::SBProcess::GetProcessFromEvent(event);
           auto state = lldb::SBProcess::GetStateFromEvent(event);
           lldb::SBStream stream;

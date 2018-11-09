@@ -550,7 +550,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
-        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
         if(!sm.length(2) && !sm.length(4))
           enable_snippets = true;
@@ -559,7 +559,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     }
     else if(is_possible_argument()) {
       show_parameters = true;
-      std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+      std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
     }
@@ -572,7 +572,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         iter.forward_char();
 
       {
-        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
       }
       auto prev1 = iter;

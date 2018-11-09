@@ -18,7 +18,7 @@ public:
   template <typename T>
   void post(T &&function) {
     {
-      std::unique_lock<std::mutex> lock(functions_mutex);
+      std::lock_guard<std::mutex> lock(functions_mutex);
       functions.emplace_back(std::forward<T>(function));
     }
     dispatcher();

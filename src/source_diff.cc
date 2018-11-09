@@ -149,7 +149,7 @@ void Source::DiffView::configure() {
       delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
         monitor_changed = true;
         parse_state = ParseState::STARTING;
-        std::unique_lock<std::mutex> lock(parse_mutex);
+        std::lock_guard<std::mutex> lock(parse_mutex);
         diff = nullptr;
         return false;
       }, 500);
@@ -298,7 +298,7 @@ std::string Source::DiffView::git_get_diff_details() {
     auto iter = get_buffer()->get_iter_at_line(line_nr);
     if(iter.has_tag(renderer->tag_removed_above))
       --line_nr;
-    std::unique_lock<std::mutex> lock(parse_mutex);
+    std::lock_guard<std::mutex> lock(parse_mutex);
     parse_buffer = get_buffer()->get_text();
     details = diff->get_details(parse_buffer.raw(), line_nr);
   }
@@ -312,7 +312,7 @@ std::unique_ptr<Git::Repository::Diff> Source::DiffView::get_diff() {
   auto work_path = filesystem::get_normal_path(repository->get_work_path());
   boost::filesystem::path relative_path;
   {
-    std::unique_lock<std::mutex> lock(canonical_file_path_mutex);
+    std::lock_guard<std::mutex> lock(canonical_file_path_mutex);
     if(!filesystem::file_in_path(canonical_file_path, work_path))
       throw std::runtime_error("not a relative path");
     relative_path = filesystem::get_relative_path(canonical_file_path, work_path);

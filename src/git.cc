@@ -182,7 +182,7 @@ int Git::Repository::status_callback(const char *path, unsigned int status_flags
 
 Git::Repository::Status Git::Repository::get_status() {
   {
-    std::unique_lock<std::mutex> lock(saved_status_mutex);
+    std::lock_guard<std::mutex> lock(saved_status_mutex);
     if(has_saved_status)
       return saved_status;
   }
@@ -217,7 +217,7 @@ Git::Repository::Status Git::Repository::get_status() {
 }
 
 void Git::Repository::clear_saved_status() {
-  std::unique_lock<std::mutex> lock(saved_status_mutex);
+  std::lock_guard<std::mutex> lock(saved_status_mutex);
   saved_status.added.clear();
   saved_status.modified.clear();
   has_saved_status = false;

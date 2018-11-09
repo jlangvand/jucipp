@@ -85,7 +85,7 @@ LanguageProtocol::Client::~Client() {
   });
   result_processed.get_future().get();
 
-  std::unique_lock<std::mutex> lock(timeout_threads_mutex);
+  std::lock_guard<std::mutex> lock(timeout_threads_mutex);
   for(auto &thread : timeout_threads)
     thread.join();
 
@@ -103,7 +103,7 @@ LanguageProtocol::Client::~Client() {
 
 LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::LanguageProtocolView *view) {
   if(view) {
-    std::unique_lock<std::mutex> lock(views_mutex);
+    std::lock_guard<std::mutex> lock(views_mutex);
     views.emplace(view);
   }
 
@@ -145,12 +145,12 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
 
 void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
   {
-    std::unique_lock<std::mutex> lock(views_mutex);
+    std::lock_guard<std::mutex> lock(views_mutex);
     auto it = views.find(view);
     if(it != views.end())
       views.erase(it);
   }
-  std::unique_lock<std::mutex> lock(read_write_mutex);
+  std::lock_guard<std::mutex> lock(read_write_mutex);
   for(auto it = handlers.begin(); it != handlers.end();) {
     if(it->second.first == view)
       it = handlers.erase(it);
@@ -272,11 +272,11 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
     handlers.emplace(message_id, std::make_pair(view, std::move(function)));
 
     auto message_id = this->message_id;
-    std::unique_lock<std::mutex> lock(timeout_threads_mutex);
+    std::lock_guard<std::mutex> lock(timeout_threads_mutex);
     timeout_threads.emplace_back([this, message_id] {
       for(size_t c = 0; c < 20; ++c) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        std::unique_lock<std::mutex> lock(read_write_mutex);
+        std::lock_guard<std::mutex> lock(read_write_mutex);
         auto id_it = handlers.find(message_id);
         if(id_it == handlers.end())
           return;
@@ -311,7 +311,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
 }
 
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
-  std::unique_lock<std::mutex> lock(read_write_mutex);
+  std::lock_guard<std::mutex> lock(read_write_mutex);
   std::string content(R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{)" + params + "}}");
   auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
   if(Config::get().log.language_server)
@@ -332,7 +332,7 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
         catch(...) {
         }
       }
-      std::unique_lock<std::mutex> lock(views_mutex);
+      std::lock_guard<std::mutex> lock(views_mutex);
       for(auto view : views) {
         if(uri.size() >= 7 && uri.compare(7, std::string::npos, view->file_path.string()) == 0) {
           view->update_diagnostics(std::move(diagnostics));
@@ -1261,7 +1261,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
-        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
         if(!sm.length(2) && !sm.length(4))
           autocomplete_enable_snippets = true;
@@ -1270,7 +1270,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
     else if(is_possible_argument()) {
       autocomplete_show_parameters = true;
-      std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+      std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
     }
@@ -1283,7 +1283,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         iter.forward_char();
 
       {
-        std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
         autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
       }
       auto prev1 = iter;
@@ -1401,7 +1401,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
             if(autocomplete_enable_snippets) {
               std::string prefix;
               {
-                std::unique_lock<std::mutex> lock(autocomplete.prefix_mutex);
+                std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
                 prefix = autocomplete.prefix;
               }
               std::lock_guard<std::mutex> lock(snippets_mutex);

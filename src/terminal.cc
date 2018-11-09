@@ -120,7 +120,7 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
 }
 
 void Terminal::kill_last_async_process(bool force) {
-  std::unique_lock<std::mutex> lock(processes_mutex);
+  std::lock_guard<std::mutex> lock(processes_mutex);
   if(processes.empty())
     Info::get().print("No running processes");
   else
@@ -128,7 +128,7 @@ void Terminal::kill_last_async_process(bool force) {
 }
 
 void Terminal::kill_async_processes(bool force) {
-  std::unique_lock<std::mutex> lock(processes_mutex);
+  std::lock_guard<std::mutex> lock(processes_mutex);
   for(auto &process : processes)
     process->kill(force);
 }
@@ -393,7 +393,7 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
 }
 
 bool Terminal::on_key_press_event(GdkEventKey *event) {
-  std::unique_lock<std::mutex> lock(processes_mutex);
+  std::lock_guard<std::mutex> lock(processes_mutex);
   bool debug_is_running = false;
 #ifdef JUCI_ENABLE_DEBUG
   debug_is_running = Project::current ? Project::current->debug_is_running() : false;
