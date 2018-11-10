@@ -229,11 +229,11 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
             ++it;
           }
 
-          {
-            static std::mutex mutex;
-            std::lock_guard<std::mutex> lock(mutex);
-            // std::cout << "parsing: " << path << std::endl;
-          }
+          // {
+          //   static std::mutex mutex;
+          //   std::lock_guard<std::mutex> lock(mutex);
+          //   std::cout << "parsing: " << path << std::endl;
+          // }
           // auto before_time = std::chrono::system_clock::now();
 
           std::ifstream stream(path.string(), std::ifstream::binary);
@@ -253,8 +253,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
           flags |= CXTranslationUnit_KeepGoing;
 #endif
 
-          static auto index = std::make_shared<clangmm::Index>(0, 0);
-          clangmm::TranslationUnit translation_unit(index, path.string(), arguments, &buffer, flags);
+          clangmm::TranslationUnit translation_unit(std::make_shared<clangmm::Index>(0, 0), path.string(), arguments, &buffer, flags);
 
           {
             static std::mutex mutex;
