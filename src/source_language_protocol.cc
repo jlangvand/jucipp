@@ -409,7 +409,7 @@ void Source::LanguageProtocolView::initialize(bool setup) {
 
   initialize_thread = std::thread([this, setup] {
     if(!flow_coverage_executable.empty())
-      add_flow_coverage_tooltips(true);
+      update_flow_coverage();
 
     auto capabilities = client->initialize(this);
 
@@ -441,6 +441,9 @@ void Source::LanguageProtocolView::close() {
   if(initialize_thread.joinable())
     initialize_thread.join();
 
+  if(flow_coverage_thread.joinable())
+    flow_coverage_thread.join();
+
   autocomplete.state = Autocomplete::State::IDLE;
   if(autocomplete.thread.joinable())
     autocomplete.thread.join();
@@ -465,8 +468,19 @@ bool Source::LanguageProtocolView::save() {
   if(!Source::View::save())
     return false;
 
-  if(!flow_coverage_executable.empty())
-    add_flow_coverage_tooltips(false);
+  if(!flow_coverage_executable.empty()) {
+    if(flow_coverage_thread.joinable())
+      flow_coverage_thread.join();
+    flow_coverage_cleared_diagnostic_tooltips = false;
+    for(auto &mark : flow_coverage_marks) {
+      get_buffer()->delete_mark(mark.first);
+      get_buffer()->delete_mark(mark.second);
+    }
+    flow_coverage_marks.clear();
+    flow_coverage_thread = std::thread([this] {
+      update_flow_coverage();
+    });
+  }
 
   return true;
 }
@@ -917,8 +931,13 @@ void Source::LanguageProtocolView::escape_text(std::string &text) {
 }
 
 void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
-  dispatcher.post([this, diagnostics = std::move(diagnostics)]() mutable {
-    clear_diagnostic_tooltips();
+  dispatcher.post([this, diagnostics = std::move(diagnostics)]() {
+    diagnostic_offsets.clear();
+    diagnostic_tooltips.clear();
+    if(flow_coverage_executable.empty())
+      get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
+    get_buffer()->remove_tag_by_name("def:error_underline", get_buffer()->begin(), get_buffer()->end());
+    flow_coverage_cleared_diagnostic_tooltips = true;
     num_warnings = 0;
     num_errors = 0;
     num_fix_its = 0;
@@ -1476,18 +1495,20 @@ bool Source::LanguageProtocolView::has_named_parameters() {
   return false;
 }
 
-void Source::LanguageProtocolView::add_flow_coverage_tooltips(bool called_in_thread) {
+void Source::LanguageProtocolView::update_flow_coverage() {
   std::stringstream stdin_stream, stderr_stream;
   auto stdout_stream = std::make_shared<std::stringstream>();
   auto exit_status = Terminal::get().process(stdin_stream, *stdout_stream, flow_coverage_executable.string() + " coverage --json " + file_path.string(), "", &stderr_stream);
-  auto f = [this, exit_status, stdout_stream] {
-    clear_diagnostic_tooltips();
-    num_flow_coverage_warnings = 0;
-    for(auto &mark : flow_coverage_marks) {
-      get_buffer()->delete_mark(mark.first);
-      get_buffer()->delete_mark(mark.second);
+
+  dispatcher.post([this, exit_status, stdout_stream] {
+    if(!flow_coverage_cleared_diagnostic_tooltips) {
+      diagnostic_offsets.clear();
+      diagnostic_tooltips.clear();
+      get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
+      flow_coverage_cleared_diagnostic_tooltips = true;
     }
-    flow_coverage_marks.clear();
+
+    num_flow_coverage_warnings = 0;
 
     if(exit_status == 0) {
       boost::property_tree::ptree pt;
@@ -1514,9 +1535,5 @@ void Source::LanguageProtocolView::add_flow_coverage_tooltips(bool called_in_thr
     status_diagnostics = std::make_tuple(num_warnings + num_flow_coverage_warnings, num_errors, num_fix_its);
     if(update_status_diagnostics)
       update_status_diagnostics(this);
-  };
-  if(called_in_thread)
-    dispatcher.post(std::move(f));
-  else
-    f();
+  });
 }
