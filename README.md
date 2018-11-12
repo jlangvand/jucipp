@@ -48,7 +48,7 @@ towards libclang with speed, stability, and ease of use in mind.
 * Full UTF-8 support
 * Wayland supported with GTK+ 3.20 or newer
 
-See [enhancements](https://gitlab.com/cppit/jucipp/labels/enhancement) for planned features.
+See [enhancements](https://gitlab.com/cppit/jucipp/issues?scope=all&state=opened&label_name[]=enhancement) for planned features.
 
 ## Screenshots
 <table border="0">
