@@ -1504,9 +1504,9 @@ void Source::LanguageProtocolView::update_flow_coverage() {
     if(!flow_coverage_cleared_diagnostic_tooltips) {
       diagnostic_offsets.clear();
       diagnostic_tooltips.clear();
-      get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
       flow_coverage_cleared_diagnostic_tooltips = true;
     }
+    get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
 
     num_flow_coverage_warnings = 0;
 
