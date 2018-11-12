@@ -139,5 +139,23 @@ int main() {
     view.get_buffer()->erase(start, end);
     buffer_words = {{"test", 1}};
     assert(view.buffer_words == buffer_words);
+
+    view.get_buffer()->set_text("test");
+    buffer_words = {{"test", 1}};
+    assert(view.buffer_words == buffer_words);
+
+    start = view.get_buffer()->begin();
+    start.forward_chars(4);
+    view.get_buffer()->insert(start, " testing");
+    buffer_words = {{"test", 1}, {"testing", 1}};
+    assert(view.buffer_words == buffer_words);
+
+    start = view.get_buffer()->begin();
+    start.forward_chars(2);
+    end = start;
+    end.forward_chars(7);
+    view.get_buffer()->erase(start, end);
+    buffer_words = {{"teing", 1}};
+    assert(view.buffer_words == buffer_words);
   }
 }
