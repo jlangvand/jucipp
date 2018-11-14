@@ -122,7 +122,7 @@ Window::Window() {
   });
 
   about.set_logo_icon_name("juci");
-  about.set_version(Config::get().window.version);
+  about.set_version(Config::get().version);
   about.set_authors({"(in order of appearance)",
                      "Ted Johan Kristoffersen",
                      "Jørgen Lien Sellæg",
@@ -140,14 +140,36 @@ void Window::configure() {
   auto screen = get_screen();
   if(css_provider_theme)
     Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_theme);
-  if(Config::get().window.theme_name.empty()) {
+  if(Config::get().theme.name.empty()) {
     css_provider_theme = Gtk::CssProvider::create();
-    Gtk::Settings::get_default()->property_gtk_application_prefer_dark_theme() = (Config::get().window.theme_variant == "dark");
+    Gtk::Settings::get_default()->property_gtk_application_prefer_dark_theme() = (Config::get().theme.variant == "dark");
   }
   else
-    css_provider_theme = Gtk::CssProvider::get_named(Config::get().window.theme_name, Config::get().window.theme_variant);
+    css_provider_theme = Gtk::CssProvider::get_named(Config::get().theme.name, Config::get().theme.variant);
   //TODO: add check if theme exists, or else write error to terminal
   Gtk::StyleContext::add_provider_for_screen(screen, css_provider_theme, GTK_STYLE_PROVIDER_PRIORITY_SETTINGS);
+
+  if(css_provider_theme_font)
+    Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_theme_font);
+  if(!Config::get().theme.font.empty()) {
+    Pango::FontDescription font_description(Config::get().theme.font);
+    try {
+      css_provider_theme_font = Gtk::CssProvider::create();
+      auto family = font_description.get_family();
+      auto size = std::to_string(font_description.get_size() / 1024);
+      if(size == "0")
+        size.clear();
+      if(!family.empty())
+        family = "font-family: " + family + ';';
+      if(!size.empty())
+        size = "font-size: " + size + "px;";
+      css_provider_theme_font->load_from_data("* {" + family + size + "}");
+      get_style_context()->add_provider_for_screen(screen, css_provider_theme_font, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+    catch(const Gtk::CssProviderError &e) {
+      Terminal::get().print("Error: could not override theme font: " + e.what() + '\n', true);
+    }
+  }
 
   auto style_scheme_manager = Source::StyleSchemeManager::get_default();
   if(css_provider_tooltips)

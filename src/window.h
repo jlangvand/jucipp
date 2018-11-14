@@ -23,6 +23,7 @@ private:
   Gtk::AboutDialog about;
 
   Glib::RefPtr<Gtk::CssProvider> css_provider_theme;
+  Glib::RefPtr<Gtk::CssProvider> css_provider_theme_font;
   Glib::RefPtr<Gtk::CssProvider> css_provider_tooltips;
 
   void configure();

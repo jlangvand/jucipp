@@ -184,9 +184,11 @@ void Config::read(const boost::property_tree::ptree &cfg) {
     }
   }
 
-  window.theme_name = cfg.get<std::string>("gtk_theme.name");
-  window.theme_variant = cfg.get<std::string>("gtk_theme.variant");
-  window.version = cfg.get<std::string>("version");
+  version = cfg.get<std::string>("version");
+
+  theme.name = cfg.get<std::string>("gtk_theme.name");
+  theme.variant = cfg.get<std::string>("gtk_theme.variant");
+  theme.font = cfg.get<std::string>("gtk_theme.font");
 
   project.default_build_path = cfg.get<std::string>("project.default_build_path");
   project.debug_build_path = cfg.get<std::string>("project.debug_build_path");

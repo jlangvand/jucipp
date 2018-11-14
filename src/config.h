@@ -14,11 +14,11 @@ public:
     std::unordered_map<std::string, std::string> keys;
   };
 
-  class Window {
+  class Theme {
   public:
-    std::string theme_name;
-    std::string theme_variant;
-    std::string version;
+    std::string name;
+    std::string variant;
+    std::string font;
   };
 
   class Terminal {
@@ -111,8 +111,9 @@ public:
 
   void load();
 
+  std::string version;
   Menu menu;
-  Window window;
+  Theme theme;
   Terminal terminal;
   Project project;
   Source source;

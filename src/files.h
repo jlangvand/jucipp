@@ -10,7 +10,9 @@ const std::string default_config_file = R"RAW({
         "name_comment": "Use \"\" for default theme, At least these two exist on all systems: Adwaita, Raleigh",
         "name": "",
         "variant_comment": "Use \"\" for default variant, and \"dark\" for dark theme variant. Note that not all themes support dark variant, but for instance Adwaita does",
-        "variant": ""
+        "variant": "",
+        "font_comment": "Set to override theme font, for instance: \"Arial 12\"",
+        "font": ""
     },
     "source": {
         "style_comment": "Use \"\" for default style, and for instance juci-dark or juci-dark-blue together with dark gtk_theme variant. Styles from normal gtksourceview install: classic, cobalt, kate, oblivion, solarized-dark, solarized-light, tango",
