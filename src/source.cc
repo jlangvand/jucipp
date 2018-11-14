@@ -612,14 +612,35 @@ void Source::View::setup_format_style(bool is_generic_view) {
     format_style = [this, is_generic_view](bool continue_without_style_file) {
       auto command = prettier.string();
       if(!continue_without_style_file) {
-        std::stringstream stdin_stream, stdout_stream;
-        auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, command + " --find-config-path " + this->file_path.string());
-        if(exit_status == 0) {
-          if(stdout_stream.tellp() == 0)
+        auto search_path = file_path.parent_path();
+        while(true) {
+          static std::vector<boost::filesystem::path> files = {".prettierrc", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc.json", ".prettierrc.toml", ".prettierrc.js", "prettier.config.js"};
+          boost::system::error_code ec;
+          bool found = false;
+          for(auto &file : files) {
+            if(boost::filesystem::exists(search_path / file, ec)) {
+              found = true;
+              break;
+            }
+          }
+          if(found)
+            break;
+          auto package_json = search_path / "package.json";
+          if(boost::filesystem::exists(package_json, ec)) {
+            boost::property_tree::ptree pt;
+            try {
+              boost::property_tree::json_parser::read_json(package_json.string(), pt);
+              auto child = pt.get_child("prettier");
+              break;
+            }
+            catch(...) {
+            }
+          }
+
+          if(search_path == search_path.root_directory())
             return;
+          search_path = search_path.parent_path();
         }
-        else
-          return;
       }
 
       command += " --stdin-filepath " + this->file_path.string() + " --print-width 120 --config-precedence prefer-file";
