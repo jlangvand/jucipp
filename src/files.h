@@ -89,6 +89,7 @@ const std::string default_config_file = R"RAW({
         "edit_cut": "<primary>x",
         "edit_copy": "<primary>c",
         "edit_paste": "<primary>v",
+        "edit_show_or_hide": "",
         "edit_find": "<primary>f",
         "source_spellcheck": "",
         "source_spellcheck_clear": "",

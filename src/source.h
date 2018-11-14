@@ -81,6 +81,8 @@ namespace Source {
     void hide_tooltips() override;
     void hide_dialogs() override;
 
+    void show_or_hide(); /// Show or hide text selection
+
     bool soft_reparse_needed = false;
     bool full_reparse_needed = false;
     virtual void soft_reparse(bool delayed = false) { soft_reparse_needed = false; }
@@ -103,6 +105,8 @@ namespace Source {
 
     Glib::RefPtr<Gtk::TextTag> link_tag; /// Used in tooltips
     void insert_with_links_tagged(const Glib::RefPtr<Gtk::TextBuffer> &buffer, const std::string &text);
+
+    Glib::RefPtr<Gtk::TextTag> hide_tag;
 
     virtual void show_diagnostic_tooltips(const Gdk::Rectangle &rectangle) { diagnostic_tooltips.show(rectangle); }
     void add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk::TextIter &end, bool error, std::function<void(const Glib::RefPtr<Gtk::TextBuffer> &)> &&set_buffer);
@@ -141,7 +145,7 @@ namespace Source {
 
     Gsv::DrawSpacesFlags parse_show_whitespace_characters(const std::string &text);
 
-    sigc::connection renderer_activate_connection;
+    Gsv::GutterRendererText *line_renderer;
 
     bool use_fixed_continuation_indenting = true;
     bool is_cpp = false;

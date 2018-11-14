@@ -605,16 +605,22 @@ Gtk::TextIter Source::BaseView::get_tabs_end_iter() {
   return get_tabs_end_iter(get_buffer()->get_insert());
 }
 
+bool Source::BaseView::is_token_char(gunichar chr) {
+  if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_')
+    return true;
+  return false;
+}
+
 std::pair<Gtk::TextIter, Gtk::TextIter> Source::BaseView::get_token_iters(Gtk::TextIter iter) {
   auto start = iter;
   auto end = iter;
 
-  while((*iter >= 'A' && *iter <= 'Z') || (*iter >= 'a' && *iter <= 'z') || (*iter >= '0' && *iter <= '9') || *iter == '_') {
+  while(is_token_char(*iter)) {
     start = iter;
     if(!iter.backward_char())
       break;
   }
-  while((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') {
+  while(is_token_char(*end)) {
     if(!end.forward_char())
       break;
   }

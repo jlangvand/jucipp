@@ -522,6 +522,11 @@ void Window::set_menu_actions() {
     }
   });
 
+  menu.add_action("edit_show_or_hide", []() {
+    if(auto view = Notebook::get().get_current_view())
+      view->show_or_hide();
+  });
+
   menu.add_action("edit_find", [this]() {
     search_and_replace_entry();
   });

@@ -8,6 +8,7 @@
 #include "selection_dialog.h"
 #include "terminal.h"
 #include "utility.h"
+#include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/spirit/home/qi/char.hpp>
 #include <boost/spirit/home/qi/operator.hpp>
@@ -151,6 +152,9 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   set_mark_attributes("debug_breakpoint_and_stop", mark_attr_debug_breakpoint_and_stop, 102);
 
   link_tag = get_buffer()->create_tag("link");
+
+  hide_tag = get_buffer()->create_tag();
+  hide_tag->property_scale() = 0.25;
 
   if(language) {
     auto language_id = language->get_id();
@@ -373,7 +377,7 @@ void Source::View::configure() {
   else
     set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
   property_highlight_current_line() = Config::get().source.highlight_current_line;
-  property_show_line_numbers() = Config::get().source.show_line_numbers;
+  line_renderer->set_visible(Config::get().source.show_line_numbers);
   if(Config::get().source.font.size() > 0)
     override_font(Pango::FontDescription(Config::get().source.font));
 
@@ -459,16 +463,42 @@ void Source::View::setup_signals() {
     }
   });
 
-  signal_realize().connect([this] {
-    auto gutter = get_gutter(Gtk::TextWindowType::TEXT_WINDOW_LEFT);
-    auto renderer = gutter->get_renderer_at_pos(15, 0);
-    if(renderer) {
-      renderer_activate_connection.disconnect();
-      renderer_activate_connection = renderer->signal_activate().connect([this](const Gtk::TextIter &iter, const Gdk::Rectangle &, GdkEvent *) {
-        if(toggle_breakpoint)
-          toggle_breakpoint(iter.get_line());
-      });
+
+  // Line numbers
+  line_renderer = Gtk::manage(new Gsv::GutterRendererText());
+  auto gutter = get_gutter(Gtk::TextWindowType::TEXT_WINDOW_LEFT);
+
+  line_renderer->set_alignment_mode(Gsv::GutterRendererAlignmentMode::GUTTER_RENDERER_ALIGNMENT_MODE_FIRST);
+  line_renderer->set_alignment(1.0, -1);
+  line_renderer->set_padding(3, -1);
+  gutter->insert(line_renderer, GTK_SOURCE_VIEW_GUTTER_POSITION_LINES);
+
+  auto set_line_renderer_width = [this] {
+    int width, height;
+    line_renderer->measure(std::to_string(get_buffer()->get_line_count()), width, height);
+    line_renderer->set_size(width);
+  };
+  set_line_renderer_width();
+  get_buffer()->signal_changed().connect([set_line_renderer_width] {
+    set_line_renderer_width();
+  });
+  signal_style_updated().connect([set_line_renderer_width] {
+    set_line_renderer_width();
+  });
+  line_renderer->signal_query_data().connect([this](const Gtk::TextIter &start, const Gtk::TextIter &end, Gsv::GutterRendererState state) {
+    if(!start.begins_tag(hide_tag) && !start.has_tag(hide_tag)) {
+      if(start.get_line() == get_buffer()->get_insert()->get_iter().get_line())
+        line_renderer->set_text(Gsv::Markup("<b>" + std::to_string(start.get_line() + 1) + "</b>"));
+      else
+        line_renderer->set_text(Gsv::Markup(std::to_string(start.get_line() + 1)));
     }
+  });
+  line_renderer->signal_query_activatable().connect([](const Gtk::TextIter &, const Gdk::Rectangle &, GdkEvent *) {
+    return true;
+  });
+  line_renderer->signal_activate().connect([this](const Gtk::TextIter &iter, const Gdk::Rectangle &, GdkEvent *) {
+    if(toggle_breakpoint)
+      toggle_breakpoint(iter.get_line());
   });
 
   type_tooltips.on_motion = [this] {
@@ -477,6 +507,7 @@ void Source::View::setup_signals() {
   diagnostic_tooltips.on_motion = [this] {
     delayed_tooltips_connection.disconnect();
   };
+
 
   signal_motion_notify_event().connect([this](GdkEventMotion *event) {
     if(on_motion_last_x != event->x || on_motion_last_y != event->y) {
@@ -957,7 +988,6 @@ Source::View::~View() {
   delayed_tooltips_connection.disconnect();
   delayed_tag_similar_symbols_connection.disconnect();
   delayed_tag_clickable_connection.disconnect();
-  renderer_activate_connection.disconnect();
 
   non_deleted_views.erase(this);
   views.erase(this);
@@ -975,6 +1005,105 @@ void Source::View::hide_dialogs() {
     SelectionDialog::get()->hide();
   if(CompletionDialog::get())
     CompletionDialog::get()->hide();
+}
+
+void Source::View::show_or_hide() {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+
+  if(start == end && !(start.starts_line() && start.ends_line())) { // Select code block instead if no current selection
+    start = get_buffer()->get_iter_at_line(start.get_line());
+    auto tabs_end = get_tabs_end_iter(start);
+    auto start_tabs = tabs_end.get_line_offset() - start.get_line_offset();
+
+    if(!end.ends_line())
+      end.forward_to_line_end();
+
+    auto last_empty = get_buffer()->end();
+    auto last_tabs_end = get_buffer()->end();
+    while(true) {
+      if(end.ends_line()) {
+        auto line_start = get_buffer()->get_iter_at_line(end.get_line());
+        auto tabs_end = get_tabs_end_iter(line_start);
+        if(end.starts_line() || tabs_end.ends_line()) { // Empty line
+          if(!last_empty)
+            last_empty = end;
+        }
+        else {
+          auto tabs = tabs_end.get_line_offset() - line_start.get_line_offset();
+          if(is_cpp && tabs == 0 && *line_start == '#') { // C/C++ defines can be at the first line
+            if(end.get_line() == start.get_line())        // Do not try to find define blocks since these rarely are indented
+              break;
+          }
+          else if(tabs < start_tabs) {
+            end = get_buffer()->get_iter_at_line(end.get_line());
+            break;
+          }
+          else if(tabs == start_tabs) {
+            // Check for block continuation keywords
+            std::string text = get_buffer()->get_text(tabs_end, end);
+            if(end.get_line() != start.get_line()) {
+              if(text.empty()) {
+                end = get_buffer()->get_iter_at_line(end.get_line());
+                break;
+              }
+              static std::vector<std::string> exact = {"}", ")", "]", ">", "</", "else", "endif"};
+              static std::vector<std::string> followed_by_non_token_char = {"elseif", "elif", "case", "default", "private", "public", "protected"};
+              if(text == "{") { // C/C++ sometimes starts a block with a standalone {
+                if(!is_token_char(*last_tabs_end)) {
+                  end = get_buffer()->get_iter_at_line(end.get_line());
+                  break;
+                }
+                else { // Check for ; at the end of last line
+                  auto iter = tabs_end;
+                  while(iter.backward_char() && iter > last_tabs_end && (*iter == ' ' || *iter == '\t' || iter.ends_line() || !is_code_iter(iter))) {
+                  }
+                  if(*iter == ';') {
+                    end = get_buffer()->get_iter_at_line(end.get_line());
+                    break;
+                  }
+                }
+              }
+              else if(std::none_of(exact.begin(), exact.end(), [&text](const std::string &e) {
+                        return text.compare(0, e.size(), e) == 0;
+                      }) &&
+                      std::none_of(followed_by_non_token_char.begin(), followed_by_non_token_char.end(), [this, &text](const std::string &e) {
+                        return text.compare(0, e.size(), e) == 0 && text.size() > e.size() && !is_token_char(text[e.size()]);
+                      })) {
+                end = get_buffer()->get_iter_at_line(end.get_line());
+                break;
+              }
+            }
+            last_tabs_end = tabs_end;
+          }
+          last_empty = get_buffer()->end();
+        }
+      }
+      if(end.is_end())
+        break;
+      end.forward_char();
+    }
+    if(last_empty)
+      end = get_buffer()->get_iter_at_line(last_empty.get_line());
+  }
+  if(start == end)
+    end.forward_char(); // Select empty line
+
+  if(!start.starts_line())
+    start = get_buffer()->get_iter_at_line(start.get_line());
+  if(!end.ends_line() && !end.starts_line())
+    end.forward_to_line_end();
+
+  if((start.begins_tag(hide_tag) || start.has_tag(hide_tag)) && (end.ends_tag(hide_tag) || end.has_tag(hide_tag))) {
+    get_buffer()->remove_tag(hide_tag, start, end);
+    return;
+  }
+  auto iter = start;
+  if(iter.forward_to_tag_toggle(hide_tag) && iter < end) {
+    get_buffer()->remove_tag(hide_tag, start, end);
+    return;
+  }
+  get_buffer()->apply_tag(hide_tag, start, end);
 }
 
 void Source::View::insert_with_links_tagged(const Glib::RefPtr<Gtk::TextBuffer> &buffer, const std::string &text) {

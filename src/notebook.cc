@@ -435,7 +435,7 @@ void Notebook::open_uri(const std::string &uri) {
 
 void Notebook::configure(size_t index) {
   auto source_font_description = Pango::FontDescription(Config::get().source.font);
-  auto source_map_font_desc = Pango::FontDescription(static_cast<std::string>(source_font_description.get_family()) + " " + Config::get().source.map_font_size);
+  auto source_map_font_desc = Pango::FontDescription(source_font_description.get_family() + " " + Config::get().source.map_font_size);
   source_maps.at(index)->override_font(source_map_font_desc);
   if(Config::get().source.show_map) {
     if(hboxes.at(index)->get_children().size() == 1)
