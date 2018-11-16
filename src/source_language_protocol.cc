@@ -919,6 +919,10 @@ void Source::LanguageProtocolView::escape_text(std::string &text) {
       text.replace(c, 1, "\\r");
       ++c;
     }
+    else if(text[c] == '\t') {
+      text.replace(c, 1, "\\t");
+      ++c;
+    }
     else if(text[c] == '"') {
       text.replace(c, 1, "\\\"");
       ++c;
