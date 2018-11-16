@@ -4,6 +4,7 @@
 #include "notebook.h"
 #include "source.h"
 #include "terminal.h"
+#include "utility.h"
 #include <algorithm>
 
 bool Directories::TreeStore::row_drop_possible_vfunc(const Gtk::TreeModel::Path &path, const Gtk::SelectionData &selection_data) const {
@@ -119,7 +120,129 @@ Directories::Directories() : Gtk::ListViewText(1) {
 
   get_style_context()->add_class("juci_directories");
 
-  tree_store->set_sort_column(column_record.id, Gtk::SortType::SORT_ASCENDING);
+  tree_store->set_sort_column(column_record.name, Gtk::SortType::SORT_ASCENDING);
+  tree_store->set_sort_func(column_record.name, [this](const Gtk::TreeModel::iterator &it1, const Gtk::TreeModel::iterator &it2) {
+    /// Natural comparison supporting UTF-8 and locale
+    struct Natural {
+      static bool is_digit(char chr) {
+        return chr >= '0' && chr <= '9';
+      }
+
+      static int compare_characters(size_t &i1, size_t &i2, const std::string &s1, const std::string &s2) {
+        ScopeGuard scope_guard{[&i1, &i2] {
+          ++i1;
+          ++i2;
+        }};
+        auto c1 = static_cast<unsigned char>(s1[i1]);
+        auto c2 = static_cast<unsigned char>(s2[i2]);
+        if(c1 < 0b10000000 && c2 < 0b10000000) { // Both characters are ascii
+          auto at = std::toupper(s1[i1]);
+          auto bt = std::toupper(s2[i2]);
+          if(at < bt)
+            return -1;
+          else if(at == bt)
+            return 0;
+          else
+            return 1;
+        }
+
+        Glib::ustring u1;
+        if(c1 >= 0b11110000)
+          u1 = s1.substr(i1, 4);
+        else if(c1 >= 0b11100000)
+          u1 = s1.substr(i1, 3);
+        else if(c1 >= 0b11000000)
+          u1 = s1.substr(i1, 2);
+        else
+          u1 = s1[i1];
+
+        Glib::ustring u2;
+        if(c2 >= 0b11110000)
+          u2 = s2.substr(i2, 4);
+        else if(c2 >= 0b11100000)
+          u2 = s2.substr(i2, 3);
+        else if(c2 >= 0b11000000)
+          u2 = s2.substr(i2, 2);
+        else
+          u2 = s2[i2];
+
+        u1 = u1.uppercase();
+        u2 = u2.uppercase();
+
+        i1 += u1.bytes() - 1;
+        i2 += u2.bytes() - 1;
+
+        if(u1 < u2)
+          return -1;
+        else if(u1 == u2)
+          return 0;
+        else
+          return 1;
+      }
+
+      static int compare_numbers(size_t &i1, size_t &i2, const std::string &s1, const std::string &s2) {
+        int result = 0;
+        while(true) {
+          if(i1 >= s1.size() || !is_digit(s1[i1])) {
+            if(i2 >= s2.size() || !is_digit(s2[i2])) // a and b has equal number of digits
+              return result;
+            return -1; // a has fewer digits
+          }
+          if(i2 >= s2.size() || !is_digit(s2[i2]))
+            return 1; // b has fewer digits
+
+          if(result == 0) {
+            if(s1[i1] < s2[i2])
+              result = -1;
+            if(s1[i1] > s2[i2])
+              result = 1;
+          }
+          ++i1;
+          ++i2;
+        }
+      }
+
+      static int compare(const std::string &s1, const std::string &s2) {
+        size_t i1 = 0;
+        size_t i2 = 0;
+        while(i1 < s1.size() && i2 < s2.size()) {
+          if(is_digit(s1[i1]) && !is_digit(s2[i2]))
+            return -1;
+          if(!is_digit(s1[i1]) && is_digit(s2[i2]))
+            return 1;
+          if(!is_digit(s1[i1]) && !is_digit(s2[i2])) {
+            auto result = compare_characters(i1, i2, s1, s2);
+            if(result != 0)
+              return result;
+          }
+          else {
+            auto result = compare_numbers(i1, i2, s1, s2);
+            if(result != 0)
+              return result;
+          }
+        }
+        if(i1 >= s1.size())
+          return -1;
+        return 1;
+      }
+    };
+
+    auto name1 = it1->get_value(column_record.name);
+    auto name2 = it2->get_value(column_record.name);
+    if(name1.empty())
+      return -1;
+    if(name2.empty())
+      return 1;
+
+    std::string prefix1, prefix2;
+    prefix1 += it1->get_value(column_record.is_directory) ? 'a' : 'b';
+    prefix2 += it2->get_value(column_record.is_directory) ? 'a' : 'b';
+    prefix1 += name1[0] == '.' ? 'a' : 'b';
+    prefix2 += name2[0] == '.' ? 'a' : 'b';
+
+    return Natural::compare(prefix1 + name1, prefix2 + name2);
+  });
+
   set_enable_search(true); //TODO: why does this not work in OS X?
   set_search_column(column_record.name);
 
@@ -585,24 +708,19 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
     if(!already_added) {
       auto child = tree_store->append(children);
       not_deleted.emplace(filename);
+      auto is_directory = boost::filesystem::is_directory(it->path());
+      child->set_value(column_record.is_directory, is_directory);
       child->set_value(column_record.name, filename);
       child->set_value(column_record.markup, Glib::Markup::escape_text(filename));
       child->set_value(column_record.path, it->path());
-      auto sortable_filename = filename;
-      for(auto &e : sortable_filename) {
-        if(e == '.')
-          e = '$';
-      }
-      if(boost::filesystem::is_directory(it->path())) {
-        child->set_value(column_record.id, '1' + sortable_filename);
+      if(is_directory) {
         auto grandchild = tree_store->append(child->children());
+        grandchild->set_value(column_record.is_directory, false);
         grandchild->set_value(column_record.name, std::string("(empty)"));
         grandchild->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
         grandchild->set_value(column_record.type, PathType::UNKNOWN);
       }
       else {
-        child->set_value(column_record.id, '2' + sortable_filename);
-
         auto language = Source::guess_language(it->path().filename());
         if(!language)
           child->set_value(column_record.type, PathType::UNKNOWN);
@@ -620,6 +738,7 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
   }
   if(!children) {
     auto child = tree_store->append(children);
+    child->set_value(column_record.is_directory, false);
     child->set_value(column_record.name, std::string("(empty)"));
     child->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
     child->set_value(column_record.type, PathType::UNKNOWN);
@@ -646,6 +765,7 @@ void Directories::remove_path(const boost::filesystem::path &dir_path) {
       tree_store->erase(children.begin());
     }
     auto child = tree_store->append(children);
+    child->set_value(column_record.is_directory, false);
     child->set_value(column_record.name, std::string("(empty)"));
     child->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
     child->set_value(column_record.type, PathType::UNKNOWN);

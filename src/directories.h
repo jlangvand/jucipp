@@ -34,13 +34,13 @@ class Directories : public Gtk::ListViewText {
     class ColumnRecord : public Gtk::TreeModel::ColumnRecord {
     public:
       ColumnRecord() {
-        add(id);
+        add(is_directory);
         add(name);
         add(markup);
         add(path);
         add(type);
       }
-      Gtk::TreeModelColumn<std::string> id;
+      Gtk::TreeModelColumn<bool> is_directory;
       Gtk::TreeModelColumn<std::string> name;
       Gtk::TreeModelColumn<Glib::ustring> markup;
       Gtk::TreeModelColumn<boost::filesystem::path> path;
