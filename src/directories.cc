@@ -136,8 +136,8 @@ Directories::Directories() : Gtk::ListViewText(1) {
         auto c1 = static_cast<unsigned char>(s1[i1]);
         auto c2 = static_cast<unsigned char>(s2[i2]);
         if(c1 < 0b10000000 && c2 < 0b10000000) { // Both characters are ascii
-          auto at = std::toupper(s1[i1]);
-          auto bt = std::toupper(s2[i2]);
+          auto at = std::tolower(s1[i1]);
+          auto bt = std::tolower(s2[i2]);
           if(at < bt)
             return -1;
           else if(at == bt)
@@ -166,11 +166,11 @@ Directories::Directories() : Gtk::ListViewText(1) {
         else
           u2 = s2[i2];
 
-        u1 = u1.uppercase();
-        u2 = u2.uppercase();
-
         i1 += u1.bytes() - 1;
         i2 += u2.bytes() - 1;
+
+        u1 = u1.lowercase();
+        u2 = u2.lowercase();
 
         if(u1 < u2)
           return -1;
