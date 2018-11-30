@@ -2347,75 +2347,96 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
   }};
 
   if(get_buffer()->get_has_selection()) {
-    bool perform_insertion = false;
-    char left_char, right_char;
+    if(is_bracket_language) {
+      // Remove /**/ around selection
+      if(key->keyval == GDK_KEY_slash) {
+        Gtk::TextIter start, end;
+        get_buffer()->get_selection_bounds(start, end);
+        auto before_start = start;
+        auto after_end = end;
+        if(before_start.backward_char() && *before_start == '*' && before_start.backward_char() && *before_start == '/' &&
+           *after_end == '*' && after_end.forward_char() && *after_end == '/') {
+          auto start_mark = get_buffer()->create_mark(start);
+          auto end_mark = get_buffer()->create_mark(end);
+          get_buffer()->erase(before_start, start);
+          after_end = end_mark->get_iter();
+          after_end.forward_chars(2);
+          get_buffer()->erase(end_mark->get_iter(), after_end);
+
+          get_buffer()->select_range(start_mark->get_iter(), end_mark->get_iter());
+          get_buffer()->delete_mark(start_mark);
+          get_buffer()->delete_mark(end_mark);
+          return true;
+        }
+      }
+    }
+
+    Glib::ustring left, right;
     // Insert () around selection
     if(key->keyval == GDK_KEY_parenleft) {
-      perform_insertion = true;
-      left_char = '(';
-      right_char = ')';
+      left = '(';
+      right = ')';
     }
     // Insert [] around selection
     else if(key->keyval == GDK_KEY_bracketleft) {
-      perform_insertion = true;
-      left_char = '[';
-      right_char = ']';
+      left = '[';
+      right = ']';
     }
     // Insert {} around selection
     else if(key->keyval == GDK_KEY_braceleft) {
-      perform_insertion = true;
-      left_char = '{';
-      right_char = '}';
+      left = '{';
+      right = '}';
     }
     // Insert <> around selection
     else if(key->keyval == GDK_KEY_less) {
-      perform_insertion = true;
-      left_char = '<';
-      right_char = '>';
+      left = '<';
+      right = '>';
     }
     // Insert '' around selection
     else if(key->keyval == GDK_KEY_apostrophe) {
-      perform_insertion = true;
-      left_char = '\'';
-      right_char = '\'';
+      left = '\'';
+      right = '\'';
     }
     // Insert "" around selection
     else if(key->keyval == GDK_KEY_quotedbl) {
-      perform_insertion = true;
-      left_char = '"';
-      right_char = '"';
+      left = '"';
+      right = '"';
     }
     else if(language && language->get_id() == "markdown") {
       if(key->keyval == GDK_KEY_dead_grave) {
-        perform_insertion = true;
-        left_char = '`';
-        right_char = '`';
+        left = '`';
+        right = '`';
       }
       if(key->keyval == GDK_KEY_asterisk) {
-        perform_insertion = true;
-        left_char = '*';
-        right_char = '*';
+        left = '*';
+        right = '*';
       }
       if(key->keyval == GDK_KEY_underscore) {
-        perform_insertion = true;
-        left_char = '_';
-        right_char = '_';
+        left = '_';
+        right = '_';
       }
       if(key->keyval == GDK_KEY_dead_tilde) {
-        perform_insertion = true;
-        left_char = '~';
-        right_char = '~';
+        left = '~';
+        right = '~';
       }
     }
-    if(perform_insertion) {
+    else if(is_bracket_language) {
+      // Insert /**/ around selection
+      if(key->keyval == GDK_KEY_slash) {
+        left = "/*";
+        right = "*/";
+      }
+    }
+    if(!left.empty() && !right.empty()) {
       Gtk::TextIter start, end;
       get_buffer()->get_selection_bounds(start, end);
       auto start_mark = get_buffer()->create_mark(start);
       auto end_mark = get_buffer()->create_mark(end);
-      get_buffer()->insert(start, Glib::ustring() + left_char);
-      get_buffer()->insert(end_mark->get_iter(), Glib::ustring() + right_char);
+      get_buffer()->insert(start, left);
+      get_buffer()->insert(end_mark->get_iter(), right);
+
       auto start_mark_next_iter = start_mark->get_iter();
-      start_mark_next_iter.forward_char();
+      start_mark_next_iter.forward_chars(left.size());
       get_buffer()->select_range(start_mark_next_iter, end_mark->get_iter());
       get_buffer()->delete_mark(start_mark);
       get_buffer()->delete_mark(end_mark);
