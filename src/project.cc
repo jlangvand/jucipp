@@ -1002,7 +1002,19 @@ void Project::JavaScript::compile_and_run() {
 }
 
 void Project::HTML::compile_and_run() {
-  Notebook::get().open_uri(std::string("file://") + Notebook::get().get_current_view()->file_path.string());
+  if(dynamic_cast<NpmBuild *>(build.get())) {
+    std::string command = "npm start";
+
+    if(Config::get().project.clear_terminal_on_compile)
+      Terminal::get().clear();
+
+    Terminal::get().print("Running " + command + "\n");
+    Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
+      Terminal::get().async_print(command + " returned: " + std::to_string(exit_status) + '\n');
+    });
+  }
+  else
+    Notebook::get().open_uri(std::string("file://") + Notebook::get().get_current_view()->file_path.string());
 }
 
 std::pair<std::string, std::string> Project::Rust::get_run_arguments() {
