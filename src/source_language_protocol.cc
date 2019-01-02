@@ -23,8 +23,7 @@ LanguageProtocol::Range::Range(const boost::property_tree::ptree &pt) : start(pt
 
 LanguageProtocol::Location::Location(const boost::property_tree::ptree &pt, std::string file_) : range(pt.get_child("range")) {
   if(file_.empty()) {
-    file = pt.get<std::string>("uri");
-    file.erase(0, 7);
+    file = filesystem::get_path_from_uri(pt.get<std::string>("uri")).string();
   }
   else
     file = std::move(file_);
@@ -40,8 +39,8 @@ LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) 
 
 LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std::string new_text_) : range(pt.get_child("range")), new_text(new_text_.empty() ? pt.get<std::string>("newText") : std::move(new_text_)) {}
 
-LanguageProtocol::Client::Client(std::string root_uri_, std::string language_id_) : root_uri(std::move(root_uri_)), language_id(std::move(language_id_)) {
-  process = std::make_unique<TinyProcessLib::Process>(language_id + "-language-server", root_uri, [this](const char *bytes, size_t n) {
+LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
+  process = std::make_unique<TinyProcessLib::Process>(filesystem::escape_argument(language_id + "-language-server"), root_path.string(), [this](const char *bytes, size_t n) {
     server_message_stream.write(bytes, n);
     parse_server_message();
   }, [](const char *bytes, size_t n) {
@@ -50,14 +49,14 @@ LanguageProtocol::Client::Client(std::string root_uri_, std::string language_id_
 }
 
 std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id) {
-  std::string root_uri;
+  boost::filesystem::path root_path;
   auto build = Project::Build::create(file_path);
   if(!build->project_path.empty())
-    root_uri = build->project_path.string();
+    root_path = build->project_path;
   else
-    root_uri = file_path.parent_path().string();
+    root_path = file_path.parent_path();
 
-  auto cache_id = root_uri + '|' + language_id;
+  auto cache_id = root_path.string() + '|' + language_id;
 
   static std::unordered_map<std::string, std::weak_ptr<Client>> cache;
   static std::mutex mutex;
@@ -67,7 +66,7 @@ std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const bo
     it = cache.emplace(cache_id, std::weak_ptr<Client>()).first;
   auto instance = it->second.lock();
   if(!instance)
-    it->second = instance = std::shared_ptr<Client>(new Client(root_uri, language_id), [](Client *client_ptr) {
+    it->second = instance = std::shared_ptr<Client>(new Client(root_path, language_id), [](Client *client_ptr) {
       std::thread delete_thread([client_ptr] {
         delete client_ptr;
       });
@@ -113,7 +112,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     return capabilities;
 
   std::promise<void> result_processed;
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process->get_id()) + R"(,"rootUri":"file://)" + root_uri + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true},"executeCommand":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"documentLink":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process->get_id()) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true},"executeCommand":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"documentLink":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -322,8 +321,8 @@ void LanguageProtocol::Client::write_notification(const std::string &method, con
 void LanguageProtocol::Client::handle_server_request(const std::string &method, const boost::property_tree::ptree &params) {
   if(method == "textDocument/publishDiagnostics") {
     std::vector<Diagnostic> diagnostics;
-    auto uri = params.get<std::string>("uri", "");
-    if(!uri.empty()) {
+    auto file = filesystem::get_path_from_uri(params.get<std::string>("uri", ""));
+    if(!file.empty()) {
       auto diagnostics_pt = params.get_child("diagnostics", boost::property_tree::ptree());
       for(auto it = diagnostics_pt.begin(); it != diagnostics_pt.end(); ++it) {
         try {
@@ -334,7 +333,7 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
       }
       std::lock_guard<std::mutex> lock(views_mutex);
       for(auto view : views) {
-        if(uri.size() >= 7 && uri.compare(7, std::string::npos, view->file_path.string()) == 0) {
+        if(file == view->file_path) {
           view->update_diagnostics(std::move(diagnostics));
           break;
         }
@@ -344,7 +343,7 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_)
-    : Source::BaseView(file_path, language), Source::View(file_path, language), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)), autocomplete(this, interactive_completion, last_keyval, false) {
+    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)), autocomplete(this, interactive_completion, last_keyval, false) {
   configure();
   get_source_buffer()->set_language(language);
   get_source_buffer()->set_highlight_syntax(true);
@@ -380,7 +379,7 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
       escape_text(text);
       content_changes = R"({"text":")" + text + "\"}";
     }
-    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":"file://)" + this->file_path.string() + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
+    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
   }, false);
 
   get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start, const Gtk::TextBuffer::iterator &end) {
@@ -394,7 +393,7 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
       escape_text(text);
       content_changes = R"({"text":")" + text + "\"}";
     }
-    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":"file://)" + this->file_path.string() + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
+    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
   }, false);
 }
 
@@ -418,7 +417,7 @@ void Source::LanguageProtocolView::initialize(bool setup) {
 
       std::string text = get_buffer()->get_text();
       escape_text(text);
-      client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":"file://)" + file_path.string() + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
+      client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
 
       if(setup) {
         setup_autocomplete();
@@ -448,7 +447,7 @@ void Source::LanguageProtocolView::close() {
   if(autocomplete.thread.joinable())
     autocomplete.thread.join();
 
-  client->write_notification("textDocument/didClose", R"("textDocument":{"uri":"file://)" + file_path.string() + "\"}");
+  client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri + "\"}");
   client->close(this);
   client = nullptr;
 }
@@ -460,6 +459,7 @@ Source::LanguageProtocolView::~LanguageProtocolView() {
 void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
   close();
   Source::DiffView::rename(path);
+  uri = filesystem::get_uri_from_path(path);
   client = LanguageProtocol::Client::get(file_path, language_id);
   initialize(false);
 }
@@ -517,11 +517,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         method = "textDocument/rangeFormatting";
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
-        params = R"("textDocument":{"uri":"file://)" + file_path.string() + R"("},"range":{"start":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}},\"options\":{" + options + "}";
+        params = R"("textDocument":{"uri":")" + uri + R"("},"range":{"start":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}},\"options\":{" + options + "}";
       }
       else {
         method = "textDocument/formatting";
-        params = R"("textDocument":{"uri":"file://)" + file_path.string() + R"("},"options":{)" + options + "}";
+        params = R"("textDocument":{"uri":")" + uri + R"("},"options":{)" + options + "}";
       }
 
       client->write_request(this, method, params, [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
@@ -588,7 +588,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/documentHighlight";
 
-      client->write_request(this, method, R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      client->write_request(this, method, R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           try {
             for(auto it = result.begin(); it != result.end(); ++it)
@@ -724,7 +724,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<Changes> changes;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::filesystem::path project_path;
             auto build = Project::Build::create(file_path);
@@ -751,14 +751,13 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                 for(auto change_it = changes_pt.begin(); change_it != changes_pt.end(); ++change_it) {
                   auto document_it = change_it->second.find("textDocument");
                   if(document_it != change_it->second.not_found()) {
-                    auto file = document_it->second.get<std::string>("uri", "");
-                    file.erase(0, 7);
+                    auto file = filesystem::get_path_from_uri(document_it->second.get<std::string>("uri", ""));
                     if(filesystem::file_in_path(file, project_path)) {
                       std::vector<LanguageProtocol::TextEdit> edits;
                       auto edits_pt = change_it->second.get_child("edits", boost::property_tree::ptree());
                       for(auto edit_it = edits_pt.begin(); edit_it != edits_pt.end(); ++edit_it)
                         edits.emplace_back(edit_it->second);
-                      changes.emplace_back(Changes{std::move(file), std::move(edits)});
+                      changes.emplace_back(Changes{file.string(), std::move(edits)});
                     }
                   }
                 }
@@ -772,7 +771,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         });
       }
       else {
-        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
@@ -875,7 +874,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<std::pair<Offset, std::string>> methods;
 
       std::promise<void> result_processed;
-      client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":"file://)" + file_path.string() + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
+      client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + uri + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           for(auto it = result.begin(); it != result.end(); ++it) {
             try {
@@ -1022,7 +1021,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
       auto content = std::make_shared<std::string>();
@@ -1124,12 +1123,9 @@ void Source::LanguageProtocolView::apply_similar_symbol_tag() {
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, method, R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, current_request](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, method, R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       std::vector<LanguageProtocol::Range> ranges;
-      std::string uri;
-      if(!capabilities.document_highlight)
-        uri = "file://" + file_path.string();
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
           if(capabilities.document_highlight || it->second.get<std::string>("uri") == uri)
@@ -1158,7 +1154,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
   auto current_request = request_count;
   auto line = iter.get_line();
   auto offset = iter.get_line_offset();
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(line) + ", \"character\": " + std::to_string(offset) + "}", [this, current_request, line, offset](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line) + ", \"character\": " + std::to_string(offset) + "}", [this, current_request, line, offset](const boost::property_tree::ptree &result, bool error) {
     if(!error && !result.empty()) {
       dispatcher.post([this, current_request, line, offset] {
         if(current_request != request_count || !clickable_tag_applied)
@@ -1174,7 +1170,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
 Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
@@ -1349,7 +1345,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       if(autocomplete_show_parameters) {
         if(!capabilities.signature_help)
           return;
-        client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             auto signatures = result.get_child("signatures", boost::property_tree::ptree());
             for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
@@ -1368,7 +1364,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         });
       }
       else {
-        client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":"file://)" + file_path.string() + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             auto begin = result.begin(); // rust language server is bugged
             auto end = result.end();
@@ -1502,7 +1498,7 @@ bool Source::LanguageProtocolView::has_named_parameters() {
 void Source::LanguageProtocolView::update_flow_coverage() {
   std::stringstream stdin_stream, stderr_stream;
   auto stdout_stream = std::make_shared<std::stringstream>();
-  auto exit_status = Terminal::get().process(stdin_stream, *stdout_stream, flow_coverage_executable.string() + " coverage --json " + file_path.string(), "", &stderr_stream);
+  auto exit_status = Terminal::get().process(stdin_stream, *stdout_stream, flow_coverage_executable.string() + " coverage --json " + filesystem::escape_argument(file_path.string()), "", &stderr_stream);
 
   dispatcher.post([this, exit_status, stdout_stream] {
     if(!flow_coverage_cleared_diagnostic_tooltips) {

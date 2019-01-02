@@ -79,8 +79,8 @@ namespace LanguageProtocol {
   };
 
   class Client {
-    Client(std::string root_uri, std::string language_id);
-    std::string root_uri;
+    Client(boost::filesystem::path root_path, std::string language_id);
+    boost::filesystem::path root_path;
     std::string language_id;
 
     Capabilities capabilities;
@@ -134,6 +134,8 @@ namespace Source {
     void update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
 
     Gtk::TextIter get_iter_at_line_pos(int line, int pos) override;
+
+    std::string uri;
 
   protected:
     void show_type_tooltips(const Gdk::Rectangle &rectangle) override;

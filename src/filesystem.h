@@ -39,4 +39,9 @@ public:
   static const std::vector<boost::filesystem::path> &get_executable_search_paths();
 
   static boost::filesystem::path find_executable(const std::string &executable_name);
+
+  /// Get uri from path
+  static std::string get_uri_from_path(const boost::filesystem::path &path);
+  /// Get path from file uri
+  static boost::filesystem::path get_path_from_uri(const std::string &uri);
 };

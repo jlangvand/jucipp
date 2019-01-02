@@ -1,6 +1,7 @@
 #include "juci.h"
 #include "config.h"
 #include "directories.h"
+#include "filesystem.h"
 #include "menu.h"
 #include "notebook.h"
 #include "terminal.h"
@@ -65,15 +66,16 @@ void Application::on_activate() {
       std::string files_in_directory;
       for(auto it = files.begin(); it != files.end();) {
         if(it->first.generic_string().compare(0, directory.generic_string().size() + 1, directory.generic_string() + '/') == 0) {
-          files_in_directory += " " + it->first.string();
+          files_in_directory += " " + filesystem::escape_argument(it->first.string());
           it = files.erase(it);
         }
         else
           it++;
       }
       std::thread another_juci_app([directory, files_in_directory]() {
-        Terminal::get().async_print("Executing: juci " + directory.string() + files_in_directory + "\n");
-        Terminal::get().process("juci " + directory.string() + files_in_directory, "", false);
+        auto command = "juci " + filesystem::escape_argument(directory.string()) + files_in_directory;
+        Terminal::get().async_print("Executing: " + command + "\n");
+        Terminal::get().process(command, "", false);
       });
       another_juci_app.detach();
     }

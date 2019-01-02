@@ -749,7 +749,7 @@ void Project::LanguageProtocol::show_symbols() {
   else {
     std::vector<std::string> rows;
     std::promise<void> result_processed;
-    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":"file://)" + language_protocol_view->file_path.string() + "\"}", [&result_processed, &rows, locations](const boost::property_tree::ptree &result, bool error) {
+    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + language_protocol_view->uri + "\"}", [&result_processed, &rows, locations](const boost::property_tree::ptree &result, bool error) {
       if(!error) {
         for(auto it = result.begin(); it != result.end(); ++it) {
           try {

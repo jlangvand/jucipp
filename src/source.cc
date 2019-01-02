@@ -674,7 +674,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
 
-      command += " --stdin-filepath " + this->file_path.string() + " --print-width 120 --config-precedence prefer-file";
+      command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string()) + " --print-width 120 --config-precedence prefer-file";
 
       if(get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
         Gtk::TextIter start, end;

@@ -269,3 +269,45 @@ boost::filesystem::path filesystem::find_executable(const std::string &executabl
   }
   return boost::filesystem::path();
 }
+
+std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) {
+  std::string uri{"file://"};
+
+  static auto hex_chars = "0123456789ABCDEF";
+
+  for(auto &chr : path.string()) {
+    static std::string encode_exceptions{"-._~!$&'()*+,;=:@?/\\"};
+    if(!((chr >= '0' && chr <= '9') || (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') ||
+         std::any_of(encode_exceptions.begin(), encode_exceptions.end(), [chr](char e) { return chr == e; })))
+      uri += std::string("%") + hex_chars[static_cast<unsigned char>(chr) >> 4] + hex_chars[static_cast<unsigned char>(chr) & 15];
+    else
+      uri += chr;
+  }
+
+  return uri;
+}
+
+boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) {
+  std::string encoded;
+
+  if(uri.compare(0, 7, "file://") == 0)
+    encoded = uri.substr(7);
+  else
+    encoded = uri;
+
+  std::string unencoded;
+  for(size_t i = 0; i < encoded.size(); ++i) {
+    if(encoded[i] == '%' && i + 2 < encoded.size()) {
+      auto hex = encoded.substr(i + 1, 2);
+      auto decoded_chr = static_cast<char>(std::strtol(hex.c_str(), nullptr, 16));
+      unencoded += decoded_chr;
+      i += 2;
+    }
+    else if(encoded[i] == '+')
+      unencoded += ' ';
+    else
+      unencoded += encoded[i];
+  }
+
+  return unencoded;
+}

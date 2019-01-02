@@ -84,4 +84,11 @@ int main() {
     g_assert(filesystem::get_relative_path("/test/test/test/test.cc", "/test/base") == boost::filesystem::path("..") / "test" / "test" / "test.cc");
     g_assert(filesystem::get_relative_path("/test2/test.cc", "/test/base") == boost::filesystem::path("..") / ".." / "test2" / "test.cc");
   }
+
+  {
+    boost::filesystem::path path = "/ro ot/te stæøå.txt";
+    auto uri = filesystem::get_uri_from_path(path);
+    g_assert(uri == "file:///ro%20ot/te%20st%C3%A6%C3%B8%C3%A5.txt");
+    g_assert(path == filesystem::get_path_from_uri(uri));
+  }
 }
