@@ -128,7 +128,8 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
     auto values = command.parameter_values("-o");
     if(!values.empty()) {
       size_t pos;
-      values[0].erase(0, 11);
+      if((pos = values[0].find("CMakeFiles/")) != std::string::npos)
+        values[0].erase(pos, 11);
       if((pos = values[0].find(".dir")) != std::string::npos) {
         auto executable = command.directory / values[0].substr(0, pos);
         command_files_and_maybe_executables.emplace_back(command_file, executable);
