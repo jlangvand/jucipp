@@ -43,7 +43,6 @@ public:
     private:
       friend class Repository;
       Diff(const boost::filesystem::path &path, git_repository *repository);
-      git_repository *repository = nullptr;
       std::shared_ptr<git_blob> blob = nullptr;
       git_diff_options options;
       static int hunk_cb(const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) noexcept;

@@ -17,7 +17,7 @@ std::string Git::Error::message() noexcept {
     return last_error->message;
 }
 
-Git::Repository::Diff::Diff(const boost::filesystem::path &path, git_repository *repository) : repository(repository) {
+Git::Repository::Diff::Diff(const boost::filesystem::path &path, git_repository *repository) {
   blob = std::shared_ptr<git_blob>(nullptr, [](git_blob *blob) {
     if(blob)
       git_blob_free(blob);
