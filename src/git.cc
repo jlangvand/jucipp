@@ -6,7 +6,7 @@ bool Git::initialized = false;
 std::mutex Git::mutex;
 
 std::string Git::Error::message() noexcept {
-#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28
+#if LIBGIT2_VER_MAJOR > 0 || (LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28)
   const git_error *last_error = git_error_last();
 #else
   const git_error *last_error = giterr_last();
@@ -248,7 +248,7 @@ boost::filesystem::path Git::Repository::get_root_path(const boost::filesystem::
       throw std::runtime_error(error.message());
   }
   auto root_path = Git::path(root.ptr, root.size);
-#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28
+#if LIBGIT2_VER_MAJOR > 0 || (LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28)
   git_buf_dispose(&root);
 #else
   git_buf_free(&root);
