@@ -5,7 +5,12 @@ endif()
 
 add_definitions(-DJUCI_BUILD_PATH="${CMAKE_BINARY_DIR}" -DJUCI_TESTS_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/libclangmm/src
+  ${CMAKE_SOURCE_DIR}/tiny-process-library
+  ${CMAKE_SOURCE_DIR}/pybind11
+)
 
 add_library(test_stubs OBJECT
   stubs/config.cpp

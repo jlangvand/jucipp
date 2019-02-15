@@ -41,25 +41,36 @@ target_link_libraries(juci_shared
   tiny-process-library
 )
 
-set(JUCI_FILES
-  config.cpp
-  dialogs.cpp
-  dialogs_unix.cpp
-  directories.cpp
-  entrybox.cpp
-  info.cpp
-  juci.cpp
-  notebook.cpp
-  project.cpp
-  selection_dialog.cpp
-  window.cpp
+set(JUCI_SOURCES
+  config.cc
+  dialogs.cc
+  dialogs_unix.cc
+  directories.cc
+  entrybox.cc
+  info.cc
+  juci.cc
+  notebook.cc
+  project.cc
+  selection_dialog.cc
+  tooltips.cc
+  window.cc
 )
+
 if(APPLE)
-  list(APPEND JUCI_FILES window_macos.m)
+  list(APPEND JUCI_SOURCES window_macos.m)
 endif()
 
-add_executable(juci ${JUCI_FILES})
-target_link_libraries(juci juci_shared)
+
+set(JUCI_TARGET_LIBRARIES
+  juci_shared
+)
+
+if(${PYTHONLIBS_FOUND})
+  list(APPEND JUCI_TARGET_LIBRARIES pybind11 ${PYTHON_LIBRARIES} ${PYGOBJECT_LIBRARIES})
+endif()
+
+add_executable(juci ${JUCI_SOURCES})
+target_link_libraries(juci ${JUCI_TARGET_LIBRARIES})
 
 if(APPLE)
   target_link_libraries(juci "-framework Foundation -framework AppKit")
