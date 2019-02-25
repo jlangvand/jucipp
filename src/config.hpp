@@ -113,6 +113,12 @@ public:
     bool language_server;
   };
 
+  class Plugins {
+  public:
+    bool enabled;
+    std::string path;
+  };
+
 private:
   Config();
 
@@ -131,6 +137,7 @@ public:
   Project project;
   Source source;
   Log log;
+  Plugins plugins;
 
   boost::filesystem::path home_path;
   boost::filesystem::path home_juci_path;

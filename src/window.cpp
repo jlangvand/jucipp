@@ -16,24 +16,24 @@
 #include "selection_dialog.hpp"
 #include "terminal.hpp"
 
-Window::Window() {
+Window::Window(Plugins &i) : plugins(i) {
   Gsv::init();
-
   set_title("juCi++");
   get_style_context()->add_class("juci_window");
   set_events(Gdk::POINTER_MOTION_MASK | Gdk::FOCUS_CHANGE_MASK | Gdk::SCROLL_MASK | Gdk::LEAVE_NOTIFY_MASK);
+}
 
+void Window::init() {
   auto visual = get_screen()->get_rgba_visual();
   if(visual)
     gtk_widget_set_visual(reinterpret_cast<GtkWidget *>(gobj()), visual->gobj());
-
   auto provider = Gtk::CssProvider::create();
   auto screen = get_screen();
   std::string border_radius_style;
   if(screen->get_rgba_visual())
     border_radius_style = "border-radius: 5px; ";
 #if GTK_VERSION_GE(3, 20)
-  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
+n  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
 #else
   std::string notebook_style(".juci_notebook {-GtkNotebook-tab-overlap: 0px;} .juci_notebook tab {border-radius: 5px 5px 0 0; padding: 4px 4px;}");
 #endif
@@ -160,7 +160,10 @@ Window::Window() {
   about.set_comments("This is an open source IDE with high-end features to make your programming experience juicy");
   about.set_license_type(Gtk::License::LICENSE_MIT_X11);
   about.set_transient_for(*this);
-} // Window constructor
+  if(Config::get().plugins.enabled) {
+    plugins.load();
+  }
+}
 
 void Window::configure() {
   Config::get().load();
@@ -274,8 +277,9 @@ void Window::set_menu_actions() {
   auto &menu = Menu::get();
 
   menu.add_action("about", [this]() {
-    about.show();
-    about.present();
+    plugins.load();
+    // about.show();
+    // about.present();
   });
   menu.add_action("preferences", []() {
     Notebook::get().open(Config::get().home_juci_path / "config" / "config.json");

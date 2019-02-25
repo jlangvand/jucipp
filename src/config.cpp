@@ -3,6 +3,7 @@
 #include "filesystem.hpp"
 #include "terminal.hpp"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <exception>
 #include <iostream>
 
@@ -212,4 +213,12 @@ void Config::read(const boost::property_tree::ptree &cfg) {
 
   log.libclang = cfg.get<bool>("log.libclang");
   log.language_server = cfg.get<bool>("log.language_server");
+
+  auto plugins_path = cfg.get<std::string>("plugins.path");
+  boost::replace_all(plugins_path, "<juci_home_directory>", home_juci_path.string());
+  plugins.path = plugins_path;
+  plugins.enabled = cfg.get<bool>("plugins.enabled");
+  if (plugins.enabled) {
+    std::cout << "Plugins enabled" << std::endl;
+  }
 }

@@ -233,6 +233,11 @@ const std::string default_config_file = R"RAW({
         "libclang_comment": "Outputs diagnostics for new C/C++ buffers",
         "libclang": false,
         "language_server": false
+    },
+    "plugins": {
+      "enabled": true,
+      "path_comment": "Directory where plugins are loaded from.",
+      "path": "<juci_home_directory>/plugins"
     }
 }
 )RAW";

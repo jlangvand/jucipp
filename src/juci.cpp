@@ -55,12 +55,11 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
 void Application::on_activate() {
   std::vector<std::pair<int, int>> file_offsets;
   std::string current_file;
-  Window::get().load_session(directories, files, file_offsets, current_file, directories.empty() && files.empty());
-
-  Window::get().add_widgets();
-
-  add_window(Window::get());
-  Window::get().show();
+  window.init();
+  window.load_session(directories, files, file_offsets, current_file, directories.empty() && files.empty());
+  window.add_widgets();
+  add_window(window);
+  window.show();
 
   bool first_directory = true;
   for(auto &directory : directories) {
@@ -132,7 +131,7 @@ void Application::on_startup() {
   }
 }
 
-Application::Application() : Gtk::Application("no.sout.juci", Gio::APPLICATION_NON_UNIQUE | Gio::APPLICATION_HANDLES_COMMAND_LINE) {
+Application::Application() : Gtk::Application("no.sout.juci", Gio::APPLICATION_NON_UNIQUE | Gio::APPLICATION_HANDLES_COMMAND_LINE), window(plugins) {
   Glib::set_application_name("juCi++");
 
   //Gtk::MessageDialog without buttons caused text to be selected, this prevents that

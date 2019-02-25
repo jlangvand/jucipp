@@ -1,4 +1,10 @@
 #pragma once
+#include <boost/filesystem.hpp>
+#include <gtkmm.h>
+#include "window.h"
+#ifdef JUCI_ENABLE_PLUGINS
+#include "plugins.h"
+#endif
 /**
    \mainpage
    juCi++ is a lightweight C++ IDE written in C++
@@ -25,9 +31,6 @@
    [juCi++] --> [tiny-process-library] : use
   \enduml
 */
-#include <boost/filesystem.hpp>
-#include <gtkmm.h>
-
 class Application : public Gtk::Application {
 public:
   Application();
@@ -39,4 +42,8 @@ private:
   std::vector<boost::filesystem::path> directories;
   std::vector<std::pair<boost::filesystem::path, size_t>> files;
   std::vector<std::string> errors;
+  Window window;
+#ifdef JUCI_ENABLE_PLUGINS
+  Plugins plugins;
+#endif
 };

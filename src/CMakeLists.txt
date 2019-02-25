@@ -54,6 +54,7 @@ set(JUCI_SOURCES
   selection_dialog.cc
   tooltips.cc
   window.cc
+  python_interpreter.cc
 )
 
 if(APPLE)

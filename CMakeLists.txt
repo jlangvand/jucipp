@@ -173,6 +173,7 @@ include_directories(
   ${LIBGIT2_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
   ${PYGOBJECT_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}/lib/pybind11/include
 )
 
 add_subdirectory("src")
