@@ -27,4 +27,3 @@ debian-testing:
 debian:
   image: cppit/jucipp:debian
   <<: *compile
-
