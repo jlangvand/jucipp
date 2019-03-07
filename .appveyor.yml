@@ -5,6 +5,9 @@ environment:
   MSYSTEM: MSYS
   CTEST_OUTPUT_ON_FAILURE: 1
 
+cache:
+  - C:\msys64\var\cache
+
 before_build:
   - git submodule update --init --recursive
 #  - C:\msys64\usr\bin\bash -lc "PATH=/mingw64/bin:/usr/local/bin:/usr/bin:/bin:$PATH && pacman --noconfirm --ask 20 --sync --refresh --sysupgrade"
