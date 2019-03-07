@@ -12,6 +12,7 @@ set(JUCI_SHARED_FILES
   menu.cpp
   meson.cpp
   project_build.cpp
+  python_interpreter.cc
   snippets.cpp
   source.cpp
   source_base.cpp
@@ -42,19 +43,18 @@ target_link_libraries(juci_shared
 )
 
 set(JUCI_SOURCES
-  config.cc
-  dialogs.cc
-  dialogs_unix.cc
-  directories.cc
-  entrybox.cc
-  info.cc
-  juci.cc
-  notebook.cc
-  project.cc
-  selection_dialog.cc
-  tooltips.cc
-  window.cc
-  python_interpreter.cc
+  config.cpp
+  dialogs.cpp
+  dialogs_unix.cpp
+  directories.cpp
+  entrybox.cpp
+  info.cpp
+  juci.cpp
+  notebook.cpp
+  project.cpp
+  selection_dialog.cpp
+  tooltips.cpp
+  window.cpp
 )
 
 if(APPLE)

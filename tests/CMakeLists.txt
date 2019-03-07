@@ -121,3 +121,12 @@ if(BUILD_FUZZING)
   target_link_options(markdown_fuzzer PRIVATE -fsanitize=address,fuzzer)
   target_link_libraries(markdown_fuzzer juci_shared)
 endif()
+
+add_executable(git_test git_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(git_test juci_shared)
+add_test(git_test git_test)
+
+add_executable(python_interpreter_test python_interpreter_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(python_interpreter_test juci_shared ${PYTHON_LIBRARIES})
+add_test(python_interpreter_test python_interpreter_test)
+
