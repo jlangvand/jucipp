@@ -15,4 +15,4 @@ before_build:
   - C:\msys64\usr\bin\bash -lc "PATH=/mingw64/bin:/usr/local/bin:/usr/bin:/bin:$PATH && pacman --noconfirm --needed --sync make mingw-w64-x86_64-{cmake,toolchain,clang,gtkmm3,gtksourceviewmm3,boost,aspell,aspell-en,libgit2}"
 
 build_script:
-  - C:\msys64\usr\bin\bash -lc "PATH=/mingw64/bin:/usr/local/bin:/usr/bin:/bin:$PATH && cd $APPVEYOR_BUILD_FOLDER && mkdir build && cd build && cmake -G\"MSYS Makefiles\" -DCMAKE_INSTALL_PREFIX=/mingw64 -DBUILD_TESTING=1 .. && make && make test"
+  - C:\msys64\usr\bin\bash -lc "PATH=/mingw64/bin:/usr/local/bin:/usr/bin:/bin:$PATH && cd $APPVEYOR_BUILD_FOLDER && mkdir build && cd build && cmake -G\"MSYS Makefiles\" -DCMAKE_INSTALL_PREFIX=/mingw64 -DBUILD_TESTING=1 .. && make -j$(nproc) && make test"
