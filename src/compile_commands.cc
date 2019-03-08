@@ -82,11 +82,32 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
   }
 }
 
-std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {
+std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path_) {
+  auto file_path = file_path_;
+
   std::string default_std_argument = "-std=c++1y";
 
   auto extension = file_path.extension().string();
   bool is_header = CompileCommands::is_header(file_path) || extension.empty(); // Include std C++ headers that are without extensions
+
+  // If header file, use a source file in the same folder if one exists
+  if(is_header && !extension.empty()) {
+    auto parent_path = file_path.parent_path();
+    auto stem = file_path.stem();
+    CompileCommands compile_commands(build_path);
+    bool found = false;
+    for(auto &command : compile_commands.commands) {
+      // Priority on source file with the same filename (extension excluded) as the header file
+      if(command.file.stem() == stem) {
+        file_path = command.file;
+        break;
+      }
+      if(!found && command.file.parent_path() == parent_path) {
+        file_path = command.file;
+        found = true;
+      }
+    }
+  }
 
   std::vector<std::string> arguments;
   if(!build_path.empty()) {
@@ -137,7 +158,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
       arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
 #endif
   }
-  
+
   // Do not add -fretain-comments-from-system-headers if pch is used, since the pch was most likely made without this flag
   if(std::none_of(arguments.begin(), arguments.end(), [](const std::string &argument) { return argument == "-include-pch"; }))
     arguments.emplace_back("-fretain-comments-from-system-headers");
