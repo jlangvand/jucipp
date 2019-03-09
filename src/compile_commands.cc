@@ -82,55 +82,50 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
   }
 }
 
-std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path_) {
-  auto file_path = file_path_;
-
+std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {
   std::string default_std_argument = "-std=c++1y";
 
   auto extension = file_path.extension().string();
   bool is_header = CompileCommands::is_header(file_path) || extension.empty(); // Include std C++ headers that are without extensions
 
-  // If header file, use a source file in the same folder if one exists
+  // If header file, use source file flags if they are in the same folder
+  std::vector<boost::filesystem::path> file_paths;
   if(is_header && !extension.empty()) {
     auto parent_path = file_path.parent_path();
-    auto stem = file_path.stem();
     CompileCommands compile_commands(build_path);
-    bool found = false;
     for(auto &command : compile_commands.commands) {
-      // Priority on source file with the same filename (extension excluded) as the header file
-      if(command.file.stem() == stem) {
-        file_path = command.file;
-        break;
-      }
-      if(!found && command.file.parent_path() == parent_path) {
-        file_path = command.file;
-        found = true;
-      }
+      if(command.file.parent_path() == parent_path)
+        file_paths.emplace_back(command.file);
     }
   }
+
+  if(file_paths.empty())
+    file_paths.emplace_back(file_path);
 
   std::vector<std::string> arguments;
   if(!build_path.empty()) {
     clangmm::CompilationDatabase db(build_path.string());
     if(db) {
-      clangmm::CompileCommands commands(file_path.string(), db);
-      auto cmds = commands.get_commands();
-      for(auto &cmd : cmds) {
-        auto cmd_arguments = cmd.get_arguments();
-        bool ignore_next = false;
-        for(size_t c = 1; c < cmd_arguments.size(); c++) {
-          if(ignore_next) {
-            ignore_next = false;
-            continue;
+      for(auto &file_path : file_paths) {
+        clangmm::CompileCommands compile_commands(file_path.string(), db);
+        auto commands = compile_commands.get_commands();
+        for(auto &command : commands) {
+          auto cmd_arguments = command.get_arguments();
+          bool ignore_next = false;
+          for(size_t c = 1; c < cmd_arguments.size(); c++) {
+            if(ignore_next) {
+              ignore_next = false;
+              continue;
+            }
+            else if(cmd_arguments[c] == "-o" || cmd_arguments[c] == "-c" ||
+                    cmd_arguments[c] == "-x" ||                          // Remove language arguments since some tools add languages not understood by clang
+                    (is_header && cmd_arguments[c] == "-include-pch") || // Header files should not use precompiled headers
+                    cmd_arguments[c] == "-MF") {                         // Exclude dependency file generation
+              ignore_next = true;
+              continue;
+            }
+            arguments.emplace_back(cmd_arguments[c]);
           }
-          else if(cmd_arguments[c] == "-o" || cmd_arguments[c] == "-c" ||
-                  cmd_arguments[c] == "-x" ||                          // Remove language arguments since some tools add languages not understood by clang
-                  (is_header && cmd_arguments[c] == "-include-pch") || // Header files should not use precompiled headers
-                  cmd_arguments[c] == "-MF") {                         // Exclude dependency file generation
-            ignore_next = true;
-            continue;
-          }
-          arguments.emplace_back(cmd_arguments[c]);
         }
       }
     }
