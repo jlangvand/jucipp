@@ -12,6 +12,7 @@ set(JUCI_SHARED_FILES
   menu.cpp
   meson.cpp
   project_build.cpp
+  plugins.cc
   python_interpreter.cc
   snippets.cpp
   source.cpp
@@ -60,7 +61,6 @@ set(JUCI_SOURCES
 if(APPLE)
   list(APPEND JUCI_SOURCES window_macos.m)
 endif()
-
 
 set(JUCI_TARGET_LIBRARIES
   juci_shared

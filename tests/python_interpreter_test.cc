@@ -3,6 +3,8 @@
 #include "python_interpreter.h"
 #include "python_module.h"
 #include "terminal.h"
+#include "config.h"
+#include "python_module.h"
 
 
 class __attribute__((visibility("default")))
