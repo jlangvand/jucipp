@@ -119,12 +119,11 @@ sudo make install
 On FreeBSD, latest release of juCi++ is available through the port: jucipp.
 
 ## MacOS with Homebrew (http://brew.sh/)
-**Installing llvm may take some time, and you need to follow the lldb code signing instructions. For an easier dependency install, but without debug support, remove `--with-lldb` below.**
+**Homebrew's llvm package no longer includes the lldb-library.**
 
 Install dependencies:
 ```sh
-brew install --with-lldb llvm
-brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell clang-format libgit2 ctags
+brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 ctags
 ```
 
 Get juCi++ source, compile and install:
