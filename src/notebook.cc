@@ -154,10 +154,10 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   else
     source_views.emplace_back(new Source::GenericView(file_path, language));
 
-  auto source_view = source_views.back();
-  source_view->configure();
+  auto view = source_views.back();
+  view->configure();
 
-  source_view->scroll_to_cursor_delayed = [this](Source::BaseView *view, bool center, bool show_tooltips) {
+  view->scroll_to_cursor_delayed = [this](Source::BaseView *view, bool center, bool show_tooltips) {
     if(!show_tooltips)
       view->hide_tooltips();
     while(Gtk::Main::events_pending())
@@ -171,17 +171,17 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
         view->hide_tooltips();
     }
   };
-  source_view->update_status_location = [this](Source::BaseView *view) {
+  view->update_status_location = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
       auto iter = view->get_buffer()->get_insert()->get_iter();
       status_location.set_text(" " + std::to_string(iter.get_line() + 1) + ":" + std::to_string(iter.get_line_offset() + 1));
     }
   };
-  source_view->update_status_file_path = [this](Source::BaseView *view) {
+  view->update_status_file_path = [this](Source::BaseView *view) {
     if(get_current_view() == view)
       status_file_path.set_text(' ' + filesystem::get_short_path(view->file_path).string());
   };
-  source_view->update_status_branch = [this](Source::BaseView *view) {
+  view->update_status_branch = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
       if(!view->status_branch.empty())
         status_branch.set_text(" (" + view->status_branch + ")");
@@ -189,7 +189,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
         status_branch.set_text("");
     }
   };
-  source_view->update_status_diagnostics = [this](Source::BaseView *view) {
+  view->update_status_diagnostics = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
       std::string diagnostic_info;
 
@@ -250,28 +250,28 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
       status_diagnostics.set_markup(diagnostic_info);
     }
   };
-  source_view->update_status_state = [this](Source::BaseView *view) {
+  view->update_status_state = [this](Source::BaseView *view) {
     if(get_current_view() == view)
       status_state.set_text(view->status_state + " ");
   };
 
   scrolled_windows.emplace_back(new Gtk::ScrolledWindow());
   hboxes.emplace_back(new Gtk::Box());
-  scrolled_windows.back()->add(*source_view);
+  scrolled_windows.back()->add(*view);
   hboxes.back()->pack_start(*scrolled_windows.back());
 
   source_maps.emplace_back(Glib::wrap(gtk_source_map_new()));
-  gtk_source_map_set_view(GTK_SOURCE_MAP(source_maps.back()->gobj()), source_view->gobj());
+  gtk_source_map_set_view(GTK_SOURCE_MAP(source_maps.back()->gobj()), view->gobj());
 
   configure(source_views.size() - 1);
 
   //Set up tab label
-  tab_labels.emplace_back(new TabLabel([this, source_view]() {
-    auto index = get_index(source_view);
+  tab_labels.emplace_back(new TabLabel([this, view]() {
+    auto index = get_index(view);
     if(index != static_cast<size_t>(-1))
       close(index);
   }));
-  source_view->update_tab_label = [this](Source::BaseView *view) {
+  view->update_tab_label = [this](Source::BaseView *view) {
     std::string title = view->file_path.filename().string();
     if(view->get_buffer()->get_modified())
       title += '*';
@@ -286,21 +286,21 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
       }
     }
   };
-  source_view->update_tab_label(source_view);
+  view->update_tab_label(view);
 
   //Add star on tab label when the page is not saved:
-  source_view->get_buffer()->signal_modified_changed().connect([source_view]() {
-    if(source_view->update_tab_label)
-      source_view->update_tab_label(source_view);
+  view->get_buffer()->signal_modified_changed().connect([view]() {
+    if(view->update_tab_label)
+      view->update_tab_label(view);
   });
 
   //Cursor history
-  auto update_cursor_locations = [this, source_view](const Gtk::TextBuffer::iterator &iter) {
+  auto update_cursor_locations = [this, view](const Gtk::TextBuffer::iterator &iter) {
     bool mark_moved = false;
     if(current_cursor_location != static_cast<size_t>(-1)) {
       auto &cursor_location = cursor_locations.at(current_cursor_location);
-      if(cursor_location.view == source_view && abs(cursor_location.mark->get_iter().get_line() - iter.get_line()) <= 2) {
-        source_view->get_buffer()->move_mark(cursor_location.mark, iter);
+      if(cursor_location.view == view && abs(cursor_location.mark->get_iter().get_line() - iter.get_line()) <= 2) {
+        view->get_buffer()->move_mark(cursor_location.mark, iter);
         mark_moved = true;
       }
     }
@@ -311,7 +311,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
           it = cursor_locations.erase(it);
         }
       }
-      cursor_locations.emplace_back(source_view, source_view->get_buffer()->create_mark(iter));
+      cursor_locations.emplace_back(view, view->get_buffer()->create_mark(iter));
       current_cursor_location = cursor_locations.size() - 1;
     }
 
@@ -346,7 +346,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
     if(current_cursor_location >= cursor_locations.size())
       current_cursor_location = cursor_locations.size() - 1;
   };
-  source_view->get_buffer()->signal_mark_set().connect([this, update_cursor_locations](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  view->get_buffer()->signal_mark_set().connect([this, update_cursor_locations](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
       if(disable_next_update_cursor_locations) {
         disable_next_update_cursor_locations = false;
@@ -355,35 +355,35 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
       update_cursor_locations(iter);
     }
   });
-  source_view->get_buffer()->signal_changed().connect([source_view, update_cursor_locations] {
-    update_cursor_locations(source_view->get_buffer()->get_insert()->get_iter());
+  view->get_buffer()->signal_changed().connect([view, update_cursor_locations] {
+    update_cursor_locations(view->get_buffer()->get_insert()->get_iter());
   });
 
 #ifdef JUCI_ENABLE_DEBUG
-  if(dynamic_cast<Source::ClangView *>(source_view) || (source_view->language && source_view->language->get_id() == "rust")) {
-    source_view->toggle_breakpoint = [source_view](int line_nr) {
-      if(source_view->get_source_buffer()->get_source_marks_at_line(line_nr, "debug_breakpoint").size() > 0) {
-        auto start_iter = source_view->get_buffer()->get_iter_at_line(line_nr);
-        auto end_iter = source_view->get_iter_at_line_end(line_nr);
-        source_view->get_source_buffer()->remove_source_marks(start_iter, end_iter, "debug_breakpoint");
-        source_view->get_source_buffer()->remove_source_marks(start_iter, end_iter, "debug_breakpoint_and_stop");
+  if(dynamic_cast<Source::ClangView *>(view) || (view->language && view->language->get_id() == "rust")) {
+    view->toggle_breakpoint = [view](int line_nr) {
+      if(view->get_source_buffer()->get_source_marks_at_line(line_nr, "debug_breakpoint").size() > 0) {
+        auto start_iter = view->get_buffer()->get_iter_at_line(line_nr);
+        auto end_iter = view->get_iter_at_line_end(line_nr);
+        view->get_source_buffer()->remove_source_marks(start_iter, end_iter, "debug_breakpoint");
+        view->get_source_buffer()->remove_source_marks(start_iter, end_iter, "debug_breakpoint_and_stop");
         if(Project::current && Project::debugging)
-          Project::current->debug_remove_breakpoint(source_view->file_path, line_nr + 1, source_view->get_buffer()->get_line_count() + 1);
+          Project::current->debug_remove_breakpoint(view->file_path, line_nr + 1, view->get_buffer()->get_line_count() + 1);
       }
       else {
-        auto iter = source_view->get_buffer()->get_iter_at_line(line_nr);
-        source_view->get_source_buffer()->create_source_mark("debug_breakpoint", iter);
-        if(source_view->get_source_buffer()->get_source_marks_at_line(line_nr, "debug_stop").size() > 0)
-          source_view->get_source_buffer()->create_source_mark("debug_breakpoint_and_stop", iter);
+        auto iter = view->get_buffer()->get_iter_at_line(line_nr);
+        gtk_source_buffer_create_source_mark(view->get_source_buffer()->gobj(), nullptr, "debug_breakpoint", iter.gobj()); // Gsv::Buffer::create_source_mark is bugged
+        if(view->get_source_buffer()->get_source_marks_at_line(line_nr, "debug_stop").size() > 0)
+          gtk_source_buffer_create_source_mark(view->get_source_buffer()->gobj(), nullptr, "debug_breakpoint_and_stop", iter.gobj()); // Gsv::Buffer::create_source_mark is bugged
         if(Project::current && Project::debugging)
-          Project::current->debug_add_breakpoint(source_view->file_path, line_nr + 1);
+          Project::current->debug_add_breakpoint(view->file_path, line_nr + 1);
       }
     };
   }
 #endif
 
-  source_view->signal_focus_in_event().connect([this, source_view](GdkEventFocus *) {
-    set_current_view(source_view);
+  view->signal_focus_in_event().connect([this, view](GdkEventFocus *) {
+    set_current_view(view);
     return false;
   });
 
@@ -415,7 +415,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   }
 
   set_focus_child(*source_views.back());
-  focus_view(source_view);
+  focus_view(view);
 }
 
 void Notebook::open_uri(const std::string &uri) {

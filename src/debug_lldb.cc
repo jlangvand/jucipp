@@ -18,11 +18,7 @@ void log(const char *msg, void *) {
 
 Debug::LLDB::LLDB() : state(lldb::StateType::eStateInvalid), buffer_size(131072) {
   if(!getenv("LLDB_DEBUGSERVER_PATH")) {
-#ifdef __APPLE__
-    std::string debug_server_path("/usr/local/opt/llvm/bin/debugserver");
-    if(boost::filesystem::exists(debug_server_path))
-      setenv("LLDB_DEBUGSERVER_PATH", debug_server_path.c_str(), 0);
-#else
+#ifndef __APPLE__
     auto debug_server_path = filesystem::get_executable("lldb-server").string();
     if(debug_server_path != "lldb-server") {
 #ifdef _WIN32

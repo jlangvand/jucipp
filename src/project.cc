@@ -130,9 +130,9 @@ void Project::debug_update_stop() {
     if(view->file_path == debug_stop.first) {
       if(debug_stop.second.first < view->get_buffer()->get_line_count()) {
         auto iter = view->get_buffer()->get_iter_at_line(debug_stop.second.first);
-        view->get_source_buffer()->create_source_mark("debug_stop", iter);
+        gtk_source_buffer_create_source_mark(view->get_source_buffer()->gobj(), nullptr, "debug_stop", iter.gobj()); // Gsv::Buffer::create_source_mark is bugged
         if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size() > 0)
-          view->get_source_buffer()->create_source_mark("debug_breakpoint_and_stop", iter);
+          gtk_source_buffer_create_source_mark(view->get_source_buffer()->gobj(), nullptr, "debug_breakpoint_and_stop", iter.gobj()); // Gsv::Buffer::create_source_mark is bugged
         debug_last_stop_file_path = debug_stop.first;
       }
       break;
