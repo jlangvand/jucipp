@@ -2,15 +2,16 @@
 #include "config.h"
 #include "python_module.h"
 
-Plugins::Plugins(): jucipp_module("Jucipp", Module::init_jucipp_module) {
-   auto &config = Config::get();
-   config.load();
-   const auto sys = py::module::import("sys");
-   sys.attr("path").cast<py::list>().append(config.plugins.path);
- }
+Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
+  auto &config = Config::get();
+  config.load();
+  py::module::import("sys")
+      .attr("path")
+      .cast<py::list>()
+      .append(config.plugins.path);
+}
 
 void Plugins::load() {
-  std::cout << Config::get().plugins.path << std::endl;
   boost::filesystem::directory_iterator end_it;
   for(boost::filesystem::directory_iterator it(Config::get().plugins.path); it != end_it; it++) {
     auto module_name = it->path().stem().string();
@@ -27,15 +28,12 @@ void Plugins::load() {
           interpreter.reload_module(module);
         } else {
           Terminal::get().print("Loading plugin ´" + module_name + "´\n");
-          py::module::import(module_name.c_str());  
+          py::module::import(module_name.c_str());
         }
-        
       }
       catch(py::error_already_set &error) {
         Terminal::get().print("Error loading plugin `" + module_name + "`:\n" + error.what() + "\n");
       }
     }
-    if(interpreter.error())
-      std::cerr << py::error_already_set().what() << std::endl;
   }
 }
