@@ -1,4 +1,5 @@
 #pragma once
+#include "cmake.h"
 #include "config.h"
 #include "python_bind.h"
 #include "terminal.h"
@@ -159,12 +160,28 @@ class Module {
         ;
   }
 
+  static void init_cmake_module(pybind11::module &api) {
+    py::class_<CMake>(api, "CMake")
+        .def_readwrite("project_path", &CMake::project_path)
+        .def("update_default_build", &CMake::update_default_build,
+             py::arg("default_build_path"),
+             py::arg("force") = false)
+        .def("update_debug_build", &CMake::update_debug_build,
+             py::arg("debug_build_path"),
+             py::arg("force") = false)
+        .def("get_executable", &CMake::get_executable,
+             py::arg("build_path"),
+             py::arg("file_path"))
+
+        ;
+  }
 
 public:
   static auto init_jucipp_module() {
     auto api = py::module("Jucipp", "API");
     Module::init_terminal_module(api);
     Module::init_config_module(api);
+    Module::init_cmake_module(api);
     return api.ptr();
   };
 };
