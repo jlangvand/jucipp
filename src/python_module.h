@@ -2,9 +2,11 @@
 #include "cmake.h"
 #include "compile_commands.h"
 #include "config.h"
+#include "ctags.h"
 #include "python_bind.h"
 #include "terminal.h"
 #include <boost/filesystem.hpp>
+#include <pybind11/operators.h>
 #include <pybind11/stl.h>
 
 namespace pybind11 {
@@ -193,6 +195,33 @@ class Module {
                     py::arg("path"))
         .def_static("is_source", &CompileCommands::is_source,
                     py::arg("path"))
+
+        ;
+  }
+
+  static void init_compile_ctags_module(pybind11::module &api) {
+    py::class_<Ctags> ctags(api, "Ctags");
+    py::class_<Ctags::Location>(api, "Ctags")
+        .def_readwrite("file_path", &Ctags::Location::file_path)
+        .def_readwrite("line", &Ctags::Location::line)
+        .def_readwrite("index", &Ctags::Location::index)
+        .def_readwrite("symbol", &Ctags::Location::symbol)
+        .def_readwrite("scope", &Ctags::Location::scope)
+        .def_readwrite("source", &Ctags::Location::source)
+        .def("__bool__", &Ctags::Location::operator bool)
+
+        ;
+
+    ctags
+        .def_static("get_result", &Ctags::get_result,
+                    py::arg("path"))
+        .def_static("get_location", &Ctags::get_location,
+                    py::arg("line"),
+                    py::arg("markup"))
+        .def_static("get_locations", &Ctags::get_locations,
+                    py::arg("path"),
+                    py::arg("name"),
+                    py::arg("type"))
 
         ;
   }
