@@ -1,5 +1,6 @@
 #pragma once
 #include "cmake.h"
+#include "compile_commands.h"
 #include "config.h"
 #include "python_bind.h"
 #include "terminal.h"
@@ -176,12 +177,34 @@ class Module {
         ;
   }
 
+  static void init_compile_commands_module(pybind11::module &api) {
+    py::class_<CompileCommands> compile_commands(api, "CompileCommands");
+    py::class_<CompileCommands::Command>(compile_commands, "CompileCommands")
+        .def_readwrite("directory", &CompileCommands::Command::directory)
+        .def_readwrite("parameters", &CompileCommands::Command::parameters)
+        .def_readwrite("file", &CompileCommands::Command::file)
+
+        ;
+    compile_commands
+        .def_readwrite("commands", &CompileCommands::commands)
+        .def_static("get_arguments", &CompileCommands::get_arguments,
+                    py::arg("build_path"),
+                    py::arg("file_path"))
+        .def_static("is_header", &CompileCommands::is_header,
+                    py::arg("path"))
+        .def_static("is_source", &CompileCommands::is_source,
+                    py::arg("path"))
+
+        ;
+  }
+
 public:
   static auto init_jucipp_module() {
     auto api = py::module("Jucipp", "API");
     Module::init_terminal_module(api);
     Module::init_config_module(api);
     Module::init_cmake_module(api);
+    Module::init_compile_commands_module(api);
     return api.ptr();
   };
 };
