@@ -45,6 +45,8 @@ Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path
     auto filename = file_path.filename().string();
     if(filename == "CMakeLists.txt")
       language = language_manager->get_language("cmake");
+    else if(filename == "meson.build")
+      language = language_manager->get_language("meson");
     else if(filename == "Makefile")
       language = language_manager->get_language("makefile");
     else if(file_path.extension() == ".tcc")
