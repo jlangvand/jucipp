@@ -112,19 +112,19 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
         for(auto &command : commands) {
           auto cmd_arguments = command.get_arguments();
           bool ignore_next = false;
-          for(size_t c = 1; c < cmd_arguments.size(); c++) {
-            if(ignore_next) {
+          for(size_t c = 1; c + 1 < cmd_arguments.size(); c++) { // Exclude first and last argument
+            if(ignore_next)
               ignore_next = false;
-              continue;
-            }
-            else if(cmd_arguments[c] == "-o" || cmd_arguments[c] == "-c" ||
+            else if(cmd_arguments[c] == "-o" ||
                     cmd_arguments[c] == "-x" ||                          // Remove language arguments since some tools add languages not understood by clang
                     (is_header && cmd_arguments[c] == "-include-pch") || // Header files should not use precompiled headers
                     cmd_arguments[c] == "-MF") {                         // Exclude dependency file generation
               ignore_next = true;
-              continue;
             }
-            arguments.emplace_back(cmd_arguments[c]);
+            else if(cmd_arguments[c] == "-c") {
+            }
+            else
+              arguments.emplace_back(cmd_arguments[c]);
           }
         }
       }
