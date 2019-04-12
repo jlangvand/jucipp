@@ -762,6 +762,10 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         }
       }
     }
+    // Do not insert last " or > inside #include statements
+    if(!row.empty() && ((row.back() == '"' && row.find('"') == row.size() - 1) || (row.back() == '>' && row.find('<') == std::string::npos)))
+      row.pop_back();
+
     get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), row);
     //if selection is finalized, select text inside template arguments or function parameters
     if(hide_window) {
