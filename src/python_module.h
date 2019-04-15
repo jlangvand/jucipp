@@ -20,7 +20,7 @@ namespace pybind11 {
     public:
       PYBIND11_TYPE_CASTER(boost::filesystem::path, _("str"));
       bool load(handle src, bool) {
-        value = pybind11::str(src);
+        value = std::string(pybind11::str(src));
         return !PyErr_Occurred();
       }
 
