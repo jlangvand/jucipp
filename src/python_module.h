@@ -11,7 +11,7 @@
 #ifdef JUCI_ENABLE_DEBUG
 #include "debug_lldb.h"
 #endif
-
+#include "dialogs.h"
 
 namespace pybind11 {
   namespace detail {
@@ -309,6 +309,23 @@ class Module {
   }
 #endif
 
+  static void init_dialogs_module(py::module &api) {
+    py::class_<Dialog>(api, "Dialog")
+        .def_static("open_folder", Dialog::open_folder,
+                    py::arg("path"))
+
+        .def_static("open_file", Dialog::open_file,
+                    py::arg("path"))
+        .def_static("new_file", Dialog::new_file,
+                    py::arg("path"))
+        .def_static("new_folder", Dialog::new_folder,
+                    py::arg("path"))
+        .def_static("save_file_as", Dialog::save_file_as,
+                    py::arg("path"))
+
+        ;
+  }
+
 public:
   static auto init_jucipp_module() {
     auto api = py::module("Jucipp", "API");
@@ -319,6 +336,7 @@ public:
 #ifdef JUCI_ENABLE_DEBUG
     Module::init_debug_LLDB_module(api);
 #endif
+    Module::init_dialogs_module(api);
     return api.ptr();
   };
 };
