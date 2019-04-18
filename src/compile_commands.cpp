@@ -276,3 +276,24 @@ bool CompileCommands::is_source(const boost::filesystem::path &path) {
   else
     return false;
 }
+
+void CompileCommands::init_module(py::module &api) {
+  py::class_<CompileCommands> compile_commands(api, "CompileCommands");
+  py::class_<CompileCommands::Command>(compile_commands, "CompileCommands")
+      .def_readwrite("directory", &CompileCommands::Command::directory)
+      .def_readwrite("parameters", &CompileCommands::Command::parameters)
+      .def_readwrite("file", &CompileCommands::Command::file)
+
+      ;
+  compile_commands
+      .def_readwrite("commands", &CompileCommands::commands)
+      .def_static("get_arguments", &CompileCommands::get_arguments,
+                  py::arg("build_path"),
+                  py::arg("file_path"))
+      .def_static("is_header", &CompileCommands::is_header,
+                  py::arg("path"))
+      .def_static("is_source", &CompileCommands::is_source,
+                  py::arg("path"))
+
+      ;
+}

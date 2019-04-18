@@ -5,6 +5,7 @@
 #include <lldb/API/LLDB.h>
 #include <thread>
 #include <tuple>
+#include "python_bind.h"
 
 namespace Debug {
   class LLDB {
@@ -84,6 +85,7 @@ namespace Debug {
     void remove_breakpoint(const boost::filesystem::path &file_path, int line_nr, int line_count);
 
     void write(const std::string &buffer);
+    static void init_module(py::module &api);
 
   private:
     std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> parse_run_arguments(const std::string &command);

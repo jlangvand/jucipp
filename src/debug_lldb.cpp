@@ -569,3 +569,80 @@ void Debug::LLDB::write(const std::string &buffer) {
     process->PutSTDIN(buffer.c_str(), buffer.size());
   }
 }
+
+void Debug::LLDB::init_module(pybind11::module &api) {
+  py::class_<Debug::LLDB, std::unique_ptr<Debug::LLDB, py::nodelete>> dbg(api, "LLDB");
+  py::class_<Debug::LLDB::Frame>(dbg, "Frame")
+      .def_readwrite("index", &Debug::LLDB::Frame::index)
+      .def_readwrite("module_filename", &Debug::LLDB::Frame::module_filename)
+      .def_readwrite("file_path", &Debug::LLDB::Frame::file_path)
+      .def_readwrite("function_name", &Debug::LLDB::Frame::function_name)
+      .def_readwrite("line_nr", &Debug::LLDB::Frame::line_nr)
+      .def_readwrite("line_index", &Debug::LLDB::Frame::line_index)
+
+      ;
+  py::class_<Debug::LLDB::Variable>(dbg, "Variable")
+      .def_readwrite("thread_index_id", &Debug::LLDB::Variable::thread_index_id)
+      .def_readwrite("frame_index", &Debug::LLDB::Variable::frame_index)
+      .def_readwrite("name", &Debug::LLDB::Variable::name)
+      .def_readwrite("value", &Debug::LLDB::Variable::value)
+      .def_readwrite("declaration_found", &Debug::LLDB::Variable::declaration_found)
+      .def_readwrite("file_path", &Debug::LLDB::Variable::file_path)
+      .def_readwrite("line_nr", &Debug::LLDB::Variable::line_nr)
+      .def_readwrite("line_index", &Debug::LLDB::Variable::line_index)
+
+      ;
+
+  // py::class_<lldb::SBProcess>(api, "SBProcess");
+  // .def_readwrite("on_start", &Debug::LLDB::on_start)
+  // .def_readwrite("on_event", &Debug::LLDB::on_event)
+
+  dbg
+      .def(py::init([]() { return &(Debug::LLDB::get()); }))
+      .def_readwrite("on_exit", &Debug::LLDB::on_exit)
+      // .def_readwrite("mutex", &Debug::LLDB::mutex)
+      .def("continue_debug", &Debug::LLDB::continue_debug)
+      .def("stop", &Debug::LLDB::stop)
+      .def("kill", &Debug::LLDB::kill)
+      .def("step_over", &Debug::LLDB::step_over)
+      .def("step_into", &Debug::LLDB::step_into)
+      .def("step_out", &Debug::LLDB::step_out)
+      .def("cancel", &Debug::LLDB::cancel)
+      .def("is_invalid", &Debug::LLDB::is_invalid)
+      .def("is_stopped", &Debug::LLDB::is_stopped)
+      .def("is_running", &Debug::LLDB::is_running)
+      .def("get_backtrace", &Debug::LLDB::get_backtrace)
+      .def("get_variables", &Debug::LLDB::get_variables)
+      .def("cancel", &Debug::LLDB::cancel)
+      .def("start", &Debug::LLDB::start,
+           py::arg("command"),
+           py::arg("path") = "",
+           py::arg("breakpoints") = std::vector<std::pair<boost::filesystem::path, int>>(),
+           py::arg("startup_commands") = std::vector<std::string>(),
+           py::arg("remote_host") = "")
+      .def("run_command", &Debug::LLDB::run_command,
+           py::arg("command"))
+      .def("select_frame", &Debug::LLDB::select_frame,
+           py::arg("frame_index"),
+           py::arg("thread_index_id") = 0)
+      .def("get_value", &Debug::LLDB::get_value,
+           py::arg("variable"),
+           py::arg("file_path"),
+           py::arg("line_nr"),
+           py::arg("line_index"))
+      .def("get_return_value", &Debug::LLDB::get_return_value,
+           py::arg("file_path"),
+           py::arg("line_nr"),
+           py::arg("line_index"))
+      .def("add_breakpoint", &Debug::LLDB::add_breakpoint,
+           py::arg("file_path"),
+           py::arg("line_nr"))
+      .def("remove_breakpoint", &Debug::LLDB::remove_breakpoint,
+           py::arg("file_path"),
+           py::arg("line_nr"),
+           py::arg("line_count"))
+      .def(" write", &Debug::LLDB::write,
+           py::arg("buffer"))
+
+      ;
+}

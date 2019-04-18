@@ -2,6 +2,7 @@
 #include "dispatcher.hpp"
 #include "mutex.hpp"
 #include "process.hpp"
+#include "python_bind.h"
 #include "source_base.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
@@ -33,6 +34,7 @@ public:
   void configure();
 
   void clear();
+  static void init_module(pybind11::module &api);
 
   std::function<void()> scroll_to_bottom;
 

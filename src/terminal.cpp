@@ -603,3 +603,34 @@ bool Terminal::on_key_press_event(GdkEventKey *event) {
   }
   return true;
 }
+
+void Terminal::init_module(pybind11::module &api) {
+  py::class_<Terminal, std::unique_ptr<Terminal, py::nodelete>>(api, "Terminal")
+      .def(py::init([]() { return &(Terminal::get()); }))
+      .def("process", (int (Terminal::*)(const std::string &, const boost::filesystem::path &, bool)) & Terminal::process,
+           py::arg("command"),
+           py::arg("path") = "",
+           py::arg("use_pipes") = false)
+      .def("async_process", (void (Terminal::*)(const std::string &, const boost::filesystem::path &, const std::function<void(int)> &, bool)) & Terminal::async_process,
+           py::arg("command"),
+           py::arg("path") = "",
+           py::arg("callback") = nullptr,
+           py::arg("quiet") = false)
+      .def("kill_last_async_process", &Terminal::kill_last_async_process,
+           py::arg("force") = false)
+      .def("kill_async_processes", &Terminal::kill_async_processes,
+           py::arg("force") = false)
+      .def("print", &Terminal::print,
+           py::arg("message"),
+           py::arg("bold") = false)
+      .def("async_print", (void (Terminal::*)(const std::string &, bool)) & Terminal::async_print,
+           py::arg("message"),
+           py::arg("bold") = false)
+      .def("async_print", (void (Terminal::*)(size_t, const std::string &)) & Terminal::async_print,
+           py::arg("line_nr"),
+           py::arg("message"))
+      .def("configure", &Terminal::configure)
+      .def("clear", &Terminal::clear)
+
+      ;
+}

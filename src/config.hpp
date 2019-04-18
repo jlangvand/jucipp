@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include "python_bind.h"
 
 class Config {
 public:
@@ -141,6 +142,7 @@ public:
 
   boost::filesystem::path home_path;
   boost::filesystem::path home_juci_path;
+  static void init_module(py::module &api);
 
 private:
   /// Used to dispatch Terminal outputs after juCi++ GUI setup and configuration

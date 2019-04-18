@@ -1,5 +1,6 @@
 #pragma once
 #include "mutex.hpp"
+#include "python_bind.h"
 #include <functional>
 #include <gtkmm.h>
 #include <list>
@@ -32,4 +33,6 @@ public:
 
   /// Must be called from main GUI thread
   void reset();
+
+  static void init_module(py::module &api);
 };

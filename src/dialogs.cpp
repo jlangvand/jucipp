@@ -94,3 +94,20 @@ std::string Dialog::gtk_dialog(const boost::filesystem::path &path, const std::s
     dialog.add_button(button.first, button.second);
   return dialog.run() == Gtk::RESPONSE_OK ? dialog.get_filename() : "";
 }
+
+void Dialog::init_module(py::module &api) {
+  py::class_<Dialog>(api, "Dialog")
+      .def_static("open_folder", Dialog::open_folder,
+                  py::arg("path"))
+
+      .def_static("open_file", Dialog::open_file,
+                  py::arg("path"))
+      .def_static("new_file", Dialog::new_file,
+                  py::arg("path"))
+      .def_static("new_folder", Dialog::new_folder,
+                  py::arg("path"))
+      .def_static("save_file_as", Dialog::save_file_as,
+                  py::arg("path"))
+
+      ;
+}

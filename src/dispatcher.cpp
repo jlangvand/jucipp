@@ -40,3 +40,11 @@ void Dispatcher::reset() {
   functions.clear();
   connect();
 }
+
+void Dispatcher::init_module(py::module &api) {
+  py::class_<Dispatcher>(api, "Dispatcher")
+      .def(py::init())
+      .def("disconnect", &Dispatcher::disconnect)
+      .def("post", &Dispatcher::post<std::function<void()> &>)
+
+      ;

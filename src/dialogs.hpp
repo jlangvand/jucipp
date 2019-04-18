@@ -1,4 +1,5 @@
 #pragma once
+#include "python_bind.h"
 #include <boost/filesystem.hpp>
 #include <gtkmm.h>
 #include <string>
@@ -11,6 +12,7 @@ public:
   static std::string new_file(const boost::filesystem::path &path);
   static std::string new_folder(const boost::filesystem::path &path);
   static std::string save_file_as(const boost::filesystem::path &path);
+  static void init_module(py::module &api);
 
   class Message : public Gtk::Window {
   public:

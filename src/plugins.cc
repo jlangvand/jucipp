@@ -1,6 +1,28 @@
 #include "plugins.h"
+#include "cmake.h"
+#include "compile_commands.h"
 #include "config.h"
-#include "python_module.h"
+#include "ctags.h"
+#ifdef JUCI_ENABLE_DEBUG
+#include "debug_lldb.h"
+#endif
+#include "dialogs.h"
+#include "terminal.h"
+
+PyObject *Plugins::Module::init_jucipp_module() {
+  auto api = py::module("Jucipp", "API");
+  CMake::init_module(api);
+  CompileCommands::init_module(api);
+  Config::init_module(api);
+  Ctags::init_module(api);
+#ifdef JUCI_ENABLE_DEBUG
+  Debug::LLDB::init_module(api);
+#endif
+  Dialog::init_module(api);
+  Dispatcher::init_module(api);
+  Terminal::init_module(api);
+  return api.ptr();
+};
 
 Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
   auto &config = Config::get();

@@ -1,4 +1,5 @@
 #pragma once
+#include "python_bind.h"
 #include <boost/filesystem.hpp>
 #include <sstream>
 #include <string>
@@ -28,6 +29,7 @@ public:
   std::stringstream output;
 
   static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type, const std::string &languages = {});
+  static void init_module(py::module &api);
 
 private:
   bool enable_scope, enable_kind;
