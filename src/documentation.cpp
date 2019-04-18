@@ -12711,3 +12711,8 @@ std::experimental::filesystem::status_known	cpp/experimental/fs/status_known
     return std::string();
   return "http://en.cppreference.com/w/" + it->second;
 }
+
+void Documentation::CppReference::init_module(py::module &api) {
+  py::class_<CppReference>(api, "CppReference")
+      .def("get_url", &CppReference::get_url);
+}
