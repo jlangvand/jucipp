@@ -261,3 +261,80 @@ boost::filesystem::path Git::path(const char *cpath, boost::optional<size_t> cpa
   else
     return std::string(cpath, cpath_length);
 }
+
+void Git::init_module(py::module &api) {
+  py::class_<Git> git(api, "Git");
+  py::class_<Git::Error>(git, "Error")
+      .def("__bool__", &Git::Error::operator bool)
+      .def_readwrite("code", &Git::Error::code)
+
+      ;
+
+  py::class_<Git::Repository> repository(git, "Repository");
+  py::class_<Git::Repository::Diff> diff(repository, "Diff");
+  py::class_<Git::Repository::Diff::Lines>(diff, "Lines")
+      .def_readwrite("added", &Git::Repository::Diff::Lines::added)
+      .def_readwrite("modified", &Git::Repository::Diff::Lines::modified)
+      .def_readwrite("removed", &Git::Repository::Diff::Lines::removed)
+
+      ;
+  py::class_<Git::Repository::Diff::Hunk>(repository, "Lines")
+      .def(py::init<int, int, int, int>(),
+           py::arg("old_start"),
+           py::arg("old_size"),
+           py::arg("new_start"),
+           py::arg("new_size"))
+      .def_readwrite("old_lines", &Git::Repository::Diff::Hunk::old_lines)
+      .def_readwrite("new_lines", &Git::Repository::Diff::Hunk::new_lines)
+
+      ;
+  diff
+      .def("get_lines", &Git::Repository::Diff::get_lines,
+           py::arg("buffer"))
+      .def_static("get_hunks", &Git::Repository::Diff::get_hunks,
+                  py::arg("old_buffer"),
+                  py::arg("new_buffer"))
+      .def("get_details", &Git::Repository::Diff::get_details,
+           py::arg("buffer"),
+           py::arg("line_nr"))
+
+      ;
+  py::enum_<Git::Repository::STATUS>(repository, "STATUS")
+      .value("CURRENT", Git::Repository::STATUS::CURRENT)
+      .value("NEW", Git::Repository::STATUS::NEW)
+      .value("MODIFIED", Git::Repository::STATUS::MODIFIED)
+      .value("DELETED", Git::Repository::STATUS::DELETED)
+      .value("RENAMED", Git::Repository::STATUS::RENAMED)
+      .value("TYPECHANGE", Git::Repository::STATUS::TYPECHANGE)
+      .value("UNREADABLE", Git::Repository::STATUS::UNREADABLE)
+      .value("IGNORED", Git::Repository::STATUS::IGNORED)
+      .value("CONFLICTED", Git::Repository::STATUS::CONFLICTED)
+      .export_values();
+
+  py::class_<Git::Repository::Status>(repository, "Status")
+      .def_readwrite("added", &Git::Repository::Status::added)
+      .def_readwrite("modified", &Git::Repository::Status::modified)
+
+      ;
+
+  repository
+      .def_static("status_string", &Git::Repository::status_string,
+                  py::arg("status"))
+
+      .def("get_status", &Git::Repository::get_status)
+      .def("clear_saved_status", &Git::Repository::clear_saved_status)
+      .def("get_work_path", &Git::Repository::get_work_path)
+      .def_static("get_root_path", &Git::Repository::get_root_path,
+           py::arg("path"))
+      .def("get_diff", &Git::Repository::get_diff,
+           py::arg("path"))
+      .def("get_branch", &Git::Repository::get_branch)
+
+      ;
+
+  git
+      .def_static("get_repository", &Git::get_repository,
+           py::arg("path"))
+
+      ;
+}

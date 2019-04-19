@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_set>
 #include <vector>
+#include "python_bind.h"
 
 class Git {
   friend class Repository;
@@ -103,4 +104,5 @@ private:
 
 public:
   static std::shared_ptr<Repository> get_repository(const boost::filesystem::path &path);
+  static void init_module(py::module &api);
 };

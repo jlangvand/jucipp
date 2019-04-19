@@ -8,6 +8,7 @@
 #endif
 #include "dialogs.h"
 #include "terminal.h"
+#include "git.h"
 
 PyObject *Plugins::Module::init_jucipp_module() {
   auto api = py::module("Jucipp", "API");
@@ -20,6 +21,7 @@ PyObject *Plugins::Module::init_jucipp_module() {
 #endif
   Dialog::init_module(api);
   Dispatcher::init_module(api);
+  Git::init_module(api);
   Terminal::init_module(api);
   return api.ptr();
 };
