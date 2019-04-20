@@ -1,6 +1,7 @@
 #include "menu.hpp"
 #include "config.hpp"
 #include <iostream>
+#include <pybind11/functional.h>
 #include <string>
 
 const Glib::ustring menu_xml = R"RAW(<interface>
@@ -573,4 +574,17 @@ void Menu::build() {
   catch(const Glib::Error &ex) {
     std::cerr << "building menu failed: " << ex.what();
   }
+}
+
+void Menu::init_module(py::module &api) {
+  // TODO bind glib members
+  py::class_<Menu, std::unique_ptr<Menu, py::nodelete>>(api, "Menu")
+      .def(py::init([] { return &Menu::get(); }))
+      .def("add_action", &Menu::add_action,
+           py::arg("name"),
+           py::arg("action"))
+      .def("set_keys", &Menu::set_keys)
+      .def("build", &Menu::build)
+
+      ;
 }

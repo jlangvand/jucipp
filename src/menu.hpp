@@ -1,4 +1,5 @@
 #pragma once
+#include "python_bind.h"
 #include <functional>
 #include <gtkmm.h>
 #include <string>
@@ -24,6 +25,7 @@ public:
   std::unique_ptr<Gtk::Menu> right_click_line_menu;
   std::unique_ptr<Gtk::Menu> right_click_selected_menu;
   std::function<void()> toggle_menu_items = [] {};
+  static void init_module(py::module &api);
 
 private:
   Glib::RefPtr<Gtk::Builder> builder;
