@@ -43,7 +43,5 @@ private:
   std::vector<std::pair<boost::filesystem::path, size_t>> files;
   std::vector<std::string> errors;
   Window window;
-#ifdef JUCI_ENABLE_PLUGINS
   Plugins plugins;
-#endif
 };

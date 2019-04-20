@@ -1,24 +1,21 @@
 #include "config.h"
 #include "plugins.h"
 #include "python_interpreter.h"
-#include "python_module.h"
 #include "terminal.h"
 #include "config.h"
-#include "python_module.h"
 
 
 class __attribute__((visibility("default")))
 suite {
 public:
   Glib::RefPtr<Gtk::Application> app = Gtk::Application::create();
-  py::detail::embedded_module jucipp = py::detail::embedded_module("Jucipp", Module::init_jucipp_module);
-  Python::Interpreter interpreter;
+  Plugins plugins;
   Terminal &terminal = Terminal::get();
   Config &config = Config::get();
   boost::filesystem::path test_file_path = boost::filesystem::canonical(std::string(JUCI_TESTS_PATH) + "/python_interpreter_test_files");
   bool has_assertion = false;
   suite() {
-    auto sys = interpreter.add_module("sys");
+    auto sys = plugins.interpreter.add_module("sys");
     sys.attr("path").cast<py::list>().append(test_file_path.string());
     config.terminal.history_size = 100;
   }

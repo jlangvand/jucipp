@@ -97,10 +97,7 @@ if(${PYTHONLIBS_FOUND})
 endif()
 
 if(${PYGOBJECT_FOUND})
-  add_definitions(-DJUCI_ENABLE_PLUGINS)
   add_definitions(-DPYTHON_HOME_DIR=L"${PYTHON_LIBRARY_DIR}")
-else()
-  message(STATUS "Python or pygobject not found. Building juCi++ without plugin support.")
 endif()
 
 set(BUILD_TESTING_SAVED ${BUILD_TESTING})
