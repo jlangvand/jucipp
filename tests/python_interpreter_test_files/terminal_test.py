@@ -1,6 +1,6 @@
 from Jucipp import Terminal
 
-t = Terminal();
+t = Terminal()
 
 def hello_world():
     t.print("Hello, World!\n")

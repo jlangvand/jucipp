@@ -10,6 +10,7 @@
 #include "utility.hpp"
 #include <boost/filesystem.hpp>
 #include <iostream>
+#include <pybind11/stl.h>
 
 extern char **environ;
 

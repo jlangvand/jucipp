@@ -3,6 +3,7 @@
 #include "python_interpreter.h"
 #include "terminal.h"
 #include "config.h"
+#include "python_type_casters.h"
 
 
 class __attribute__((visibility("default")))
