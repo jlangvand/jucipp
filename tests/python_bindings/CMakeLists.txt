@@ -8,6 +8,10 @@ add_executable(pb_python_interpreter_test PythonInterpreter_tests/interpreter_te
 target_link_libraries(pb_python_interpreter_test juci_shared test_suite $<TARGET_OBJECTS:test_stubs>)
 add_test(pb_python_interpreter_test pb_python_interpreter_test)
 
+add_executable(pb_cmake_test CMake_tests/cmake_test.cc)
+target_link_libraries(pb_cmake_test juci_shared test_suite $<TARGET_OBJECTS:test_stubs>)
+add_test(pb_cmake_test pb_cmake_test)
+
 add_executable(pb_terminal_test Terminal_tests/terminal_test.cc)
 target_link_libraries(pb_terminal_test juci_shared test_suite $<TARGET_OBJECTS:test_stubs>)
 add_test(pb_terminal_test pb_terminal_test)
