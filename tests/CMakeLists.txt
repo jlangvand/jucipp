@@ -19,9 +19,10 @@ add_library(test_stubs OBJECT
   stubs/notebook.cpp
   stubs/project.cpp
   stubs/selection_dialog.cpp
+  stubs/tooltips.cpp
+  stubs/plugins.cc
 )
 
-<<<<<<< HEAD
 if(BUILD_TESTING)
   add_executable(process_test process_test.cpp $<TARGET_OBJECTS:test_stubs>)
   target_link_libraries(process_test juci_shared)
@@ -121,7 +122,8 @@ if(BUILD_FUZZING)
   target_compile_options(markdown_fuzzer PRIVATE -fsanitize=address,fuzzer)
   target_link_options(markdown_fuzzer PRIVATE -fsanitize=address,fuzzer)
   target_link_libraries(markdown_fuzzer juci_shared)
-=======
+endif()
+
 add_executable(process_test process_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(process_test juci_shared ${PYTHON_LIBRARIES})
 add_test(process_test process_test)
@@ -171,7 +173,6 @@ if(LIBLLDB_FOUND)
   target_link_libraries(lldb_test juci_shared ${PYTHON_LIBRARIES})
   add_test(lldb_test lldb_test)
   add_subdirectory("lldb_test_files")
->>>>>>> de6858a... fix tests after moving pybind code
 endif()
 
 add_executable(git_test git_test.cc $<TARGET_OBJECTS:test_stubs>)
@@ -182,3 +183,4 @@ add_executable(python_interpreter_test python_interpreter_test.cc $<TARGET_OBJEC
 target_link_libraries(python_interpreter_test juci_shared ${PYTHON_LIBRARIES})
 add_test(python_interpreter_test python_interpreter_test)
 
+add_subdirectory(./python_bindings)

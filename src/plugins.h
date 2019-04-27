@@ -9,11 +9,6 @@ public:
   void load();
 
 private:
-  class Module {
-  public:
-    static PyObject *init_jucipp_module();
-  };
-
   py::detail::embedded_module jucipp_module;
   Python::Interpreter interpreter;
 };

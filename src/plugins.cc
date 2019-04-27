@@ -1,30 +1,7 @@
 #include "plugins.h"
-#include "cmake.h"
-#include "compile_commands.h"
-#include "config.h"
-#include "ctags.h"
-#ifdef JUCI_ENABLE_DEBUG
-#include "debug_lldb.h"
-#endif
-#include "dialogs.h"
+#include "python_module.h"
 #include "terminal.h"
-#include "git.h"
-
-PyObject *Plugins::Module::init_jucipp_module() {
-  auto api = py::module("Jucipp", "API");
-  CMake::init_module(api);
-  CompileCommands::init_module(api);
-  Config::init_module(api);
-  Ctags::init_module(api);
-#ifdef JUCI_ENABLE_DEBUG
-  Debug::LLDB::init_module(api);
-#endif
-  Dialog::init_module(api);
-  Dispatcher::init_module(api);
-  Git::init_module(api);
-  Terminal::init_module(api);
-  return api.ptr();
-};
+#include "config.h"
 
 Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
   auto &config = Config::get();
@@ -47,10 +24,11 @@ void Plugins::load() {
     if((is_directory && !is_pycache) || has_py_extension) {
       try {
         auto module = interpreter.add_module(module_name);
-        if (module) {
+        if(module) {
           Terminal::get().print("Reloading plugin ´" + module_name + "´\n");
           interpreter.reload_module(module);
-        } else {
+        }
+        else {
           Terminal::get().print("Loading plugin ´" + module_name + "´\n");
           py::module::import(module_name.c_str());
         }

@@ -3,6 +3,7 @@
 #include "mutex.hpp"
 #include "process.hpp"
 #include "python_bind.h"
+#include "python_type_casters.h"
 #include "source_base.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>

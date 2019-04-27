@@ -26,6 +26,8 @@ set(JUCI_SHARED_FILES
   tooltips.cpp
   usages_clang.cpp
   utility.cpp
+  python_interpreter.cc
+  python_module.cc
 )
 if(LIBLLDB_FOUND)
   list(APPEND JUCI_SHARED_FILES debug_lldb.cpp)
@@ -56,6 +58,7 @@ set(JUCI_SOURCES
   selection_dialog.cpp
   tooltips.cpp
   window.cpp
+  plugins.cc
 )
 
 if(APPLE)
