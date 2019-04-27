@@ -3,4 +3,5 @@
 int main() {
   suite test_suite("CMake_tests");
   py::module::import("cmake_test");
+  test_suite.has_assertion = true;
 }

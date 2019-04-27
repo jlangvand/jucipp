@@ -168,12 +168,12 @@ add_executable(usages_clang_test usages_clang_test.cc $<TARGET_OBJECTS:test_stub
 target_link_libraries(usages_clang_test juci_shared ${PYTHON_LIBRARIES})
 add_test(usages_clang_test usages_clang_test)
 
-if(LIBLLDB_FOUND)
-  add_executable(lldb_test lldb_test.cc $<TARGET_OBJECTS:test_stubs>)
-  target_link_libraries(lldb_test juci_shared ${PYTHON_LIBRARIES})
-  add_test(lldb_test lldb_test)
-  add_subdirectory("lldb_test_files")
-endif()
+# if(LIBLLDB_FOUND)
+#   add_executable(lldb_test lldb_test.cc $<TARGET_OBJECTS:test_stubs>)
+#   target_link_libraries(lldb_test juci_shared ${PYTHON_LIBRARIES})
+#   add_test(lldb_test lldb_test)
+#   add_subdirectory("lldb_test_files")
+# endif()
 
 add_executable(git_test git_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(git_test juci_shared ${PYTHON_LIBRARIES})
