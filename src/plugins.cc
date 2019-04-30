@@ -36,15 +36,8 @@ void Plugins::load() {
     const auto is_pycache = module_name == "__pycache__";
     if((is_directory && !is_pycache) || has_py_extension) {
       try {
-        auto module = interpreter.add_module(module_name);
-        if(module) {
-          Terminal::get().print("Reloading plugin ´" + module_name + "´\n");
-          interpreter.reload_module(module);
-        }
-        else {
-          Terminal::get().print("Loading plugin ´" + module_name + "´\n");
-          py::module::import(module_name.c_str());
-        }
+        auto module = py::module::import(module_name.c_str());
+        Terminal::get().print("Loading plugin ´" + module_name + "´\n");
       }
       catch(py::error_already_set &error) {
         Terminal::get().print("Error loading plugin `" + module_name + "`:\n" + error.what() + "\n");
