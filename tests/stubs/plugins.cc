@@ -4,3 +4,5 @@
 Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {}
 
 void Plugins::load() {}
+
+Plugins::~Plugins() {}

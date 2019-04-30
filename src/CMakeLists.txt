@@ -26,7 +26,6 @@ set(JUCI_SHARED_FILES
   tooltips.cpp
   usages_clang.cpp
   utility.cpp
-  python_interpreter.cc
   python_module.cc
 )
 if(LIBLLDB_FOUND)

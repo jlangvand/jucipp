@@ -1,15 +1,28 @@
 #include "plugins.h"
+#include "config.h"
 #include "python_module.h"
 #include "terminal.h"
-#include "config.h"
 
 Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
   auto &config = Config::get();
   config.load();
+#ifdef PYTHON_HOME_DIR
+#ifdef _WIN32
+  const std::wstring python_home(PYTHON_HOME_DIR);
+  const std::wstring python_path(python_home + L";" + python_home + L"\\lib-dynload;" + python_home + L"\\site-packages" );
+  Py_SetPythonHome(python_home.c_str());
+  Py_SetPath(python_path.c_str());
+#endif
+#endif
+  py::initialize_interpreter();
   py::module::import("sys")
       .attr("path")
       .cast<py::list>()
       .append(config.plugins.path);
+}
+
+Plugins::~Plugins() {
+  py::finalize_interpreter();
 }
 
 void Plugins::load() {
