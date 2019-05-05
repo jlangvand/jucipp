@@ -59,11 +59,13 @@ Git::Repository::Diff::Lines Git::Repository::Diff::get_lines(const std::string 
 }
 
 std::vector<Git::Repository::Diff::Hunk> Git::Repository::Diff::get_hunks(const std::string &old_buffer, const std::string &new_buffer) {
+  initialize();
   std::vector<Git::Repository::Diff::Hunk> hunks;
   Error error;
   git_diff_options options;
   git_diff_init_options(&options, GIT_DIFF_OPTIONS_VERSION);
   options.context_lines = 0;
+  std::lock_guard<std::mutex> lock(mutex);
   error.code = git_diff_buffers(old_buffer.c_str(), old_buffer.size(), nullptr, new_buffer.c_str(), new_buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
     auto hunks = static_cast<std::vector<Git::Repository::Diff::Hunk> *>(payload);
     hunks->emplace_back(hunk->old_start, hunk->old_lines, hunk->new_start, hunk->new_lines);
