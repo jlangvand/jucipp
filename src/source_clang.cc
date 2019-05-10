@@ -1588,7 +1588,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
         }
         last_cursor = cursor;
         cursor = cursor.get_semantic_parent();
-      } while(cursor.get_kind() != clangmm::Cursor::Kind::TranslationUnit);
+      } while(cursor && cursor.get_kind() != clangmm::Cursor::Kind::TranslationUnit);
 
       if(last_cursor.get_kind() != clangmm::Cursor::Kind::Namespace)
         data.emplace(++data.begin(), "");
