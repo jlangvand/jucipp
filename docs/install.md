@@ -124,6 +124,11 @@ Install dependencies:
 brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 ctags
 ```
 
+Mojave users might need to install headers:
+```sh
+open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg
+```
+
 Get juCi++ source, compile and install:
 ```sh
 git clone --recursive https://gitlab.com/cppit/jucipp
