@@ -47,7 +47,7 @@ add_subdirectory(lib/libclangmm)
 add_subdirectory(lib/tiny-process-library)
 set(BUILD_TESTING ${BUILD_TESTING_SAVED} CACHE BOOL "Set to previous value" FORCE)
 
-find_package(Boost 1.54 COMPONENTS system filesystem serialization REQUIRED)
+find_package(Boost 1.54 COMPONENTS REQUIRED filesystem serialization)
 find_package(ASPELL REQUIRED)
 include(FindPkgConfig)
 pkg_check_modules(GTKMM gtkmm-3.0 REQUIRED)

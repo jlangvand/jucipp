@@ -30,10 +30,11 @@ add_library(juci_shared STATIC ${JUCI_SHARED_FILES})
 target_link_libraries(juci_shared
   ${GTKMM_LIBRARIES}
   ${GTKSVMM_LIBRARIES}
-  ${Boost_LIBRARIES}
   ${LIBLLDB_LIBRARIES}
   ${ASPELL_LIBRARIES}
   ${LIBGIT2_LIBRARIES}
+  Boost::filesystem
+  Boost::serialization
   clangmm
   tiny-process-library
 )
