@@ -103,7 +103,14 @@ std::string Project::CMakeBuild::get_compile_command() {
 }
 
 boost::filesystem::path Project::CMakeBuild::get_executable(const boost::filesystem::path &path) {
-  return cmake.get_executable(get_default_path(), path).string();
+  auto default_path = get_default_path();
+  auto executable = cmake.get_executable(default_path, path);
+  if(executable.empty()) {
+    auto src_path = project_path / "src";
+    if(boost::filesystem::is_directory(src_path))
+      executable = cmake.get_executable(default_path, src_path);
+  }
+  return executable;
 }
 
 Project::MesonBuild::MesonBuild(const boost::filesystem::path &path) : Project::Build(), meson(path) {
@@ -123,7 +130,14 @@ std::string Project::MesonBuild::get_compile_command() {
 }
 
 boost::filesystem::path Project::MesonBuild::get_executable(const boost::filesystem::path &path) {
-  return meson.get_executable(get_default_path(), path);
+  auto default_path = get_default_path();
+  auto executable = meson.get_executable(default_path, path);
+  if(executable.empty()) {
+    auto src_path = project_path / "src";
+    if(boost::filesystem::is_directory(src_path))
+      executable = meson.get_executable(default_path, src_path);
+  }
+  return executable;
 }
 
 Project::CompileCommandsBuild::CompileCommandsBuild(const boost::filesystem::path &path) {
