@@ -1,7 +1,12 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
+stages:
+  - test
+  - chore
+
 .script: &compile
+  stage: test
   script:
     - mkdir build
     - cd build
@@ -27,3 +32,9 @@ debian-testing:
 debian:
   image: cppit/jucipp:debian
   <<: *compile
+
+Clean appveyor cache:
+  stage: chore
+  when: manual
+  script:
+    - 'curl -H "Authorization: Bearer v2.${APPVEYOR_TOKEN}" -H "Content-Type: application/json" -X "DELETE" https://ci.appveyor.com/api/projects/zalox/jucipp-oisms/buildcache'
