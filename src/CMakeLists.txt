@@ -28,11 +28,11 @@ if(LIBLLDB_FOUND)
 endif()
 add_library(juci_shared STATIC ${JUCI_SHARED_FILES})
 target_link_libraries(juci_shared
+  ${ASPELL_LIBRARIES}
   ${GTKMM_LIBRARIES}
   ${GTKSVMM_LIBRARIES}
-  ${LIBLLDB_LIBRARIES}
-  ${ASPELL_LIBRARIES}
   ${LIBGIT2_LIBRARIES}
+  ${LIBLLDB_LIBRARIES}
   Boost::filesystem
   Boost::serialization
   clangmm
