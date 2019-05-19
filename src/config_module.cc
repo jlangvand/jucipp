@@ -1,4 +1,5 @@
 #include "config.h"
+#include <pybind11/stl.h>
 
 void Config::init_module(py::module &api) {
   py::class_<Config, std::unique_ptr<Config, py::nodelete>> config(api, "Config");
@@ -9,6 +10,7 @@ void Config::init_module(py::module &api) {
 
       ;
   py::class_<Config::Menu>(config, "Menu")
+      .def(py::init())
       .def_readwrite("keys", &Config::Menu::keys)
 
       ;
