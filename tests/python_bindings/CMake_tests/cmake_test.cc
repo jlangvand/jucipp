@@ -9,7 +9,7 @@ int main() {
   auto module = py::module::import("cmake_test");
 
   try {
-    module.attr("run")((test_suite.test_file_path / suite_name / "cmake_project").string());
+    module.attr("run")((test_suite.test_file_path / "cmake_project").string());
     test_suite.has_assertion = true;
   } catch(const py::error_already_set &error){
     std::cout << error.what();
