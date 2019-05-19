@@ -1,10 +1,12 @@
 #include "compile_commands.hpp"
 #include "clangmm.hpp"
 #include "config.hpp"
+#include "python_type_casters.h"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
+#include <pybind11/stl.h>
 #include <regex>
 
 CompileCommands::FindSystemIncludePaths::FindSystemIncludePaths() {
@@ -279,13 +281,16 @@ bool CompileCommands::is_source(const boost::filesystem::path &path) {
 
 void CompileCommands::init_module(py::module &api) {
   py::class_<CompileCommands> compile_commands(api, "CompileCommands");
-  py::class_<CompileCommands::Command>(compile_commands, "CompileCommands")
+  py::class_<CompileCommands::Command>(compile_commands, "Command")
       .def_readwrite("directory", &CompileCommands::Command::directory)
       .def_readwrite("parameters", &CompileCommands::Command::parameters)
       .def_readwrite("file", &CompileCommands::Command::file)
+      .def("parameter_values", &CompileCommands::Command::parameter_values,
+           py::arg("parameter_name"))
 
       ;
   compile_commands
+      .def(py::init<const boost::filesystem::path &>())
       .def_readwrite("commands", &CompileCommands::commands)
       .def_static("get_arguments", &CompileCommands::get_arguments,
                   py::arg("build_path"),
