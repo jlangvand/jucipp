@@ -3,14 +3,14 @@
 
 int main() {
   {
-    suite test_suite("PythonInterpreter_tests");
+    suite test_suite("PythonModule_tests");
     {
-      py::module::import("interpreter_test");
+      py::module::import("python_module_test");
       test_suite.has_assertion = true;
     }
   }
   {
-    suite test_suite("PythonInterpreter_tests");
+    suite test_suite("PythonModule_tests");
     {
       try {
         py::module::import("exception_test");
