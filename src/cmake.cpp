@@ -351,17 +351,18 @@ void CMake::parse_file(const std::string &src, std::map<std::string, std::list<s
 }
 
 void CMake::init_module(pybind11::module &api) {
-  py::class_<CMake>(api, "CMake")
-      .def_readwrite("project_path", &CMake::project_path)
-      .def("update_default_build", &CMake::update_default_build,
-           py::arg("default_build_path"),
-           py::arg("force") = false)
-      .def("update_debug_build", &CMake::update_debug_build,
-           py::arg("debug_build_path"),
-           py::arg("force") = false)
-      .def("get_executable", &CMake::get_executable,
-           py::arg("build_path"),
-           py::arg("file_path"))
+    py::class_<CMake>(api, "CMake")
+        .def(py::init<const boost::filesystem::path &>())
+        .def_readwrite("project_path", &CMake::project_path)
+        .def("update_default_build", &CMake::update_default_build,
+             py::arg("default_build_path"),
+             py::arg("force") = false)
+        .def("update_debug_build", &CMake::update_debug_build,
+             py::arg("debug_build_path"),
+             py::arg("force") = false)
+        .def("get_executable", &CMake::get_executable,
+             py::arg("build_path"),
+             py::arg("file_path"))
 
-      ;
+        ;
 }
