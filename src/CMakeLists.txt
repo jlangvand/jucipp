@@ -27,6 +27,7 @@ set(JUCI_SHARED_FILES
   usages_clang.cpp
   utility.cpp
   python_module.cc
+  config_module.cc
 )
 if(LIBLLDB_FOUND)
   list(APPEND JUCI_SHARED_FILES debug_lldb.cpp)
