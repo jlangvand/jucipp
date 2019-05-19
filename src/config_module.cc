@@ -3,40 +3,40 @@
 
 void Config::init_module(py::module &api) {
   py::class_<Config, std::unique_ptr<Config, py::nodelete>> config(api, "Config");
-  config
-      .def(py::init([]() { return &(Config::get()); }))
-      .def("load", &Config::load)
-      .def_readonly("version", &Config::version)
 
-      ;
   py::class_<Config::Menu>(config, "Menu")
       .def(py::init())
       .def_readwrite("keys", &Config::Menu::keys)
 
       ;
   py::class_<Config::Theme>(config, "Theme")
+      .def(py::init())
       .def_readwrite("name", &Config::Theme::name)
       .def_readwrite("variant", &Config::Theme::variant)
       .def_readwrite("font", &Config::Theme::font)
 
       ;
   py::class_<Config::Terminal>(config, "Terminal")
+      .def(py::init())
       .def_readwrite("history_size", &Config::Terminal::history_size)
       .def_readwrite("font", &Config::Terminal::font)
 
       ;
   py::class_<Config::Project> project(config, "Project");
   py::class_<Config::Project::CMake>(project, "CMake")
+      .def(py::init())
       .def_readwrite("command", &Config::Project::CMake::command)
       .def_readwrite("compile_command", &Config::Project::CMake::compile_command)
 
       ;
   py::class_<Config::Project::Meson>(project, "Meson")
+      .def(py::init())
       .def_readwrite("command", &Config::Project::Meson::command)
       .def_readwrite("compile_command", &Config::Project::Meson::compile_command)
 
       ;
   project
+      .def(py::init())
       .def_readwrite("default_build_path", &Config::Project::default_build_path)
       .def_readwrite("debug_build_path", &Config::Project::debug_build_path)
       .def_readwrite("cmake", &Config::Project::cmake)
@@ -49,11 +49,13 @@ void Config::init_module(py::module &api) {
       ;
   py::class_<Config::Source> source(config, "Source");
   py::class_<Config::Source::DocumentationSearch>(source, "DocumentationSearch")
+      .def(py::init())
       .def_readwrite("separator", &Config::Source::DocumentationSearch::separator)
       .def_readwrite("compile_command", &Config::Source::DocumentationSearch::queries)
 
       ;
   source
+      .def(py::init())
       .def_readwrite("style", &Config::Source::style)
       .def_readwrite("font", &Config::Source::font)
       .def_readwrite("spellcheck_language", &Config::Source::spellcheck_language)
@@ -84,16 +86,21 @@ void Config::init_module(py::module &api) {
       ;
 
   py::class_<Config::Log>(config, "Log")
+      .def(py::init())
       .def_readwrite("libclang", &Config::Log::libclang)
       .def_readwrite("language_server", &Config::Log::language_server)
 
       ;
   py::class_<Config::Plugins>(config, "Plugins")
+      .def(py::init())
       .def_readwrite("enabled", &Config::Plugins::enabled)
       .def_readwrite("path", &Config::Plugins::path)
 
       ;
   config
+      .def(py::init([]() { return &(Config::get()); }))
+      .def("load", &Config::load)
+      .def_readonly("version", &Config::version)
       .def_readwrite("menu", &Config::menu)
       .def_readwrite("theme", &Config::theme)
       .def_readwrite("terminal", &Config::terminal)
