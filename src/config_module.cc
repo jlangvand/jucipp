@@ -1,6 +1,6 @@
 #include "config.h"
-#include <pybind11/stl.h>
 #include "python_type_casters.h"
+#include <pybind11/stl.h>
 
 void Config::init_module(py::module &api) {
   py::class_<Config, std::unique_ptr<Config, py::nodelete>> config(api, "Config");
