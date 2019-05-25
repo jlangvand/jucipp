@@ -84,7 +84,7 @@ int main() {
   });
 
   doTest("cfg", [](Config &config) {
-    g_assert_cmpstr(config.home_juci_path.c_str(), ==, "/away");
-    g_assert_cmpstr(config.home_path.c_str(), ==, "/home");
+    g_assert_cmpstr(config.home_juci_path.string().c_str(), ==, "/away");
+    g_assert_cmpstr(config.home_path.string().c_str(), ==, "/home");
   });
 }
