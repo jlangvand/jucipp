@@ -109,7 +109,7 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
       if(parameter_start_pos != std::string::npos)
         add_parameter();
 
-      commands.emplace_back(Command{directory, parameters, boost::filesystem::absolute(file, build_path)});
+      commands.emplace_back(Command{directory.make_preferred(), parameters, boost::filesystem::absolute(file, build_path).make_preferred()});
     }
   }
   catch(...) {

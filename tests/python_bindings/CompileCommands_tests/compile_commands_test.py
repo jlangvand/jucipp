@@ -1,32 +1,38 @@
 from Jucipp import CompileCommands
 
-def run(project_path):
-    build_path = project_path + "/build"
+from os import path
+
+def assert_equal(expected, actual):
+    assert actual == expected, "Expected: " + expected + ", got " + actual
+
+def run(project_path, slash):
+    build_path = project_path + slash + "build"
     cc = CompileCommands(build_path)
     commands = cc.commands
     assert len(commands) == 1, "Wrong length of compile commands"
     command = commands.pop()
-    assert command.directory == build_path
-    assert command.file == project_path + "/main.cpp"
+    assert_equal(build_path, command.directory)
+    assert_equal(project_path + slash + "main.cpp", command.file)
 
     params = command.parameters
-    param = params.pop()
-    assert param == project_path + "/main.cpp"
+    param = path.basename(params.pop())
+    assert_equal("main.cpp", param)
 
     param = params.pop()
-    assert param == "-c"
+    assert_equal("-c", param)
 
     param = params.pop()
     param = params.pop()
-    assert param == "-o"
+    assert_equal("-o", param)
 
     values = command.parameter_values("-c")
-    value = values.pop()
-    assert value == project_path + "/main.cpp"
+    value = path.basename(values.pop())
+    assert_equal("main.cpp", value)
 
-    assert CompileCommands.is_source(project_path + "/main.cpp") == True
-    assert CompileCommands.is_header(project_path + "/main.cpp") == False
+    assert_equal(True, CompileCommands.is_source(project_path + slash + "main.cpp"))
+    assert_equal(False, CompileCommands.is_header(project_path + slash + "main.cpp"))
 
-    arguments = CompileCommands.get_arguments(build_path, project_path + "/main.cpp")
+    arguments = CompileCommands.get_arguments(build_path, project_path + slash + "main.cpp")
     argument = arguments.pop()
-    assert argument == build_path
+
+    assert_equal(build_path, argument)
