@@ -1,5 +1,6 @@
 #include "config.h"
 #include <pybind11/stl.h>
+#include "python_type_casters.h"
 
 void Config::init_module(py::module &api) {
   py::class_<Config, std::unique_ptr<Config, py::nodelete>> config(api, "Config");
@@ -51,7 +52,7 @@ void Config::init_module(py::module &api) {
   py::class_<Config::Source::DocumentationSearch>(source, "DocumentationSearch")
       .def(py::init())
       .def_readwrite("separator", &Config::Source::DocumentationSearch::separator)
-      .def_readwrite("compile_command", &Config::Source::DocumentationSearch::queries)
+      .def_readwrite("queries", &Config::Source::DocumentationSearch::queries)
 
       ;
   source
