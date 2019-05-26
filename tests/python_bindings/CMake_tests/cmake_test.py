@@ -1,12 +1,14 @@
 from Jucipp import CMake
 
+from jucipp_test import assert_equal
+
 def run(project_path):
     cmake = CMake(project_path)
-    assert project_path == cmake.project_path, "Construction of CMake failed"
+    assert_equal(project_path, cmake.project_path)
     default_build_path = project_path + "/build"
-    assert cmake.update_default_build(default_build_path) == True, "Update of default build failed"
+    assert_equal(True, cmake.update_default_build(default_build_path))
     executable = cmake.get_executable(default_build_path, project_path)
-    assert executable == default_build_path + "/cmake_project", "Invalid executable"
+    assert_equal(default_build_path + "/cmake_project", executable)
     default_debug_path = project_path + "/debug"
-    assert cmake.update_debug_build(default_debug_path), "Update of debug build failed"
+    assert_equal(True, cmake.update_debug_build(default_debug_path))
     executable = cmake.get_executable(default_debug_path, project_path)

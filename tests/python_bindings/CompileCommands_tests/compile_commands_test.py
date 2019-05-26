@@ -2,8 +2,7 @@ from Jucipp import CompileCommands
 
 from os import path
 
-def assert_equal(expected, actual):
-    assert actual == expected, "Expected: " + expected + ", got " + actual
+from jucipp_test import assert_equal
 
 def run(project_path, slash):
     build_path = project_path + slash + "build"
