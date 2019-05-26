@@ -1,20 +1,18 @@
 from Jucipp import Config
 
 def menu():
-    config = Config()
     menu = Config.Menu()
     menu.keys = {
        'key': 'value',
     }
-    config.menu = menu
+    Config().menu = menu
 
 def theme():
     theme = Config.Theme()
     theme.name = "Star Wars"
     theme.variant = "Instrumental"
     theme.font = "Imperial"
-    config = Config()
-    config.theme = theme
+    Config().theme = theme
 
 def terminal():
     terminal = Config.Terminal()
