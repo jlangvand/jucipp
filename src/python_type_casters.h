@@ -9,12 +9,19 @@ namespace pybind11 {
     public:
       PYBIND11_TYPE_CASTER(boost::filesystem::path, _("str"));
       bool load(handle src, bool) {
-        value = std::string(pybind11::str(src));
+        if (!src) {
+          return false;
+        }
+        try {
+          value = std::string(py::str(src));
+        } catch(...) {
+          return false;
+        }
         return !PyErr_Occurred();
       }
 
       static handle cast(boost::filesystem::path src, return_value_policy, handle) {
-        return pybind11::str(src.string());
+        return pybind11::str(src.string()).release();
       }
     };
   } // namespace detail
