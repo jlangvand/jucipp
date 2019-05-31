@@ -8,20 +8,16 @@ int main() {
   auto project_path = test_suite.test_file_path / "cmake_project";
   auto &config = Config::get();
 #ifdef _WIN32
+  std::string slash = "\\";
   config.project.cmake.command = "cmake -G\"MSYS Makefiles\" -DCMAKE_INSTALL_PREFIX=/mingw64";
 #else
+  std::string slash = "/";
   config.project.cmake.command = "cmake";
 #endif
   CMake cmake(project_path);
   cmake.update_default_build(boost::filesystem::path(project_path) / "build");
   try {
     auto module = py::module::import("compile_commands_test");
-    std::string slash =
-#ifdef _WIN32
-        "\\";
-#else
-        "/";
-#endif
     module.attr("run")(project_path.make_preferred().string(), slash);
     test_suite.has_assertion = true;
   }
