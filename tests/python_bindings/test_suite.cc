@@ -11,7 +11,9 @@ suite::suite(const boost::filesystem::path &path) {
   if(!sys) {
     throw std::runtime_error("Unable to append sys path");
   }
-  sys.attr("path").cast<py::list>().append((test_file_path / path).string());
+  auto sys_path = sys.attr("path").cast<py::list>();
+  sys_path.append((test_file_path / path).string());
+  sys_path.append((test_file_path).string());
   config.terminal.history_size = 100;
 }
 suite::~suite() {
