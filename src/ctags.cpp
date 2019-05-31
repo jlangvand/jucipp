@@ -282,6 +282,7 @@ std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path 
 void Ctags::init_module(py::module &api) {
   py::class_<Ctags> ctags(api, "Ctags");
   py::class_<Ctags::Location>(api, "Location")
+      .def(py::init<>())
       .def_readwrite("file_path", &Ctags::Location::file_path)
       .def_readwrite("line", &Ctags::Location::line)
       .def_readwrite("index", &Ctags::Location::index)
@@ -293,8 +294,6 @@ void Ctags::init_module(py::module &api) {
       ;
 
   ctags
-      .def_static("get_result", &Ctags::get_result,
-                  py::arg("path"))
       .def_static("get_location", &Ctags::get_location,
                   py::arg("line"),
                   py::arg("markup"))

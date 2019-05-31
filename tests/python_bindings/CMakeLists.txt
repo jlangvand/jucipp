@@ -23,3 +23,7 @@ add_test(pb_compile_commands_test pb_compile_commands_test)
 add_executable(pb_config_test Config_tests/config_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(pb_config_test test_suite)
 add_test(pb_config_test pb_config_test)
+
+add_executable(pb_ctags_test Ctags_tests/ctags_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(pb_ctags_test test_suite)
+add_test(pb_ctags_test pb_ctags_test)
