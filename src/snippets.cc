@@ -14,15 +14,15 @@ void Snippets::load() {
   boost::system::error_code ec;
   if(!boost::filesystem::exists(snippets_file, ec))
     filesystem::write(snippets_file, R"({
-    "^markdown$": [
-      {
-        "prefix": "code_block",
-        "body": "```${1:language}\n${2:code}\n```\n",
-        "description": "Insert code block"
-      }
-    ]
-  }
-  )");
+  "^markdown$": [
+    {
+      "prefix": "code_block",
+      "body": "```${1:language}\n${2:code}\n```\n",
+      "description": "Insert code block"
+    }
+  ]
+}
+)");
 
   snippets.clear();
   try {
