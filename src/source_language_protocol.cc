@@ -45,7 +45,7 @@ LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string
     parse_server_message();
   }, [](const char *bytes, size_t n) {
     std::cerr.write(bytes, n);
-  }, true, 1048576);
+  }, true, TinyProcessLib::Config{1048576});
 }
 
 std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id) {
