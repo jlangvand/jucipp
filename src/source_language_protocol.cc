@@ -116,7 +116,12 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
-        capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->second.get<int>("textDocumentSync", 0));
+        try {
+          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->second.get<int>("textDocumentSync"));
+        }
+        catch(...) {
+          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->second.get<int>("textDocumentSync.change", 0));
+        }
         capabilities.hover = capabilities_pt->second.get<bool>("hoverProvider", false);
         capabilities.completion = capabilities_pt->second.find("completionProvider") != capabilities_pt->second.not_found() ? true : false;
         capabilities.signature_help = capabilities_pt->second.find("signatureHelpProvider") != capabilities_pt->second.not_found() ? true : false;
@@ -579,7 +584,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   if(capabilities.references || capabilities.document_highlight) {
     get_usages = [this] {
       auto iter = get_buffer()->get_insert()->get_iter();
-      std::vector<LanguageProtocol::Location> locations;
+      std::set<LanguageProtocol::Location> locations;
       std::promise<void> result_processed;
 
       std::string method;
@@ -592,7 +597,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         if(!error) {
           try {
             for(auto it = result.begin(); it != result.end(); ++it)
-              locations.emplace_back(it->second, !capabilities.references ? file_path.string() : std::string());
+              locations.emplace(it->second, !capabilities.references ? file_path.string() : std::string());
           }
           catch(...) {
             locations.clear();
@@ -1379,6 +1384,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               auto detail = it->second.get<std::string>("detail", "");
               auto documentation = it->second.get<std::string>("documentation", "");
               auto insert = it->second.get<std::string>("insertText", "");
+              if(insert.empty())
+                insert = it->second.get<std::string>("textEdit.newText", "");
               if(!insert.empty()) {
                 // In case ( is missing in insert but is present in label
                 if(label.size() > insert.size() && label.back() == ')' && insert.find('(') == std::string::npos) {

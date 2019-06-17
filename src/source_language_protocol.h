@@ -18,15 +18,27 @@ namespace LanguageProtocol {
   class Offset {
   public:
     Offset(const boost::property_tree::ptree &pt);
-    int line;
-    int character;
+    int line, character;
+
+    bool operator<(const Offset &rhs) const {
+      return line < rhs.line || (line == rhs.line && character < rhs.character);
+    }
+    bool operator==(const Offset &rhs) const {
+      return line == rhs.line && character == rhs.character;
+    }
   };
 
   class Range {
   public:
     Range(const boost::property_tree::ptree &pt);
-    Range() = default;
     Offset start, end;
+
+    bool operator<(const Range &rhs) const {
+      return start < rhs.start || (start == rhs.start && end < rhs.end);
+    }
+    bool operator==(const Range &rhs) const {
+      return start == rhs.start && end == rhs.end;
+    }
   };
 
   class Location {
@@ -34,6 +46,13 @@ namespace LanguageProtocol {
     Location(const boost::property_tree::ptree &pt, std::string file_ = {});
     std::string file;
     Range range;
+
+    bool operator<(const Location &rhs) const {
+      return file < rhs.file || (file == rhs.file && range < rhs.range);
+    }
+    bool operator==(const Location &rhs) const {
+      return file == rhs.file && range == rhs.range;
+    }
   };
 
   class Diagnostic {
