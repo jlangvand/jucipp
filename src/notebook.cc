@@ -174,7 +174,30 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   view->update_status_location = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
       auto iter = view->get_buffer()->get_insert()->get_iter();
-      status_location.set_text(" " + std::to_string(iter.get_line() + 1) + ":" + std::to_string(iter.get_line_offset() + 1));
+      auto status_location_text = ' ' + std::to_string(iter.get_line() + 1) + ':' + std::to_string(iter.get_line_offset() + 1);
+
+      if(view->get_buffer()->get_has_selection()) {
+        Gtk::TextIter start, end;
+        view->get_buffer()->get_selection_bounds(start, end);
+        if(start > end)
+          std::swap(start, end);
+        int lines = end.get_line() - start.get_line() + (end.starts_line() ? 0 : 1); // Do not count lines where the end iter is at start of line
+        int words = 0;
+        bool in_word = false;
+        auto iter = start;
+        do {
+          if(*iter <= ' ')
+            in_word = false;
+          else if(!in_word) {
+            ++words;
+            in_word = true;
+          }
+        } while(iter.forward_char() && iter < end);
+        int chars = end.get_offset() - start.get_offset();
+        status_location_text += " (" + std::to_string(lines) + ':' + std::to_string(words) + ':' + std::to_string(chars) + ')';
+      }
+
+      status_location.set_text(status_location_text);
     }
   };
   view->update_status_file_path = [this](Source::BaseView *view) {
