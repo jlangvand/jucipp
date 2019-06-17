@@ -949,10 +949,11 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
       auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
 
       if(start == end) {
-        if(!end.is_end())
+        if(!end.ends_line())
           end.forward_char();
         else
-          start.backward_char();
+          while(start.ends_line() && start.backward_char()) { // Move start so that diagnostic underline is visible
+          }
       }
 
       bool error = false;
