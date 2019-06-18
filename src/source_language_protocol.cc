@@ -133,6 +133,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
         capabilities.document_formatting = capabilities_pt->second.get<bool>("documentFormattingProvider", false);
         capabilities.document_range_formatting = capabilities_pt->second.get<bool>("documentRangeFormattingProvider", false);
         capabilities.rename = capabilities_pt->second.get<bool>("renameProvider", false);
+        capabilities.type_coverage = capabilities_pt->second.get<bool>("typeCoverageProvider", false);
       }
 
       write_notification("initialized", "");
@@ -353,21 +354,6 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
   get_source_buffer()->set_language(language);
   get_source_buffer()->set_highlight_syntax(true);
 
-  if(language_id == "javascript") {
-    boost::filesystem::path project_path;
-    auto build = Project::Build::create(file_path);
-    if(auto npm_build = dynamic_cast<Project::NpmBuild *>(build.get())) {
-      boost::system::error_code ec;
-      if(!npm_build->project_path.empty() && boost::filesystem::exists(npm_build->project_path / ".flowconfig", ec)) {
-        auto executable = npm_build->project_path / "node_modules" / ".bin" / "flow"; // It is recommended to use Flow binary installed in project, despite the security risk of doing so...
-        if(boost::filesystem::exists(executable, ec))
-          flow_coverage_executable = executable;
-        else
-          flow_coverage_executable = filesystem::find_executable("flow");
-      }
-    }
-  }
-
   initialize(true);
 
   get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
@@ -412,9 +398,6 @@ void Source::LanguageProtocolView::initialize(bool setup) {
     update_status_state(this);
 
   initialize_thread = std::thread([this, setup] {
-    if(!flow_coverage_executable.empty())
-      update_flow_coverage();
-
     auto capabilities = client->initialize(this);
 
     dispatcher.post([this, capabilities, setup] {
@@ -435,6 +418,8 @@ void Source::LanguageProtocolView::initialize(bool setup) {
         if(update_status_state)
           update_status_state(this);
       }
+
+      update_type_coverage();
     });
   });
 }
@@ -444,9 +429,6 @@ void Source::LanguageProtocolView::close() {
 
   if(initialize_thread.joinable())
     initialize_thread.join();
-
-  if(flow_coverage_thread.joinable())
-    flow_coverage_thread.join();
 
   autocomplete.state = Autocomplete::State::IDLE;
   if(autocomplete.thread.joinable())
@@ -473,19 +455,7 @@ bool Source::LanguageProtocolView::save() {
   if(!Source::View::save())
     return false;
 
-  if(!flow_coverage_executable.empty()) {
-    if(flow_coverage_thread.joinable())
-      flow_coverage_thread.join();
-    flow_coverage_cleared_diagnostic_tooltips = false;
-    for(auto &mark : flow_coverage_marks) {
-      get_buffer()->delete_mark(mark.first);
-      get_buffer()->delete_mark(mark.second);
-    }
-    flow_coverage_marks.clear();
-    flow_coverage_thread = std::thread([this] {
-      update_flow_coverage();
-    });
-  }
+  update_type_coverage();
 
   return true;
 }
@@ -942,11 +912,11 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
   dispatcher.post([this, diagnostics = std::move(diagnostics)]() {
     diagnostic_offsets.clear();
     diagnostic_tooltips.clear();
-    if(flow_coverage_executable.empty())
+    if(!capabilities.type_coverage)
       get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
     get_buffer()->remove_tag_by_name("def:error_underline", get_buffer()->begin(), get_buffer()->end());
-    flow_coverage_cleared_diagnostic_tooltips = true;
-    num_warnings = 0;
+    if(!capabilities.type_coverage)
+      num_warnings = 0;
     num_errors = 0;
     num_fix_its = 0;
     for(auto &diagnostic : diagnostics) {
@@ -993,12 +963,12 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
       });
     }
 
-    for(auto &mark : flow_coverage_marks)
+    for(auto &mark : type_coverage_marks)
       add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
         buffer->insert_at_cursor(flow_coverage_message);
       });
 
-    status_diagnostics = std::make_tuple(num_warnings + num_flow_coverage_warnings, num_errors, num_fix_its);
+    status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
     if(update_status_diagnostics)
       update_status_diagnostics(this);
   });
@@ -1510,45 +1480,44 @@ bool Source::LanguageProtocolView::has_named_parameters() {
   return false;
 }
 
-void Source::LanguageProtocolView::update_flow_coverage() {
-  std::stringstream stdin_stream, stderr_stream;
-  auto stdout_stream = std::make_shared<std::stringstream>();
-  auto exit_status = Terminal::get().process(stdin_stream, *stdout_stream, flow_coverage_executable.string() + " coverage --json " + filesystem::escape_argument(file_path.string()), "", &stderr_stream);
-
-  dispatcher.post([this, exit_status, stdout_stream] {
-    if(!flow_coverage_cleared_diagnostic_tooltips) {
-      diagnostic_offsets.clear();
-      diagnostic_tooltips.clear();
-      flow_coverage_cleared_diagnostic_tooltips = true;
-    }
-    get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
-
-    num_flow_coverage_warnings = 0;
-
-    if(exit_status == 0) {
-      boost::property_tree::ptree pt;
-      try {
-        boost::property_tree::read_json(*stdout_stream, pt);
-        auto uncovered_locs_pt = pt.get_child("expressions.uncovered_locs");
-        for(auto it = uncovered_locs_pt.begin(); it != uncovered_locs_pt.end(); ++it) {
-          auto start_pt = it->second.get_child("start");
-          auto start = get_iter_at_line_offset(start_pt.get<int>("line") - 1, start_pt.get<int>("column") - 1);
-          auto end_pt = it->second.get_child("end");
-          auto end = get_iter_at_line_offset(end_pt.get<int>("line") - 1, end_pt.get<int>("column"));
-
-          add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-            buffer->insert_at_cursor(flow_coverage_message);
-          });
-          ++num_flow_coverage_warnings;
-
-          flow_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
+void Source::LanguageProtocolView::update_type_coverage() {
+  if(capabilities.type_coverage) {
+    client->write_request(this, "textDocument/typeCoverage", R"("textDocument": {"uri":")" + uri + "\"}", [this](const boost::property_tree::ptree &result, bool error) {
+      if(!error) {
+        std::vector<LanguageProtocol::Range> ranges;
+        auto uncoveredRanges = result.get_child("uncoveredRanges", boost::property_tree::ptree());
+        for(auto it = uncoveredRanges.begin(); it != uncoveredRanges.end(); ++it) {
+          try {
+            ranges.emplace_back(it->second.get_child("range"));
+          }
+          catch(...) {
+          }
         }
+
+        dispatcher.post([this, ranges = std::move(ranges)] {
+          num_warnings = 0;
+          for(auto &mark : type_coverage_marks) {
+            get_buffer()->delete_mark(mark.first);
+            get_buffer()->delete_mark(mark.second);
+          }
+          type_coverage_marks.clear();
+          get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
+          for(auto &range : ranges) {
+            auto start = get_iter_at_line_offset(range.start.line, range.start.character);
+            auto end = get_iter_at_line_offset(range.end.line, range.end.character);
+            add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+              buffer->insert_at_cursor(flow_coverage_message);
+            });
+            type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
+
+            ++num_warnings;
+          }
+
+          status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
+          if(update_status_diagnostics)
+            update_status_diagnostics(this);
+        });
       }
-      catch(...) {
-      }
-    }
-    status_diagnostics = std::make_tuple(num_warnings + num_flow_coverage_warnings, num_errors, num_fix_its);
-    if(update_status_diagnostics)
-      update_status_diagnostics(this);
-  });
+    });
+  }
 }

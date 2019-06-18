@@ -95,6 +95,7 @@ namespace LanguageProtocol {
     bool document_formatting;
     bool document_range_formatting;
     bool rename;
+    bool type_coverage;
   };
 
   class Client {
@@ -190,11 +191,8 @@ namespace Source {
 
     bool has_named_parameters();
 
-    boost::filesystem::path flow_coverage_executable;
-    std::thread flow_coverage_thread;
-    bool flow_coverage_cleared_diagnostic_tooltips = false;
-    std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> flow_coverage_marks;
-    size_t num_warnings = 0, num_errors = 0, num_fix_its = 0, num_flow_coverage_warnings = 0;
-    void update_flow_coverage();
+    std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> type_coverage_marks;
+    size_t num_warnings = 0, num_errors = 0, num_fix_its = 0;
+    void update_type_coverage();
   };
 } // namespace Source
