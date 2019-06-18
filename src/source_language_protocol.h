@@ -83,19 +83,19 @@ namespace LanguageProtocol {
     enum class TextDocumentSync { NONE = 0,
                                   FULL,
                                   INCREMENTAL };
-    TextDocumentSync text_document_sync;
-    bool hover;
-    bool completion;
-    bool signature_help;
-    bool definition;
-    bool references;
-    bool document_highlight;
-    bool workspace_symbol;
-    bool document_symbol;
-    bool document_formatting;
-    bool document_range_formatting;
-    bool rename;
-    bool type_coverage;
+    TextDocumentSync text_document_sync = TextDocumentSync::NONE;
+    bool hover = false;
+    bool completion = false;
+    bool signature_help = false;
+    bool definition = false;
+    bool references = false;
+    bool document_highlight = false;
+    bool workspace_symbol = false;
+    bool document_symbol = false;
+    bool document_formatting = false;
+    bool document_range_formatting = false;
+    bool rename = false;
+    bool type_coverage = false;
   };
 
   class Client {

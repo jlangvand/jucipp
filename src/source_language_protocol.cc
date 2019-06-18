@@ -15,7 +15,7 @@
 #include <regex>
 #include <unordered_map>
 
-const std::string flow_coverage_message = "Not covered by Flow";
+const std::string type_coverage_message = "Un-type checked code. Consider adding type annotations.";
 
 LanguageProtocol::Offset::Offset(const boost::property_tree::ptree &pt) : line(pt.get<int>("line")), character(pt.get<int>("character")) {}
 
@@ -397,11 +397,13 @@ void Source::LanguageProtocolView::initialize(bool setup) {
   if(update_status_state)
     update_status_state(this);
 
+  set_sensitive(false);
   initialize_thread = std::thread([this, setup] {
     auto capabilities = client->initialize(this);
 
     dispatcher.post([this, capabilities, setup] {
       this->capabilities = capabilities;
+      set_sensitive(true);
 
       std::string text = get_buffer()->get_text();
       escape_text(text);
@@ -965,7 +967,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
 
     for(auto &mark : type_coverage_marks)
       add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-        buffer->insert_at_cursor(flow_coverage_message);
+        buffer->insert_at_cursor(type_coverage_message);
       });
 
     status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
@@ -1506,7 +1508,7 @@ void Source::LanguageProtocolView::update_type_coverage() {
             auto start = get_iter_at_line_offset(range.start.line, range.start.character);
             auto end = get_iter_at_line_offset(range.end.line, range.end.character);
             add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-              buffer->insert_at_cursor(flow_coverage_message);
+              buffer->insert_at_cursor(type_coverage_message);
             });
             type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
 
