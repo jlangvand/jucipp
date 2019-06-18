@@ -144,7 +144,7 @@ namespace Source {
   class LanguageProtocolView : public View {
   public:
     LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_);
-    void initialize(bool setup);
+    void initialize();
     void close();
     ~LanguageProtocolView() override;
 
@@ -163,6 +163,8 @@ namespace Source {
     void apply_clickable_tag(const Gtk::TextIter &iter) override;
 
   private:
+    bool initialized = false;
+
     std::string language_id;
     LanguageProtocol::Capabilities capabilities;
 
@@ -191,8 +193,10 @@ namespace Source {
 
     bool has_named_parameters();
 
+    sigc::connection update_type_coverage_connection;
     std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> type_coverage_marks;
     size_t num_warnings = 0, num_errors = 0, num_fix_its = 0;
     void update_type_coverage();
+    std::atomic<int> update_type_coverage_retries = {60};
   };
 } // namespace Source

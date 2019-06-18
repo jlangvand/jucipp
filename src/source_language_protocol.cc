@@ -354,7 +354,7 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
   get_source_buffer()->set_language(language);
   get_source_buffer()->set_highlight_syntax(true);
 
-  initialize(true);
+  initialize();
 
   get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
     std::string content_changes;
@@ -388,7 +388,7 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
   }, false);
 }
 
-void Source::LanguageProtocolView::initialize(bool setup) {
+void Source::LanguageProtocolView::initialize() {
   status_diagnostics = std::make_tuple(0, 0, 0);
   if(update_status_diagnostics)
     update_status_diagnostics(this);
@@ -398,10 +398,10 @@ void Source::LanguageProtocolView::initialize(bool setup) {
     update_status_state(this);
 
   set_editable(false);
-  initialize_thread = std::thread([this, setup] {
+  initialize_thread = std::thread([this] {
     auto capabilities = client->initialize(this);
 
-    dispatcher.post([this, capabilities, setup] {
+    dispatcher.post([this, capabilities] {
       this->capabilities = capabilities;
       set_editable(true);
 
@@ -409,7 +409,7 @@ void Source::LanguageProtocolView::initialize(bool setup) {
       escape_text(text);
       client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
 
-      if(setup) {
+      if(!initialized) {
         setup_autocomplete();
         setup_navigation_and_refactoring();
         Menu::get().toggle_menu_items();
@@ -422,12 +422,15 @@ void Source::LanguageProtocolView::initialize(bool setup) {
       }
 
       update_type_coverage();
+
+      initialized = true;
     });
   });
 }
 
 void Source::LanguageProtocolView::close() {
   autocomplete_delayed_show_arguments_connection.disconnect();
+  update_type_coverage_connection.disconnect();
 
   if(initialize_thread.joinable())
     initialize_thread.join();
@@ -446,11 +449,13 @@ Source::LanguageProtocolView::~LanguageProtocolView() {
 }
 
 void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
+  // Reset view
   close();
+  dispatcher.reset();
   Source::DiffView::rename(path);
   uri = filesystem::get_uri_from_path(path);
   client = LanguageProtocol::Client::get(file_path, language_id);
-  initialize(false);
+  initialize();
 }
 
 bool Source::LanguageProtocolView::save() {
@@ -1485,41 +1490,54 @@ bool Source::LanguageProtocolView::has_named_parameters() {
 void Source::LanguageProtocolView::update_type_coverage() {
   if(capabilities.type_coverage) {
     client->write_request(this, "textDocument/typeCoverage", R"("textDocument": {"uri":")" + uri + "\"}", [this](const boost::property_tree::ptree &result, bool error) {
-      if(!error) {
-        std::vector<LanguageProtocol::Range> ranges;
-        auto uncoveredRanges = result.get_child("uncoveredRanges", boost::property_tree::ptree());
-        for(auto it = uncoveredRanges.begin(); it != uncoveredRanges.end(); ++it) {
-          try {
-            ranges.emplace_back(it->second.get_child("range"));
-          }
-          catch(...) {
-          }
+      if(error) {
+        if(update_type_coverage_retries > 0) { // Retry typeCoverage request, since these requests can fail while waiting for language server to start
+          dispatcher.post([this] {
+            update_type_coverage_connection.disconnect();
+            update_type_coverage_connection = Glib::signal_timeout().connect([this]() {
+              --update_type_coverage_retries;
+              update_type_coverage();
+              return false;
+            }, 1000);
+          });
+        }
+        return;
+      }
+      update_type_coverage_retries = 0;
+
+      std::vector<LanguageProtocol::Range> ranges;
+      auto uncoveredRanges = result.get_child("uncoveredRanges", boost::property_tree::ptree());
+      for(auto it = uncoveredRanges.begin(); it != uncoveredRanges.end(); ++it) {
+        try {
+          ranges.emplace_back(it->second.get_child("range"));
+        }
+        catch(...) {
+        }
+      }
+
+      dispatcher.post([this, ranges = std::move(ranges)] {
+        num_warnings = 0;
+        for(auto &mark : type_coverage_marks) {
+          get_buffer()->delete_mark(mark.first);
+          get_buffer()->delete_mark(mark.second);
+        }
+        type_coverage_marks.clear();
+        get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
+        for(auto &range : ranges) {
+          auto start = get_iter_at_line_offset(range.start.line, range.start.character);
+          auto end = get_iter_at_line_offset(range.end.line, range.end.character);
+          add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+            buffer->insert_at_cursor(type_coverage_message);
+          });
+          type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
+
+          ++num_warnings;
         }
 
-        dispatcher.post([this, ranges = std::move(ranges)] {
-          num_warnings = 0;
-          for(auto &mark : type_coverage_marks) {
-            get_buffer()->delete_mark(mark.first);
-            get_buffer()->delete_mark(mark.second);
-          }
-          type_coverage_marks.clear();
-          get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
-          for(auto &range : ranges) {
-            auto start = get_iter_at_line_offset(range.start.line, range.start.character);
-            auto end = get_iter_at_line_offset(range.end.line, range.end.character);
-            add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-              buffer->insert_at_cursor(type_coverage_message);
-            });
-            type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
-
-            ++num_warnings;
-          }
-
-          status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
-          if(update_status_diagnostics)
-            update_status_diagnostics(this);
-        });
-      }
+        status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
+        if(update_status_diagnostics)
+          update_status_diagnostics(this);
+      });
     });
   }
 }

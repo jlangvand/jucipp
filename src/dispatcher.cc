@@ -2,6 +2,10 @@
 #include <vector>
 
 Dispatcher::Dispatcher() {
+  connect();
+}
+
+void Dispatcher::connect() {
   connection = dispatcher.connect([this] {
     std::vector<std::list<std::function<void()>>::iterator> its;
     {
@@ -28,4 +32,11 @@ Dispatcher::~Dispatcher() {
 
 void Dispatcher::disconnect() {
   connection.disconnect();
+}
+
+void Dispatcher::reset() {
+  std::lock_guard<std::mutex> lock(functions_mutex);
+  disconnect();
+  functions.clear();
+  connect();
 }
