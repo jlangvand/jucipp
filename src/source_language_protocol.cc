@@ -1414,14 +1414,21 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 }
               }
               if(!label.empty()) {
-                autocomplete.rows.emplace_back(std::move(label));
-                autocomplete_comment.emplace_back(std::move(detail));
-                if(!documentation.empty() && documentation != autocomplete_comment.back()) {
-                  if(!autocomplete_comment.back().empty())
-                    autocomplete_comment.back() += "\n\n";
-                  autocomplete_comment.back() += documentation;
+                std::string prefix;
+                {
+                  std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+                  prefix = autocomplete.prefix;
                 }
-                autocomplete_insert.emplace_back(std::move(insert));
+                if(prefix.compare(0, prefix.size(), label, 0, prefix.size()) == 0) {
+                  autocomplete.rows.emplace_back(std::move(label));
+                  autocomplete_comment.emplace_back(std::move(detail));
+                  if(!documentation.empty() && documentation != autocomplete_comment.back()) {
+                    if(!autocomplete_comment.back().empty())
+                      autocomplete_comment.back() += "\n\n";
+                    autocomplete_comment.back() += documentation;
+                  }
+                  autocomplete_insert.emplace_back(std::move(insert));
+                }
               }
             }
 
