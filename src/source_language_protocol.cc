@@ -397,13 +397,13 @@ void Source::LanguageProtocolView::initialize(bool setup) {
   if(update_status_state)
     update_status_state(this);
 
-  set_sensitive(false);
+  set_editable(false);
   initialize_thread = std::thread([this, setup] {
     auto capabilities = client->initialize(this);
 
     dispatcher.post([this, capabilities, setup] {
       this->capabilities = capabilities;
-      set_sensitive(true);
+      set_editable(true);
 
       std::string text = get_buffer()->get_text();
       escape_text(text);
