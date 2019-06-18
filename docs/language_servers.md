@@ -21,15 +21,12 @@ chmod 755 /usr/local/bin/javascript-language-server
 
 ## Python3
 * Prerequisites:
-    * In juCi++ preferences, set `project.python_command` to `PYTHONUNBUFFERED=1 python3`
     * Python3
-        * MacOS: Jedi does not yet support Python 3.7, but you can install latest 3.6 version:
-            
-            `brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/f2a764ef944b1080be64bd88dca9a1d80130c558/Formula/python.rb`
+    * In juCi++ preferences, set `project.python_command` to `PYTHONUNBUFFERED=1 python3`
 
 Install language server, and create symbolic link to enable server in juCi++:
 ```sh
-pip3 install python-language-server[rope,pycodestyle,yapf] pyls-mypy
+pip3 install python-language-server[rope,pycodestyle,yapf]
 
 ln -s `which pyls` /usr/local/bin/python-language-server
 ```
