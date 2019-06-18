@@ -8,10 +8,10 @@
 
 Install language server, and create executable to enable server in juCi++:
 ```sh
-npm install -g flow-bin flow-language-server
+npm install -g flow-bin
 
 echo '#!/bin/bash
-flow-language-server --stdio' > /usr/local/bin/javascript-language-server
+flow lsp' > /usr/local/bin/javascript-language-server
 
 chmod 755 /usr/local/bin/javascript-language-server
 ```
