@@ -398,8 +398,19 @@ bool Source::SpellCheckView::is_spellcheck_iter(const Gtk::TextIter &iter) {
           ++backslash_count;
         if(backslash_count % 2 == 0) {
           auto start_iter = iter;
-          if(start_iter.backward_to_tag_toggle(string_tag) && start_iter.begins_tag(string_tag) && *previous_iter == *start_iter)
-            return false;
+          if(start_iter.backward_to_tag_toggle(string_tag) && start_iter.begins_tag(string_tag)) {
+            // Move passed string literal symbols
+            if(*start_iter == 'L' || *start_iter == 'U' || *start_iter == 'R')
+              start_iter.forward_char();
+            else if(*start_iter == 'u') {
+              start_iter.forward_char();
+              if(*start_iter == '8')
+                start_iter.forward_char();
+            }
+
+            if(*previous_iter == *start_iter)
+              return false;
+          }
         }
       }
       return true;
