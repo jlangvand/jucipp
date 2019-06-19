@@ -27,12 +27,15 @@ namespace Source {
   class Offset {
   public:
     Offset() = default;
-    Offset(unsigned line, unsigned index, boost::filesystem::path file_path_ = "") : line(line), index(index), file_path(std::move(file_path_)) {}
-    operator bool() { return !file_path.empty(); }
-    bool operator==(const Offset &o) { return (line == o.line && index == o.index); }
+    Offset(unsigned line, unsigned index, boost::filesystem::path file_path_ = {}) : line(line), index(index), file_path(std::move(file_path_)) {}
+    operator bool() const { return !file_path.empty(); }
+    bool operator<(const Offset &rhs) const {
+      return file_path < rhs.file_path || (file_path == rhs.file_path && (line < rhs.line || (line == rhs.line && index < rhs.index)));
+    }
+    bool operator==(const Offset &rhs) const { return (file_path == rhs.file_path && line == rhs.line && index == rhs.index); }
 
-    unsigned line;
-    unsigned index;
+    unsigned line = 0;
+    unsigned index = 0;
     boost::filesystem::path file_path;
   };
 

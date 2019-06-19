@@ -881,6 +881,9 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       });
       result_processed.get_future().get();
 
+      std::sort(methods.begin(), methods.end(), [](const std::pair<Offset, std::string> &a, const std::pair<Offset, std::string> &b) {
+        return a.first < b.first;
+      });
       return methods;
     };
   }
