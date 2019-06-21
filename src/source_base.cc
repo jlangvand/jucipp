@@ -2,6 +2,7 @@
 #include "config.h"
 #include "git.h"
 #include "info.h"
+#include "selection_dialog.h"
 #include "terminal.h"
 #include "utility.h"
 #include <fstream>
@@ -678,6 +679,9 @@ void Source::BaseView::cleanup_whitespace_characters(const Gtk::TextIter &iter) 
 }
 
 void Source::BaseView::paste() {
+  if(CompletionDialog::get())
+    CompletionDialog::get()->hide();
+
   enable_multiple_cursors = true;
   ScopeGuard guard{[this] {
     enable_multiple_cursors = false;

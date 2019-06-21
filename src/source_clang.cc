@@ -375,49 +375,139 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
     for(size_t c = clang_tokens->size() - 1; c != static_cast<size_t>(-1); --c) {
       auto &token = (*clang_tokens)[c];
       auto &token_offsets = clang_tokens_offsets[c];
-      if(token.is_identifier() || token.get_spelling() == "auto") {
+      auto token_spelling = token.get_spelling();
+      if(token.is_identifier() || token_spelling == "auto" || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
         if(line == token_offsets.first.line - 1 && index >= token_offsets.first.index - 1 && index <= token_offsets.second.index - 1) {
           auto cursor = token.get_cursor();
           auto referenced = cursor.get_referenced();
-          if(referenced) {
+          if(referenced || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
             auto start = get_buffer()->get_iter_at_line_index(token_offsets.first.line - 1, token_offsets.first.index - 1);
             auto end = get_buffer()->get_iter_at_line_index(token_offsets.second.line - 1, token_offsets.second.index - 1);
 
-            type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token, start, end](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-              buffer->insert(buffer->get_insert()->get_iter(), "Type: " + token.get_cursor().get_type_description());
-              auto brief_comment = token.get_cursor().get_brief_comments();
-              if(brief_comment != "")
-                insert_with_links_tagged(buffer, "\n\n" + brief_comment);
+            type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+              auto cursor = token.get_cursor();
+              if(cursor.is_valid_kind()) {
+                buffer->insert(buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
+                auto brief_comment = cursor.get_brief_comments();
+                if(brief_comment != "")
+                  insert_with_links_tagged(buffer, "\n\n" + brief_comment);
+              }
 
 #ifdef JUCI_ENABLE_DEBUG
               if(Debug::LLDB::get().is_stopped()) {
-                auto referenced = token.get_cursor().get_referenced();
-                auto location = referenced.get_source_location();
                 Glib::ustring value_type = "Value";
-
-                auto iter = start;
-                auto corrected_start = start;
-                while((*iter >= 'a' && *iter <= 'z') || (*iter >= 'A' && *iter <= 'Z') || (*iter >= '0' && *iter <= '9') || *iter == '_' || *iter == '.') {
-                  corrected_start = iter;
-                  if(!iter.backward_char())
-                    break;
-                  if(*iter == '>') {
-                    if(!(iter.backward_char() && *iter == '-' && iter.backward_char()))
-                      break;
-                  }
-                  else if(*iter == ':') {
-                    if(!(iter.backward_char() && *iter == ':' && iter.backward_char()))
-                      break;
-                  }
-                }
-                auto spelling = get_buffer()->get_text(corrected_start, end).raw();
-
                 Glib::ustring debug_value;
-                auto cursor_kind = referenced.get_kind();
-                if(cursor_kind != clangmm::Cursor::Kind::FunctionDecl && cursor_kind != clangmm::Cursor::Kind::CXXMethod &&
-                   cursor_kind != clangmm::Cursor::Kind::Constructor && cursor_kind != clangmm::Cursor::Kind::Destructor &&
-                   cursor_kind != clangmm::Cursor::Kind::FunctionTemplate && cursor_kind != clangmm::Cursor::Kind::ConversionFunction) {
-                  debug_value = Debug::LLDB::get().get_value(spelling, location.get_path(), location.get_offset().line, location.get_offset().index);
+                auto referenced = cursor.get_referenced();
+                auto kind = clangmm::Cursor::Kind::UnexposedDecl;
+                if(referenced) {
+                  kind = referenced.get_kind();
+                  auto location = referenced.get_source_location();
+                  debug_value = Debug::LLDB::get().get_value(token.get_spelling(), location.get_path(), location.get_offset().line, location.get_offset().index);
+                }
+                if(debug_value.empty()) {
+                  // Attempt to get value from expression (for instance: (*a).b.c, or: (*d)[1 + 1])
+                  auto is_safe = [](const clangmm::Cursor &cursor) {
+                    auto referenced = cursor.get_referenced();
+                    if(referenced) {
+                      auto kind = referenced.get_kind();
+                      // operator[] is passed even without being const for convenience purposes
+                      if(!clang_CXXMethod_isConst(referenced.cx_cursor) && referenced.get_spelling() != "operator[]" &&
+                         (kind == clangmm::Cursor::Kind::CXXMethod || kind == clangmm::Cursor::Kind::FunctionDecl ||
+                          kind == clangmm::Cursor::Kind::Constructor || kind == clangmm::Cursor::Kind::Destructor ||
+                          kind == clangmm::Cursor::Kind::FunctionTemplate || kind == clangmm::Cursor::Kind::ConversionFunction)) {
+                        return false;
+                      }
+                    }
+                    return true;
+                  };
+
+                  // Do not call state altering expressions:
+                  if(is_safe(cursor)) {
+                    auto offsets = cursor.get_source_range().get_offsets();
+                    auto start = get_buffer()->get_iter_at_line_index(offsets.first.line - 1, offsets.first.index - 1);
+                    auto end = get_buffer()->get_iter_at_line_index(offsets.second.line - 1, offsets.second.index - 1);
+
+                    std::string expression;
+                    // Get full expression from cursor parent:
+                    if(*start == '[' || (kind == clangmm::Cursor::Kind::CXXMethod && (*start == '<' || *start == '>' || *start == '=' || *start == '!' ||
+                                                                                      *start == '+' || *start == '-' || *start == '*' || *start == '/' ||
+                                                                                      *start == '%' || *start == '&' || *start == '|' || *start == '^' ||
+                                                                                      *end == '('))) {
+                      struct VisitorData {
+                        std::pair<clangmm::Offset, clangmm::Offset> cursor_offsets;
+                        clangmm::Cursor parent;
+                      };
+                      VisitorData visitor_data{cursor.get_source_range().get_offsets(), {}};
+                      auto start_cursor = cursor;
+                      for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit; parent = parent.get_semantic_parent())
+                        start_cursor = parent;
+                      clang_visitChildren(start_cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data_) {
+                        auto data = static_cast<VisitorData *>(data_);
+                        auto offsets = clangmm::Cursor(cx_cursor).get_source_range().get_offsets();
+                        if(offsets == data->cursor_offsets) {
+                          data->parent = clangmm::Cursor(cx_parent);
+                          return CXChildVisit_Break;
+                        }
+                        return CXChildVisit_Recurse;
+                      }, &visitor_data);
+                      if(visitor_data.parent)
+                        cursor = visitor_data.parent;
+                    }
+
+                    // Check children
+                    std::vector<clangmm::Cursor> children;
+                    clang_visitChildren(cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor /*parent*/, CXClientData data) {
+                      static_cast<std::vector<clangmm::Cursor> *>(data)->emplace_back(cx_cursor);
+                      return CXChildVisit_Continue;
+                    }, &children);
+
+                    // Check if expression can be called without altering state
+                    bool call_expression = true;
+                    for(auto &child : children) {
+                      if(!is_safe(child)) {
+                        call_expression = false;
+                        break;
+                      }
+                    }
+
+                    if(call_expression) {
+                      offsets = cursor.get_source_range().get_offsets();
+                      start = get_iter_at_line_index(offsets.first.line - 1, offsets.first.index - 1);
+                      end = get_iter_at_line_index(offsets.second.line - 1, offsets.second.index - 1);
+
+                      expression = get_buffer()->get_text(start, end).raw();
+
+                      if(!expression.empty()) {
+                        // Check for C-like assignment/increment/decrement (non-const) operators
+                        char last_last_chr = 0;
+                        char last_chr = expression[0];
+                        for(size_t i = 1; i < expression.size(); ++i) {
+                          auto &chr = expression[i];
+                          if((last_chr == '+' && (chr == '+' || chr == '=')) ||
+                             (last_chr == '-' && (chr == '-' || chr == '=')) ||
+                             (last_chr == '*' && chr == '=') ||
+                             (last_chr == '/' && chr == '=') ||
+                             (last_chr == '%' && chr == '=') ||
+                             (last_chr == '&' && chr == '=') ||
+                             (last_chr == '|' && chr == '=') ||
+                             (last_chr == '^' && chr == '=') ||
+                             // <<= >>=
+                             (chr == '=' && ((last_last_chr == '<' && last_chr == '<') || (last_last_chr == '>' && last_chr == '>'))) ||
+                             // Checks for = (not ==. .== !=. <=. >=. <=>)
+                             (last_chr == '=' && last_last_chr != '=' && chr != '=' && last_last_chr != '!' && last_last_chr != '<' && last_last_chr != '>' &&
+                              !(last_last_chr == '<' && chr == '>'))) {
+                            call_expression = false;
+                            break;
+                          }
+                          last_last_chr = last_chr;
+                          last_chr = chr;
+                        }
+
+                        if(call_expression)
+                          debug_value = Debug::LLDB::get().get_value(expression);
+                      }
+                    }
+                  }
                 }
                 if(debug_value.empty()) {
                   value_type = "Return value";
@@ -433,7 +523,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    buffer->insert(buffer->get_insert()->get_iter(), "\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    buffer->insert(buffer->get_insert()->get_iter(), (buffer->size() > 0 ? "\n\n" : "") + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
                   }
                 }
               }

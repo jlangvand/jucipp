@@ -1065,9 +1065,10 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                 }
                 while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
                 }
+                auto variable = get_buffer()->get_text(start, end);
 
                 auto offset = get_declaration(start);
-                Glib::ustring debug_value = Debug::LLDB::get().get_value(get_buffer()->get_text(start, end), offset.file_path, offset.line + 1, offset.index + 1);
+                Glib::ustring debug_value = Debug::LLDB::get().get_value(variable, offset.file_path, offset.line + 1, offset.index + 1);
                 if(debug_value.empty()) {
                   value_type = "Return value";
                   debug_value = Debug::LLDB::get().get_return_value(file_path, start.get_line() + 1, start.get_line_index() + 1);

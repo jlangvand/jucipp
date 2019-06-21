@@ -414,7 +414,6 @@ void Debug::LLDB::cancel() {
 }
 
 std::string Debug::LLDB::get_value(const std::string &variable, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index) {
-  std::string variable_value;
   std::lock_guard<std::mutex> lock(mutex);
   if(state == lldb::StateType::eStateStopped) {
     auto frame = process->GetSelectedThread().GetSelectedFrame();
@@ -435,18 +434,35 @@ std::string Debug::LLDB::get_value(const std::string &variable, const boost::fil
               value_decl_path /= file_spec.GetFilename();
               if(value_decl_path == file_path) {
                 value.GetDescription(stream);
-                variable_value = stream.GetData();
-                break;
+                return stream.GetData();
               }
             }
           }
         }
       }
     }
+  }
+  return {};
+}
+
+std::string Debug::LLDB::get_value(const std::string &expression) {
+  std::string variable_value;
+  std::lock_guard<std::mutex> lock(mutex);
+  if(state == lldb::StateType::eStateStopped) {
+    auto frame = process->GetSelectedThread().GetSelectedFrame();
     if(variable_value.empty()) {
-      //In case a variable is missing file and line number, only do check on name
-      auto value = frame.GetValueForVariablePath(variable.c_str());
+      // Attempt to get variable from variable expression, using the faster GetValueForVariablePath
+      auto value = frame.GetValueForVariablePath(expression.c_str());
       if(value.IsValid()) {
+        lldb::SBStream stream;
+        value.GetDescription(stream);
+        variable_value = stream.GetData();
+      }
+    }
+    if(variable_value.empty()) {
+      // Attempt to get variable from variable expression, using the slower EvaluateExpression
+      auto value = frame.EvaluateExpression(expression.c_str());
+      if(value.IsValid() && !value.GetError().Fail()) {
         lldb::SBStream stream;
         value.GetDescription(stream);
         variable_value = stream.GetData();

@@ -180,6 +180,9 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     });
   }
 
+  if(text_buffer->size() == 0)
+    return; // Do not show empty tooltips
+
   int root_x = 0, root_y = 0;
   if(text_view) {
     //Adjust if tooltip is left of text_view

@@ -63,7 +63,10 @@ namespace Debug {
 
     void cancel();
 
-    std::string get_value(const std::string &variable, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);
+    /// Get value using variable name and location
+    std::string get_value(const std::string &variable_name, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);
+    /// Get value from expression
+    std::string get_value(const std::string &expression);
     std::string get_return_value(const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);
 
     bool is_invalid();
