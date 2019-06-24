@@ -434,7 +434,10 @@ std::string Debug::LLDB::get_value(const std::string &variable, const boost::fil
               value_decl_path /= file_spec.GetFilename();
               if(value_decl_path == file_path) {
                 value.GetDescription(stream);
-                return stream.GetData();
+                std::string variable_value = stream.GetData();
+                if(variable_value.size() >= 2 && variable_value.compare(variable_value.size() - 2, 2, "\n\n", 2) == 0)
+                  variable_value.pop_back(); // Remove newline at end of string
+                return variable_value;
               }
             }
           }
