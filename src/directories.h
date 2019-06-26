@@ -4,7 +4,6 @@
 #include "git.h"
 #include <atomic>
 #include <gtkmm.h>
-#include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>

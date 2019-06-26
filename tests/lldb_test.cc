@@ -85,7 +85,7 @@ int main() {
     exited = true;
   });
   Debug::LLDB::get().on_event.emplace_back([&](const lldb::SBEvent &event) {
-    std::unique_lock<std::mutex> lock(Debug::LLDB::get().mutex);
+    LockGuard lock(Debug::LLDB::get().mutex);
     auto process = lldb::SBProcess::GetProcessFromEvent(event);
     auto state = lldb::SBProcess::GetStateFromEvent(event);
     if(state == lldb::StateType::eStateStopped) {

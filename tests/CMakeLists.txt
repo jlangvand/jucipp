@@ -1,4 +1,8 @@
 add_compile_options(-fno-access-control)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wno-thread-safety)
+endif()
+
 add_definitions(-DJUCI_BUILD_PATH="${CMAKE_BINARY_DIR}" -DJUCI_TESTS_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 include_directories(

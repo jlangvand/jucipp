@@ -937,7 +937,7 @@ void Source::BaseView::search_occurrences_updated(GtkWidget *widget, GParamSpec 
 }
 
 void Source::BaseView::set_snippets() {
-  std::lock_guard<std::mutex> lock(snippets_mutex);
+  LockGuard lock(snippets_mutex);
 
   snippets = nullptr;
 

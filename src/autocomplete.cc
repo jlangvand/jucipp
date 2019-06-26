@@ -94,7 +94,12 @@ void Autocomplete::run() {
           }
           else {
             auto start_iter = view->get_buffer()->get_insert()->get_iter();
-            if(prefix.size() > 0 && !start_iter.backward_chars(prefix.size())) {
+            std::size_t prefix_size;
+            {
+              LockGuard lock(prefix_mutex);
+              prefix_size = prefix.size();
+            }
+            if(prefix_size > 0 && !start_iter.backward_chars(prefix_size)) {
               state = State::IDLE;
               reparse();
               return;

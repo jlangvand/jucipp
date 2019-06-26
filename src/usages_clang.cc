@@ -3,6 +3,7 @@
 #include "config.h"
 #include "dialogs.h"
 #include "filesystem.h"
+#include "utility.h"
 #include <chrono>
 #include <fstream>
 #include <regex>
@@ -22,7 +23,7 @@ pid_t get_current_process_id() {
 
 const boost::filesystem::path Usages::Clang::cache_folder = ".usages_clang";
 std::map<boost::filesystem::path, Usages::Clang::Cache> Usages::Clang::caches;
-std::mutex Usages::Clang::caches_mutex;
+Mutex Usages::Clang::caches_mutex;
 std::atomic<size_t> Usages::Clang::cache_in_progress_count(0);
 
 bool Usages::Clang::Cache::Cursor::operator==(const Cursor &o) {
@@ -170,7 +171,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
   // Use cache
   for(auto it = potential_paths.begin(); it != potential_paths.end();) {
-    std::lock_guard<std::mutex> lock(caches_mutex);
+    LockGuard lock(caches_mutex);
     auto caches_it = caches.find(*it);
 
     // Load cache from file if not found in memory and if cache file exists
@@ -221,20 +222,13 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
         while(true) {
           boost::filesystem::path path;
           {
-            static std::mutex mutex;
-            std::lock_guard<std::mutex> lock(mutex);
+            static Mutex mutex;
+            LockGuard lock(mutex);
             if(it == potential_paths.end())
               return;
             path = *it;
             ++it;
           }
-
-          // {
-          //   static std::mutex mutex;
-          //   std::lock_guard<std::mutex> lock(mutex);
-          //   std::cout << "parsing: " << path << std::endl;
-          // }
-          // auto before_time = std::chrono::system_clock::now();
 
           std::ifstream stream(path.string(), std::ifstream::binary);
           std::string buffer;
@@ -256,8 +250,8 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
           clangmm::TranslationUnit translation_unit(std::make_shared<clangmm::Index>(0, 0), path.string(), arguments, &buffer, flags);
 
           {
-            static std::mutex mutex;
-            std::lock_guard<std::mutex> lock(mutex);
+            static Mutex mutex;
+            LockGuard lock(mutex);
             add_usages(project_path, build_path, path, usages, visited, spelling, cursor, &translation_unit, true);
             add_usages_from_includes(project_path, build_path, usages, visited, spelling, cursor, &translation_unit, true);
           }
@@ -279,22 +273,13 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
 void Usages::Clang::cache(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path,
                           std::time_t before_parse_time, const PathSet &project_paths_in_use, clangmm::TranslationUnit *translation_unit, clangmm::Tokens *tokens) {
-  class ScopeExit {
-  public:
-    std::function<void()> f;
-    ~ScopeExit() {
-      f();
-    }
-  };
-  ScopeExit scope_exit{[] {
-    --cache_in_progress_count;
-  }};
+  ScopeGuard guard{[] { --cache_in_progress_count; }};
 
   if(project_path.empty())
     return;
 
   {
-    std::lock_guard<std::mutex> lock(caches_mutex);
+    LockGuard lock(caches_mutex);
     if(project_paths_in_use.count(project_path)) {
       caches.erase(path);
       caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens));
@@ -329,7 +314,7 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
     if(file_size == static_cast<boost::uintmax_t>(-1) || ec)
       continue;
     auto tokens = translation_unit->get_tokens(path.string(), 0, file_size - 1);
-    std::lock_guard<std::mutex> lock(caches_mutex);
+    LockGuard lock(caches_mutex);
     if(project_paths_in_use.count(project_path)) {
       caches.erase(path);
       caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens.get()));
@@ -340,7 +325,7 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
 }
 
 void Usages::Clang::erase_unused_caches(const PathSet &project_paths_in_use) {
-  std::lock_guard<std::mutex> lock(caches_mutex);
+  LockGuard lock(caches_mutex);
   for(auto it = caches.begin(); it != caches.end();) {
     bool found = false;
     for(auto &project_path : project_paths_in_use) {
@@ -359,7 +344,7 @@ void Usages::Clang::erase_unused_caches(const PathSet &project_paths_in_use) {
 }
 
 void Usages::Clang::erase_cache(const boost::filesystem::path &path) {
-  std::lock_guard<std::mutex> lock(caches_mutex);
+  LockGuard lock(caches_mutex);
 
   auto it = caches.find(path);
   if(it == caches.end())
@@ -377,7 +362,7 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
   if(cache_in_progress_count != 0)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  std::lock_guard<std::mutex> lock(caches_mutex);
+  LockGuard lock(caches_mutex);
   boost::system::error_code ec;
   auto usages_clang_path = build_path / cache_folder;
   if(boost::filesystem::exists(usages_clang_path, ec) && boost::filesystem::is_directory(usages_clang_path, ec)) {
@@ -440,7 +425,7 @@ void Usages::Clang::add_usages(const boost::filesystem::path &project_path, cons
   }
 
   if(store_in_cache && filesystem::file_in_path(path, project_path)) {
-    std::lock_guard<std::mutex> lock(caches_mutex);
+    LockGuard lock(caches_mutex);
     caches.erase(path);
     caches.emplace(path, Cache(project_path, build_path, path, before_parse_time, translation_unit, tokens.get()));
   }

@@ -1,11 +1,11 @@
 #pragma once
 #include "dispatcher.h"
 #include "git.h"
+#include "mutex.h"
 #include "source_base.h"
 #include <atomic>
 #include <boost/filesystem.hpp>
 #include <map>
-#include <mutex>
 #include <set>
 #include <thread>
 
@@ -40,24 +40,25 @@ namespace Source {
     void git_goto_next_diff();
     std::string git_get_diff_details();
 
+    Mutex canonical_file_path_mutex;
     /// Use canonical path to follow symbolic links
-    boost::filesystem::path canonical_file_path;
+    boost::filesystem::path canonical_file_path GUARDED_BY(canonical_file_path_mutex);
 
   private:
-    std::mutex canonical_file_path_mutex;
-
     std::unique_ptr<Renderer> renderer;
     Dispatcher dispatcher;
 
+
+    Mutex parse_mutex;
+
     std::shared_ptr<Git::Repository> repository;
-    std::unique_ptr<Git::Repository::Diff> diff;
+    std::unique_ptr<Git::Repository::Diff> diff GUARDED_BY(parse_mutex);
     std::unique_ptr<Git::Repository::Diff> get_diff();
 
     std::thread parse_thread;
     std::atomic<ParseState> parse_state;
-    std::mutex parse_mutex;
     std::atomic<bool> parse_stop;
-    Glib::ustring parse_buffer;
+    Glib::ustring parse_buffer GUARDED_BY(parse_mutex);
     sigc::connection buffer_insert_connection;
     sigc::connection buffer_erase_connection;
     sigc::connection monitor_changed_connection;
@@ -65,7 +66,7 @@ namespace Source {
     sigc::connection delayed_monitor_changed_connection;
     std::atomic<bool> monitor_changed;
 
-    Git::Repository::Diff::Lines lines;
-    void update_lines();
+    Git::Repository::Diff::Lines lines GUARDED_BY(parse_mutex);
+    void update_lines() REQUIRES(parse_mutex);
   };
 } // namespace Source

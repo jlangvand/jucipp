@@ -9,7 +9,7 @@ void Dispatcher::connect() {
   connection = dispatcher.connect([this] {
     std::vector<std::list<std::function<void()>>::iterator> its;
     {
-      std::lock_guard<std::mutex> lock(functions_mutex);
+      LockGuard lock(functions_mutex);
       if(functions.empty())
         return;
       its.reserve(functions.size());
@@ -19,7 +19,7 @@ void Dispatcher::connect() {
     for(auto &it : its)
       (*it)();
     {
-      std::lock_guard<std::mutex> lock(functions_mutex);
+      LockGuard lock(functions_mutex);
       for(auto &it : its)
         functions.erase(it);
     }
@@ -35,7 +35,7 @@ void Dispatcher::disconnect() {
 }
 
 void Dispatcher::reset() {
-  std::lock_guard<std::mutex> lock(functions_mutex);
+  LockGuard lock(functions_mutex);
   disconnect();
   functions.clear();
   connect();

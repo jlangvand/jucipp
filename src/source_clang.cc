@@ -128,7 +128,10 @@ void Source::ClangViewParse::parse_initialize() {
   clang_tokens_offsets.reserve(clang_tokens->size());
   for(auto &token : *clang_tokens)
     clang_tokens_offsets.emplace_back(token.get_source_range().get_offsets());
-  update_syntax();
+  {
+    LockGuard lock(parse_mutex);
+    update_syntax();
+  }
 
   status_state = "parsing...";
   if(update_status_state)
@@ -140,21 +143,19 @@ void Source::ClangViewParse::parse_initialize() {
       if(parse_state != ParseState::PROCESSING)
         break;
       auto expected = ParseProcessState::STARTING;
-      std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
       if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::PREPROCESSING)) {
         dispatcher.post([this] {
           auto expected = ParseProcessState::PREPROCESSING;
-          std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
-          if(parse_lock.try_lock()) {
+          if(parse_mutex.try_lock()) {
             if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::PROCESSING))
               parse_thread_buffer = get_buffer()->get_text();
-            parse_lock.unlock();
+            parse_mutex.unlock();
           }
           else
             parse_process_state.compare_exchange_strong(expected, ParseProcessState::STARTING);
         });
       }
-      else if(parse_process_state == ParseProcessState::PROCESSING && parse_lock.try_lock()) {
+      else if(parse_process_state == ParseProcessState::PROCESSING && parse_mutex.try_lock()) {
         auto &parse_thread_buffer_raw = const_cast<std::string &>(parse_thread_buffer.raw());
         if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
           clangmm::remove_include_guard(parse_thread_buffer_raw);
@@ -168,10 +169,9 @@ void Source::ClangViewParse::parse_initialize() {
             for(auto &token : *clang_tokens)
               clang_tokens_offsets.emplace_back(token.get_source_range().get_offsets());
             clang_diagnostics = clang_tu->get_diagnostics();
-            parse_lock.unlock();
+            parse_mutex.unlock();
             dispatcher.post([this] {
-              std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
-              if(parse_lock.try_lock()) {
+              if(parse_mutex.try_lock()) {
                 auto expected = ParseProcessState::POSTPROCESSING;
                 if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::IDLE)) {
                   update_syntax();
@@ -181,16 +181,16 @@ void Source::ClangViewParse::parse_initialize() {
                   if(update_status_state)
                     update_status_state(this);
                 }
-                parse_lock.unlock();
+                parse_mutex.unlock();
               }
             });
           }
           else
-            parse_lock.unlock();
+            parse_mutex.unlock();
         }
         else {
           parse_state = ParseState::STOP;
-          parse_lock.unlock();
+          parse_mutex.unlock();
           dispatcher.post([this] {
             Terminal::get().print("Error: failed to reparse " + this->file_path.string() + ".\n", true);
             status_state = "";
@@ -562,7 +562,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.get_parse_lock = [this]() {
-    return std::make_unique<std::lock_guard<std::mutex>>(parse_mutex);
+    return std::make_unique<LockGuard>(parse_mutex);
   };
 
   autocomplete.stop_parse = [this]() {
@@ -640,7 +640,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
-        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+        LockGuard lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
         if(!sm.length(2) && !sm.length(4))
           enable_snippets = true;
@@ -649,7 +649,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     }
     else if(is_possible_argument()) {
       show_parameters = true;
-      std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+      LockGuard lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
     }
@@ -662,7 +662,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         iter.forward_char();
 
       {
-        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+        LockGuard lock(autocomplete.prefix_mutex);
         autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
       }
       auto prev1 = iter;
@@ -712,7 +712,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(autocomplete.state == Autocomplete::State::STARTING) {
       std::string prefix;
       {
-        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+        LockGuard lock(autocomplete.prefix_mutex);
         prefix = autocomplete.prefix;
       }
 
@@ -782,7 +782,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         }
       }
       if(!show_parameters && enable_snippets) {
-        std::lock_guard<std::mutex> lock(snippets_mutex);
+        LockGuard lock(snippets_mutex);
         if(snippets) {
           for(auto &snippet : *snippets) {
             if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {

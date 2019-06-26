@@ -1,8 +1,8 @@
 #pragma once
+#include "mutex.h"
 #include <boost/filesystem.hpp>
 #include <list>
 #include <lldb/API/LLDB.h>
-#include <mutex>
 #include <thread>
 #include <tuple>
 
@@ -45,7 +45,7 @@ namespace Debug {
     /// The handlers are not run in the main loop.
     std::list<std::function<void(const lldb::SBEvent &)>> on_event;
 
-    std::mutex mutex;
+    Mutex mutex;
 
     void start(const std::string &command, const boost::filesystem::path &path = "",
                const std::vector<std::pair<boost::filesystem::path, int>> &breakpoints = {},
@@ -81,12 +81,12 @@ namespace Debug {
   private:
     std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> parse_run_arguments(const std::string &command);
 
-    std::unique_ptr<lldb::SBDebugger> debugger;
-    std::unique_ptr<lldb::SBListener> listener;
-    std::unique_ptr<lldb::SBProcess> process;
+    std::unique_ptr<lldb::SBDebugger> debugger GUARDED_BY(mutex);
+    std::unique_ptr<lldb::SBListener> listener GUARDED_BY(mutex);
+    std::unique_ptr<lldb::SBProcess> process GUARDED_BY(mutex);
     std::thread debug_thread;
 
-    lldb::StateType state;
+    lldb::StateType state GUARDED_BY(mutex);
 
     size_t buffer_size;
   };

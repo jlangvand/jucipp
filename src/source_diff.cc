@@ -80,8 +80,9 @@ void Source::DiffView::configure() {
     if(parse_thread.joinable())
       parse_thread.join();
     repository = nullptr;
-    diff = nullptr;
 
+    LockGuard lock(parse_mutex);
+    diff = nullptr;
     return;
   }
   else
@@ -149,7 +150,7 @@ void Source::DiffView::configure() {
       delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
         monitor_changed = true;
         parse_state = ParseState::STARTING;
-        std::lock_guard<std::mutex> lock(parse_mutex);
+        LockGuard lock(parse_mutex);
         diff = nullptr;
         return false;
       }, 500);
@@ -159,7 +160,10 @@ void Source::DiffView::configure() {
   parse_thread = std::thread([this]() {
     std::string status_branch;
     try {
-      diff = get_diff();
+      {
+        LockGuard lock(parse_mutex);
+        diff = get_diff();
+      }
       status_branch = repository->get_branch();
     }
     catch(const std::exception &) {
@@ -177,22 +181,20 @@ void Source::DiffView::configure() {
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if(parse_stop)
           break;
-        std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
         auto expected = ParseState::STARTING;
         if(parse_state.compare_exchange_strong(expected, ParseState::PREPROCESSING)) {
           dispatcher.post([this] {
             auto expected = ParseState::PREPROCESSING;
-            std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
-            if(parse_lock.try_lock()) {
+            if(parse_mutex.try_lock()) {
               if(parse_state.compare_exchange_strong(expected, ParseState::PROCESSING))
                 parse_buffer = get_buffer()->get_text();
-              parse_lock.unlock();
+              parse_mutex.unlock();
             }
             else
               parse_state.compare_exchange_strong(expected, ParseState::STARTING);
           });
         }
-        else if(parse_state == ParseState::PROCESSING && parse_lock.try_lock()) {
+        else if(parse_state == ParseState::PROCESSING && parse_mutex.try_lock()) {
           bool expected_monitor_changed = true;
           if(monitor_changed.compare_exchange_strong(expected_monitor_changed, false)) {
             try {
@@ -226,16 +228,18 @@ void Source::DiffView::configure() {
           }
           auto expected = ParseState::PROCESSING;
           if(parse_state.compare_exchange_strong(expected, ParseState::POSTPROCESSING)) {
-            parse_lock.unlock();
+            parse_mutex.unlock();
             dispatcher.post([this] {
-              std::unique_lock<std::mutex> parse_lock(parse_mutex, std::defer_lock);
-              if(parse_lock.try_lock()) {
+              if(parse_mutex.try_lock()) {
                 auto expected = ParseState::POSTPROCESSING;
                 if(parse_state.compare_exchange_strong(expected, ParseState::IDLE))
                   update_lines();
+                parse_mutex.unlock();
               }
             });
           }
+          else
+            parse_mutex.unlock();
         }
       }
     }
@@ -256,7 +260,7 @@ void Source::DiffView::configure() {
 void Source::DiffView::rename(const boost::filesystem::path &path) {
   Source::BaseView::rename(path);
 
-  std::lock_guard<std::mutex> lock(canonical_file_path_mutex);
+  LockGuard lock(canonical_file_path_mutex);
   boost::system::error_code ec;
   canonical_file_path = boost::filesystem::canonical(path, ec);
   if(ec)
@@ -293,14 +297,16 @@ void Source::DiffView::git_goto_next_diff() {
 
 std::string Source::DiffView::git_get_diff_details() {
   std::string details;
-  if(diff) {
-    auto line_nr = get_buffer()->get_insert()->get_iter().get_line();
-    auto iter = get_buffer()->get_iter_at_line(line_nr);
-    if(iter.has_tag(renderer->tag_removed_above))
-      --line_nr;
-    std::lock_guard<std::mutex> lock(parse_mutex);
-    parse_buffer = get_buffer()->get_text();
-    details = diff->get_details(parse_buffer.raw(), line_nr);
+  {
+    LockGuard lock(parse_mutex);
+    if(diff) {
+      auto line_nr = get_buffer()->get_insert()->get_iter().get_line();
+      auto iter = get_buffer()->get_iter_at_line(line_nr);
+      if(iter.has_tag(renderer->tag_removed_above))
+        --line_nr;
+      parse_buffer = get_buffer()->get_text();
+      details = diff->get_details(parse_buffer.raw(), line_nr);
+    }
   }
   if(details.empty())
     Info::get().print("No changes found at current line");
@@ -312,7 +318,7 @@ std::unique_ptr<Git::Repository::Diff> Source::DiffView::get_diff() {
   auto work_path = filesystem::get_normal_path(repository->get_work_path());
   boost::filesystem::path relative_path;
   {
-    std::lock_guard<std::mutex> lock(canonical_file_path_mutex);
+    LockGuard lock(canonical_file_path_mutex);
     if(!filesystem::file_in_path(canonical_file_path, work_path))
       throw std::runtime_error("not a relative path");
     relative_path = filesystem::get_relative_path(canonical_file_path, work_path);

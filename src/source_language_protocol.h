@@ -1,12 +1,12 @@
 #pragma once
 #include "autocomplete.h"
+#include "mutex.h"
 #include "process.hpp"
 #include "source.h"
 #include <atomic>
 #include <boost/property_tree/json_parser.hpp>
 #include <list>
 #include <map>
-#include <mutex>
 #include <set>
 #include <sstream>
 
@@ -105,31 +105,32 @@ namespace LanguageProtocol {
 
     Capabilities capabilities;
 
-    std::set<Source::LanguageProtocolView *> views;
-    std::mutex views_mutex;
+    Mutex views_mutex;
+    std::set<Source::LanguageProtocolView *> views GUARDED_BY(views_mutex);
 
-    std::mutex initialize_mutex;
+    Mutex initialize_mutex;
+    bool initialized GUARDED_BY(initialize_mutex) = false;
 
-    std::unique_ptr<TinyProcessLib::Process> process;
-    std::mutex read_write_mutex;
+    Mutex read_write_mutex;
+    std::unique_ptr<TinyProcessLib::Process> process GUARDED_BY(read_write_mutex);
 
     std::stringstream server_message_stream;
     size_t server_message_size = static_cast<size_t>(-1);
     size_t server_message_content_pos;
     bool header_read = false;
 
-    size_t message_id = 1;
+    size_t message_id GUARDED_BY(read_write_mutex) = 1;
 
-    std::map<size_t, std::pair<Source::LanguageProtocolView *, std::function<void(const boost::property_tree::ptree &, bool error)>>> handlers;
-    std::vector<std::thread> timeout_threads;
-    std::mutex timeout_threads_mutex;
+    std::map<size_t, std::pair<Source::LanguageProtocolView *, std::function<void(const boost::property_tree::ptree &, bool error)>>> handlers GUARDED_BY(read_write_mutex);
+
+    Mutex timeout_threads_mutex;
+    std::vector<std::thread> timeout_threads GUARDED_BY(timeout_threads_mutex);
 
   public:
     static std::shared_ptr<Client> get(const boost::filesystem::path &file_path, const std::string &language_id);
 
     ~Client();
 
-    bool initialized = false;
     Capabilities initialize(Source::LanguageProtocolView *view);
     void close(Source::LanguageProtocolView *view);
 

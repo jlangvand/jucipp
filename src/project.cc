@@ -3,6 +3,7 @@
 #include "directories.h"
 #include "filesystem.h"
 #include "menu.h"
+#include "mutex.h"
 #include "notebook.h"
 #include "selection_dialog.h"
 #include "terminal.h"
@@ -409,7 +410,7 @@ void Project::LLDB::debug_start() {
           boost::filesystem::path stop_path;
           unsigned stop_line = 0, stop_column = 0;
 
-          std::lock_guard<std::mutex> lock(Debug::LLDB::get().mutex);
+          LockGuard lock(Debug::LLDB::get().mutex);
           auto process = lldb::SBProcess::GetProcessFromEvent(event);
           auto state = lldb::SBProcess::GetStateFromEvent(event);
           lldb::SBStream stream;

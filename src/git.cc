@@ -3,7 +3,8 @@
 #include <unordered_map>
 
 bool Git::initialized = false;
-std::mutex Git::mutex;
+Mutex Git::mutex;
+Git::Error Git::error;
 
 std::string Git::Error::message() noexcept {
 #if LIBGIT2_VER_MAJOR > 0 || (LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28)
@@ -22,9 +23,8 @@ Git::Repository::Diff::Diff(const boost::filesystem::path &path, git_repository 
     if(blob)
       git_blob_free(blob);
   });
-  Error error;
-  std::lock_guard<std::mutex> lock(mutex);
   auto spec = "HEAD:" + path.generic_string();
+  LockGuard lock(mutex);
   error.code = git_revparse_single(reinterpret_cast<git_object **>(&blob), repository, spec.c_str());
   if(error)
     throw std::runtime_error(error.message());
@@ -33,39 +33,35 @@ Git::Repository::Diff::Diff(const boost::filesystem::path &path, git_repository 
   options.context_lines = 0;
 }
 
-//Based on https://github.com/atom/git-diff/blob/master/lib/git-diff-view.coffee
-int Git::Repository::Diff::hunk_cb(const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) noexcept {
-  auto lines = static_cast<Lines *>(payload);
-  auto start = hunk->new_start - 1;
-  auto end = hunk->new_start + hunk->new_lines - 1;
-  if(hunk->old_lines == 0 && hunk->new_lines > 0)
-    lines->added.emplace_back(start, end);
-  else if(hunk->new_lines == 0 && hunk->old_lines > 0)
-    lines->removed.emplace_back(start);
-  else
-    lines->modified.emplace_back(start, end);
-
-  return 0;
-}
-
 Git::Repository::Diff::Lines Git::Repository::Diff::get_lines(const std::string &buffer) {
   Lines lines;
-  Error error;
-  std::lock_guard<std::mutex> lock(mutex);
-  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, hunk_cb, nullptr, &lines);
+  LockGuard lock(mutex);
+  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
+    //Based on https://github.com/atom/git-diff/blob/master/lib/git-diff-view.coffee
+    auto lines = static_cast<Lines *>(payload);
+    auto start = hunk->new_start - 1;
+    auto end = hunk->new_start + hunk->new_lines - 1;
+    if(hunk->old_lines == 0 && hunk->new_lines > 0)
+      lines->added.emplace_back(start, end);
+    else if(hunk->new_lines == 0 && hunk->old_lines > 0)
+      lines->removed.emplace_back(start);
+    else
+      lines->modified.emplace_back(start, end);
+
+    return 0;
+  }, nullptr, &lines);
   if(error)
     throw std::runtime_error(error.message());
   return lines;
 }
 
 std::vector<Git::Repository::Diff::Hunk> Git::Repository::Diff::get_hunks(const std::string &old_buffer, const std::string &new_buffer) {
-  initialize();
   std::vector<Git::Repository::Diff::Hunk> hunks;
-  Error error;
+  LockGuard lock(mutex);
+  initialize();
   git_diff_options options;
   git_diff_init_options(&options, GIT_DIFF_OPTIONS_VERSION);
   options.context_lines = 0;
-  std::lock_guard<std::mutex> lock(mutex);
   error.code = git_diff_buffers(old_buffer.c_str(), old_buffer.size(), nullptr, new_buffer.c_str(), new_buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
     auto hunks = static_cast<std::vector<Git::Repository::Diff::Hunk> *>(payload);
     hunks->emplace_back(hunk->old_start, hunk->old_lines, hunk->new_start, hunk->new_lines);
@@ -76,25 +72,22 @@ std::vector<Git::Repository::Diff::Hunk> Git::Repository::Diff::get_hunks(const 
   return hunks;
 }
 
-int Git::Repository::Diff::line_cb(const git_diff_delta *delta, const git_diff_hunk *hunk, const git_diff_line *line, void *payload) noexcept {
-  auto details = static_cast<std::pair<std::string, int> *>(payload);
-  auto line_nr = details->second;
-  auto start = hunk->new_start - 1;
-  auto end = hunk->new_start + hunk->new_lines - 1;
-  if(line_nr == start || (line_nr >= start && line_nr < end)) {
-    if(details->first.empty())
-      details->first += std::string(hunk->header, hunk->header_len);
-    details->first += line->origin + std::string(line->content, line->content_len);
-  }
-  return 0;
-}
-
 std::string Git::Repository::Diff::get_details(const std::string &buffer, int line_nr) {
   std::pair<std::string, int> details;
   details.second = line_nr;
-  Error error;
-  std::lock_guard<std::mutex> lock(mutex);
-  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, nullptr, line_cb, &details);
+  LockGuard lock(mutex);
+  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, const git_diff_line *line, void *payload) {
+    auto details = static_cast<std::pair<std::string, int> *>(payload);
+    auto line_nr = details->second;
+    auto start = hunk->new_start - 1;
+    auto end = hunk->new_start + hunk->new_lines - 1;
+    if(line_nr == start || (line_nr >= start && line_nr < end)) {
+      if(details->first.empty())
+        details->first += std::string(hunk->header, hunk->header_len);
+      details->first += line->origin + std::string(line->content, line->content_len);
+    }
+    return 0;
+  }, &details);
   if(error)
     throw std::runtime_error(error.message());
   return details.first;
@@ -103,8 +96,7 @@ std::string Git::Repository::Diff::get_details(const std::string &buffer, int li
 Git::Repository::Repository(const boost::filesystem::path &path) {
   git_repository *repository_ptr;
   {
-    Error error;
-    std::lock_guard<std::mutex> lock(mutex);
+    LockGuard lock(mutex);
     error.code = git_repository_open_ext(&repository_ptr, path.generic_string().c_str(), 0, nullptr);
     if(error)
       throw std::runtime_error(error.message());
@@ -132,123 +124,88 @@ Git::Repository::~Repository() {
   monitor_changed_connection.disconnect();
 }
 
-std::string Git::Repository::status_string(STATUS status) noexcept {
-  switch(status) {
-  case STATUS::CURRENT:
-    return "current";
-  case STATUS::NEW:
-    return "new";
-  case STATUS::MODIFIED:
-    return "modified";
-  case STATUS::DELETED:
-    return "deleted";
-  case STATUS::RENAMED:
-    return "renamed";
-  case STATUS::TYPECHANGE:
-    return "typechange";
-  case STATUS::UNREADABLE:
-    return "unreadable";
-  case STATUS::IGNORED:
-    return "ignored";
-  case STATUS::CONFLICTED:
-    return "conflicted";
-  default:
-    return "";
-  }
-}
-
-int Git::Repository::status_callback(const char *path, unsigned int status_flags, void *data) noexcept {
-  auto callback = static_cast<std::function<void(const char *path, STATUS status)> *>(data);
-
-  STATUS status;
-  if((status_flags & (GIT_STATUS_INDEX_NEW | GIT_STATUS_WT_NEW)) > 0)
-    status = STATUS::NEW;
-  else if((status_flags & (GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_WT_MODIFIED)) > 0)
-    status = STATUS::MODIFIED;
-  else if((status_flags & (GIT_STATUS_INDEX_DELETED | GIT_STATUS_WT_DELETED)) > 0)
-    status = STATUS::DELETED;
-  else if((status_flags & (GIT_STATUS_INDEX_RENAMED | GIT_STATUS_WT_RENAMED)) > 0)
-    status = STATUS::RENAMED;
-  else if((status_flags & (GIT_STATUS_INDEX_TYPECHANGE | GIT_STATUS_WT_TYPECHANGE)) > 0)
-    status = STATUS::TYPECHANGE;
-  else if((status_flags & (GIT_STATUS_WT_UNREADABLE)) > 0)
-    status = STATUS::UNREADABLE;
-  else if((status_flags & (GIT_STATUS_IGNORED)) > 0)
-    status = STATUS::IGNORED;
-  else if((status_flags & (GIT_STATUS_CONFLICTED)) > 0)
-    status = STATUS::CONFLICTED;
-  else
-    status = STATUS::CURRENT;
-
-  if(*callback)
-    (*callback)(path, status);
-
-  return 0;
-}
-
 Git::Repository::Status Git::Repository::get_status() {
   {
-    std::lock_guard<std::mutex> lock(saved_status_mutex);
+    LockGuard lock(saved_status_mutex);
     if(has_saved_status)
       return saved_status;
   }
 
-  Status status;
-  bool first = true;
-  std::unique_lock<std::mutex> status_saved_lock(saved_status_mutex, std::defer_lock);
-  std::function<void(const char *path, STATUS status)> callback = [this, &status, &first, &status_saved_lock](const char *path_cstr, STATUS status_enum) {
-    if(first) {
-      status_saved_lock.lock();
-      first = false;
-    }
-    boost::filesystem::path rel_path(path_cstr);
-    do {
-      if(status_enum == STATUS::MODIFIED)
-        status.modified.emplace((work_path / rel_path).generic_string());
-      if(status_enum == STATUS::NEW)
-        status.added.emplace((work_path / rel_path).generic_string());
-      rel_path = rel_path.parent_path();
-    } while(!rel_path.empty());
+  struct Data {
+    const boost::filesystem::path &work_path;
+    Status status = {};
   };
-  Error error;
-  std::lock_guard<std::mutex> lock(mutex);
-  error.code = git_status_foreach(repository.get(), status_callback, &callback);
-  if(error)
-    throw std::runtime_error(error.message());
-  saved_status = status;
+  Data data{work_path};
+  {
+    LockGuard lock(mutex);
+    error.code = git_status_foreach(repository.get(), [](const char *path, unsigned int status_flags, void *payload) {
+      auto data = static_cast<Data *>(payload);
+
+      STATUS status;
+      if((status_flags & (GIT_STATUS_INDEX_NEW | GIT_STATUS_WT_NEW)) > 0)
+        status = STATUS::NEW;
+      else if((status_flags & (GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_WT_MODIFIED)) > 0)
+        status = STATUS::MODIFIED;
+      else if((status_flags & (GIT_STATUS_INDEX_DELETED | GIT_STATUS_WT_DELETED)) > 0)
+        status = STATUS::DELETED;
+      else if((status_flags & (GIT_STATUS_INDEX_RENAMED | GIT_STATUS_WT_RENAMED)) > 0)
+        status = STATUS::RENAMED;
+      else if((status_flags & (GIT_STATUS_INDEX_TYPECHANGE | GIT_STATUS_WT_TYPECHANGE)) > 0)
+        status = STATUS::TYPECHANGE;
+      else if((status_flags & (GIT_STATUS_WT_UNREADABLE)) > 0)
+        status = STATUS::UNREADABLE;
+      else if((status_flags & (GIT_STATUS_IGNORED)) > 0)
+        status = STATUS::IGNORED;
+      else if((status_flags & (GIT_STATUS_CONFLICTED)) > 0)
+        status = STATUS::CONFLICTED;
+      else
+        status = STATUS::CURRENT;
+
+      boost::filesystem::path rel_path(path);
+      do {
+        if(status == STATUS::MODIFIED)
+          data->status.modified.emplace((data->work_path / rel_path).generic_string());
+        if(status == STATUS::NEW)
+          data->status.added.emplace((data->work_path / rel_path).generic_string());
+        rel_path = rel_path.parent_path();
+      } while(!rel_path.empty());
+
+      return 0;
+    }, &data);
+
+    if(error)
+      throw std::runtime_error(error.message());
+  }
+
+  LockGuard lock(saved_status_mutex);
+  saved_status = std::move(data.status);
   has_saved_status = true;
-  if(status_saved_lock)
-    status_saved_lock.unlock();
-  return status;
+  return saved_status;
 }
 
 void Git::Repository::clear_saved_status() {
-  std::lock_guard<std::mutex> lock(saved_status_mutex);
-  saved_status.added.clear();
-  saved_status.modified.clear();
+  LockGuard lock(saved_status_mutex);
+  saved_status = {};
   has_saved_status = false;
 }
 
 boost::filesystem::path Git::Repository::get_work_path() noexcept {
-  std::lock_guard<std::mutex> lock(mutex);
+  LockGuard lock(mutex);
   return Git::path(git_repository_workdir(repository.get()));
 }
 
 boost::filesystem::path Git::Repository::get_path() noexcept {
-  std::lock_guard<std::mutex> lock(mutex);
+  LockGuard lock(mutex);
   return Git::path(git_repository_path(repository.get()));
 }
 
 boost::filesystem::path Git::Repository::get_root_path(const boost::filesystem::path &path) {
-  initialize();
   git_buf root = {nullptr, 0, 0};
-  {
-    Error error;
-    std::lock_guard<std::mutex> lock(mutex);
-    error.code = git_repository_discover(&root, path.generic_string().c_str(), 0, nullptr);
-    if(error)
-      throw std::runtime_error(error.message());
-  }
+  LockGuard lock(mutex);
+  initialize();
+  error.code = git_repository_discover(&root, path.generic_string().c_str(), 0, nullptr);
+  if(error)
+    throw std::runtime_error(error.message());
   auto root_path = Git::path(root.ptr, root.size);
 #if LIBGIT2_VER_MAJOR > 0 || (LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28)
   git_buf_dispose(&root);
@@ -265,7 +222,9 @@ Git::Repository::Diff Git::Repository::get_diff(const boost::filesystem::path &p
 std::string Git::Repository::get_branch() noexcept {
   std::string branch;
   git_reference *reference;
-  if(git_repository_head(&reference, repository.get()) == 0) {
+  LockGuard lock(mutex);
+  error.code = git_repository_head(&reference, repository.get());
+  if(!error) {
     if(auto reference_name_cstr = git_reference_name(reference)) {
       std::string reference_name(reference_name_cstr);
       size_t pos;
@@ -284,7 +243,6 @@ std::string Git::Repository::get_branch() noexcept {
 }
 
 void Git::initialize() noexcept {
-  std::lock_guard<std::mutex> lock(mutex);
   if(!initialized) {
     git_libgit2_init();
     initialized = true;
@@ -292,12 +250,12 @@ void Git::initialize() noexcept {
 }
 
 std::shared_ptr<Git::Repository> Git::get_repository(const boost::filesystem::path &path) {
-  initialize();
-  static std::unordered_map<std::string, std::weak_ptr<Git::Repository>> cache;
-  static std::mutex mutex;
-
-  std::lock_guard<std::mutex> lock(mutex);
   auto root_path = Repository::get_root_path(path).generic_string();
+
+  static Mutex mutex;
+  static std::unordered_map<std::string, std::weak_ptr<Git::Repository>> cache GUARDED_BY(mutex);
+
+  LockGuard lock(mutex);
   auto it = cache.find(root_path);
   if(it == cache.end())
     it = cache.emplace(root_path, std::weak_ptr<Git::Repository>()).first;

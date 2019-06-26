@@ -1,5 +1,6 @@
 #pragma once
 #include "clangmm.h"
+#include "mutex.h"
 #include <atomic>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -8,7 +9,6 @@
 #include <boost/serialization/unordered_set.hpp>
 #include <boost/serialization/vector.hpp>
 #include <map>
-#include <mutex>
 #include <regex>
 #include <set>
 #include <unordered_set>
@@ -102,8 +102,8 @@ namespace Usages {
   private:
     const static boost::filesystem::path cache_folder;
 
-    static std::map<boost::filesystem::path, Cache> caches;
-    static std::mutex caches_mutex;
+    static Mutex caches_mutex;
+    static std::map<boost::filesystem::path, Cache> caches GUARDED_BY(caches_mutex);
 
     static std::atomic<size_t> cache_in_progress_count;
 
@@ -142,7 +142,7 @@ namespace Usages {
     static std::pair<Clang::PathSet, Clang::PathSet> find_potential_paths(const PathSet &paths, const boost::filesystem::path &project_path,
                                                                           const std::map<boost::filesystem::path, PathSet> &paths_includes, const PathSet &paths_with_spelling);
 
-    static void write_cache(const boost::filesystem::path &path, const Cache &cache);
-    static Cache read_cache(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path);
+    static void write_cache(const boost::filesystem::path &path, const Cache &cache) REQUIRES(caches_mutex);
+    static Cache read_cache(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path) REQUIRES(caches_mutex);
   };
 } // namespace Usages

@@ -1,10 +1,10 @@
 #pragma once
 
+#include "mutex.h"
 #include "snippets.h"
 #include <boost/filesystem.hpp>
 #include <gtksourceviewmm.h>
 #include <list>
-#include <mutex>
 #include <regex>
 #include <set>
 #include <vector>
@@ -136,8 +136,8 @@ namespace Source {
 
     /// After inserting a snippet, one can use tab to select the next argument
     bool keep_snippet_marks = false;
-    std::vector<Snippets::Snippet> *snippets = nullptr;
-    std::mutex snippets_mutex;
+    Mutex snippets_mutex;
+    std::vector<Snippets::Snippet> *snippets GUARDED_BY(snippets_mutex) = nullptr;
     std::list<std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, Glib::RefPtr<Gtk::TextBuffer::Mark>>>> snippets_marks;
     Glib::RefPtr<Gtk::TextTag> snippet_argument_tag;
     void insert_snippet(Gtk::TextIter iter, Glib::ustring snippet);

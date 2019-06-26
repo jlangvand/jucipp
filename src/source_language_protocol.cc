@@ -58,16 +58,17 @@ std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const bo
 
   auto cache_id = root_path.string() + '|' + language_id;
 
-  static std::unordered_map<std::string, std::weak_ptr<Client>> cache;
-  static std::mutex mutex;
-  std::lock_guard<std::mutex> lock(mutex);
+  static Mutex mutex;
+  static std::unordered_map<std::string, std::weak_ptr<Client>> cache GUARDED_BY(mutex);
+
+  LockGuard lock(mutex);
   auto it = cache.find(cache_id);
   if(it == cache.end())
     it = cache.emplace(cache_id, std::weak_ptr<Client>()).first;
   auto instance = it->second.lock();
   if(!instance)
     it->second = instance = std::shared_ptr<Client>(new Client(root_path, language_id), [](Client *client_ptr) {
-      std::thread delete_thread([client_ptr] {
+      std::thread delete_thread([client_ptr] { // Delete client in the background
         delete client_ptr;
       });
       delete_thread.detach();
@@ -84,7 +85,7 @@ LanguageProtocol::Client::~Client() {
   });
   result_processed.get_future().get();
 
-  std::lock_guard<std::mutex> lock(timeout_threads_mutex);
+  LockGuard lock(timeout_threads_mutex);
   for(auto &thread : timeout_threads)
     thread.join();
 
@@ -102,17 +103,22 @@ LanguageProtocol::Client::~Client() {
 
 LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::LanguageProtocolView *view) {
   if(view) {
-    std::lock_guard<std::mutex> lock(views_mutex);
+    LockGuard lock(views_mutex);
     views.emplace(view);
   }
 
-  std::lock_guard<std::mutex> lock(initialize_mutex);
+  LockGuard lock(initialize_mutex);
 
   if(initialized)
     return capabilities;
 
   std::promise<void> result_processed;
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process->get_id()) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true},"executeCommand":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"documentLink":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  TinyProcessLib::Process::id_type process_id;
+  {
+    LockGuard lock(read_write_mutex);
+    process_id = process->get_id();
+  }
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true},"executeCommand":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"documentLink":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -150,12 +156,12 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
 
 void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
   {
-    std::lock_guard<std::mutex> lock(views_mutex);
+    LockGuard lock(views_mutex);
     auto it = views.find(view);
     if(it != views.end())
       views.erase(it);
   }
-  std::lock_guard<std::mutex> lock(read_write_mutex);
+  LockGuard lock(read_write_mutex);
   for(auto it = handlers.begin(); it != handlers.end();) {
     if(it->second.first == view)
       it = handlers.erase(it);
@@ -217,7 +223,7 @@ void LanguageProtocol::Client::parse_server_message() {
       auto result_it = pt.find("result");
       auto error_it = pt.find("error");
       {
-        std::unique_lock<std::mutex> lock(read_write_mutex);
+        LockGuard lock(read_write_mutex);
         if(result_it != pt.not_found()) {
           if(message_id) {
             auto id_it = handlers.find(message_id);
@@ -272,21 +278,21 @@ void LanguageProtocol::Client::parse_server_message() {
 }
 
 void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool error)> &&function) {
-  std::unique_lock<std::mutex> lock(read_write_mutex);
+  LockGuard lock(read_write_mutex);
   if(function) {
     handlers.emplace(message_id, std::make_pair(view, std::move(function)));
 
     auto message_id = this->message_id;
-    std::lock_guard<std::mutex> lock(timeout_threads_mutex);
+    LockGuard lock(timeout_threads_mutex);
     timeout_threads.emplace_back([this, message_id] {
       for(size_t c = 0; c < 20; ++c) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        std::lock_guard<std::mutex> lock(read_write_mutex);
+        LockGuard lock(read_write_mutex);
         auto id_it = handlers.find(message_id);
         if(id_it == handlers.end())
           return;
       }
-      std::unique_lock<std::mutex> lock(read_write_mutex);
+      LockGuard lock(read_write_mutex);
       auto id_it = handlers.find(message_id);
       if(id_it != handlers.end()) {
         Terminal::get().async_print("Request to language server timed out. If you suspect the server has crashed, please close and reopen all project source files.\n", true);
@@ -316,7 +322,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
 }
 
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
-  std::lock_guard<std::mutex> lock(read_write_mutex);
+  LockGuard lock(read_write_mutex);
   std::string content(R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{)" + params + "}}");
   auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
   if(Config::get().log.language_server)
@@ -337,7 +343,7 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
         catch(...) {
         }
       }
-      std::lock_guard<std::mutex> lock(views_mutex);
+      LockGuard lock(views_mutex);
       for(auto view : views) {
         if(file == view->file_path) {
           view->update_diagnostics(std::move(diagnostics));
@@ -1267,7 +1273,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
-        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+        LockGuard lock(autocomplete.prefix_mutex);
         autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
         if(!sm.length(2) && !sm.length(4))
           autocomplete_enable_snippets = true;
@@ -1276,7 +1282,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
     else if(is_possible_argument()) {
       autocomplete_show_parameters = true;
-      std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+      LockGuard lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
     }
@@ -1289,7 +1295,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         iter.forward_char();
 
       {
-        std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+        LockGuard lock(autocomplete.prefix_mutex);
         autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
       }
       auto prev1 = iter;
@@ -1397,7 +1403,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               if(!label.empty()) {
                 std::string prefix;
                 {
-                  std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+                  LockGuard lock(autocomplete.prefix_mutex);
                   prefix = autocomplete.prefix;
                 }
                 if(prefix.compare(0, prefix.size(), label, 0, prefix.size()) == 0) {
@@ -1416,10 +1422,10 @@ void Source::LanguageProtocolView::setup_autocomplete() {
             if(autocomplete_enable_snippets) {
               std::string prefix;
               {
-                std::lock_guard<std::mutex> lock(autocomplete.prefix_mutex);
+                LockGuard lock(autocomplete.prefix_mutex);
                 prefix = autocomplete.prefix;
               }
-              std::lock_guard<std::mutex> lock(snippets_mutex);
+              LockGuard lock(snippets_mutex);
               if(snippets) {
                 for(auto &snippet : *snippets) {
                   if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {

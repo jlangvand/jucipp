@@ -1,11 +1,11 @@
 #pragma once
 #include "dispatcher.h"
 #include "gtkmm.h"
+#include "mutex.h"
 #include "process.hpp"
 #include <boost/filesystem.hpp>
 #include <functional>
 #include <iostream>
-#include <mutex>
 #include <tuple>
 
 class Terminal : public Gtk::TextView {
@@ -47,7 +47,7 @@ private:
   std::tuple<size_t, size_t, std::string, std::string, std::string> find_link(const std::string &line);
   void apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter);
 
-  std::vector<std::shared_ptr<TinyProcessLib::Process>> processes;
-  std::mutex processes_mutex;
+  Mutex processes_mutex;
+  std::vector<std::shared_ptr<TinyProcessLib::Process>> processes GUARDED_BY(processes_mutex);
   Glib::ustring stdin_buffer;
 };

@@ -2,11 +2,11 @@
 #include "autocomplete.h"
 #include "clangmm.h"
 #include "dispatcher.h"
+#include "mutex.h"
 #include "source.h"
 #include "terminal.h"
 #include <atomic>
 #include <map>
-#include <mutex>
 #include <set>
 #include <thread>
 
@@ -37,22 +37,22 @@ namespace Source {
 
     std::vector<FixIt> fix_its;
 
+    Mutex parse_mutex;
     std::thread parse_thread;
-    std::mutex parse_mutex;
     std::atomic<ParseState> parse_state;
     std::atomic<ParseProcessState> parse_process_state;
 
     CXCompletionString selected_completion_string = nullptr;
 
   private:
-    Glib::ustring parse_thread_buffer;
+    Glib::ustring parse_thread_buffer GUARDED_BY(parse_mutex);
 
     static const std::map<int, std::string> &clang_types();
-    void update_syntax();
+    void update_syntax() REQUIRES(parse_mutex);
     std::map<int, Glib::RefPtr<Gtk::TextTag>> syntax_tags;
 
-    void update_diagnostics();
-    std::vector<clangmm::Diagnostic> clang_diagnostics;
+    void update_diagnostics() REQUIRES(parse_mutex);
+    std::vector<clangmm::Diagnostic> clang_diagnostics GUARDED_BY(parse_mutex);
   };
 
   class ClangViewAutocomplete : public virtual ClangViewParse {

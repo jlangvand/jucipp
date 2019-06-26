@@ -1,5 +1,6 @@
 #pragma once
 #include "dispatcher.h"
+#include "mutex.h"
 #include "tooltips.h"
 #include <atomic>
 #include <thread>
@@ -16,8 +17,8 @@ class Autocomplete {
 public:
   enum class State { IDLE, STARTING, RESTARTING, CANCELED };
 
-  Glib::ustring prefix;
-  std::mutex prefix_mutex;
+  Mutex prefix_mutex;
+  Glib::ustring prefix GUARDED_BY(prefix_mutex);
   std::vector<std::string> rows;
   Tooltips tooltips;
 
@@ -28,7 +29,7 @@ public:
   std::function<bool()> is_processing = [] { return true; };
   std::function<void()> reparse = [] {};
   std::function<void()> cancel_reparse = [] {};
-  std::function<std::unique_ptr<std::lock_guard<std::mutex>>()> get_parse_lock = [] { return nullptr; };
+  std::function<std::unique_ptr<LockGuard>()> get_parse_lock = [] { return nullptr; };
   std::function<void()> stop_parse = [] {};
 
   std::function<bool(guint last_keyval)> is_continue_key = [](guint) { return false; };

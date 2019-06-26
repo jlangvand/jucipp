@@ -115,7 +115,12 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   if(ec)
     canonical_file_path = file_path;
   for(size_t c = 0; c < size(); c++) {
-    if(canonical_file_path == source_views[c]->canonical_file_path) {
+    bool equal;
+    {
+      LockGuard lock(source_views[c]->canonical_file_path_mutex);
+      equal = canonical_file_path == source_views[c]->canonical_file_path;
+    }
+    if(equal) {
       auto notebook_page = get_notebook_page(c);
       notebooks[notebook_page.first].set_current_page(notebook_page.second);
       focus_view(source_views[c]);

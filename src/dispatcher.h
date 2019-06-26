@@ -1,13 +1,13 @@
 #pragma once
+#include "mutex.h"
 #include <functional>
 #include <gtkmm.h>
 #include <list>
-#include <mutex>
 
 class Dispatcher {
 private:
-  std::list<std::function<void()>> functions;
-  std::mutex functions_mutex;
+  Mutex functions_mutex;
+  std::list<std::function<void()>> functions GUARDED_BY(functions_mutex);
   Glib::Dispatcher dispatcher;
   sigc::connection connection;
 
@@ -22,7 +22,7 @@ public:
   /// Can be called from any thread.
   template <typename T>
   void post(T &&function) {
-    std::lock_guard<std::mutex> lock(functions_mutex);
+    LockGuard lock(functions_mutex);
     functions.emplace_back(std::forward<T>(function));
     dispatcher();
   }

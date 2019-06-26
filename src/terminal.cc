@@ -79,7 +79,7 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
 
 void Terminal::async_process(const std::string &command, const boost::filesystem::path &path, const std::function<void(int exit_status)> &callback, bool quiet) {
   std::thread async_execute_thread([this, command, path, callback, quiet]() {
-    std::unique_lock<std::mutex> processes_lock(processes_mutex);
+    LockGuard lock(processes_mutex);
     stdin_buffer.clear();
     auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
       if(!quiet)
@@ -90,7 +90,7 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
     }, true);
     auto pid = process->get_id();
     if(pid <= 0) {
-      processes_lock.unlock();
+      lock.unlock();
       async_print("Error: failed to run command: " + command + "\n", true);
       if(callback)
         callback(-1);
@@ -98,12 +98,12 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
     }
     else {
       processes.emplace_back(process);
-      processes_lock.unlock();
+      lock.unlock();
     }
 
     auto exit_status = process->get_exit_status();
 
-    processes_lock.lock();
+    lock.lock();
     for(auto it = processes.begin(); it != processes.end(); it++) {
       if((*it)->get_id() == pid) {
         processes.erase(it);
@@ -111,7 +111,7 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
       }
     }
     stdin_buffer.clear();
-    processes_lock.unlock();
+    lock.unlock();
 
     if(callback)
       callback(exit_status);
@@ -120,7 +120,7 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
 }
 
 void Terminal::kill_last_async_process(bool force) {
-  std::lock_guard<std::mutex> lock(processes_mutex);
+  LockGuard lock(processes_mutex);
   if(processes.empty())
     Info::get().print("No running processes");
   else
@@ -128,7 +128,7 @@ void Terminal::kill_last_async_process(bool force) {
 }
 
 void Terminal::kill_async_processes(bool force) {
-  std::lock_guard<std::mutex> lock(processes_mutex);
+  LockGuard lock(processes_mutex);
   for(auto &process : processes)
     process->kill(force);
 }
@@ -393,7 +393,7 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
 }
 
 bool Terminal::on_key_press_event(GdkEventKey *event) {
-  std::lock_guard<std::mutex> lock(processes_mutex);
+  LockGuard lock(processes_mutex);
   bool debug_is_running = false;
 #ifdef JUCI_ENABLE_DEBUG
   debug_is_running = Project::current ? Project::current->debug_is_running() : false;
