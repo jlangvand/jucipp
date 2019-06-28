@@ -1,6 +1,8 @@
 #include "window.h"
 #include "config.h"
+#ifdef JUCI_ENABLE_DEBUG
 #include "debug_lldb.h"
+#endif
 #include "dialogs.h"
 #include "directories.h"
 #include "entrybox.h"
