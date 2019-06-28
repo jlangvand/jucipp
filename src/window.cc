@@ -1,5 +1,6 @@
 #include "window.h"
 #include "config.h"
+#include "debug_lldb.h"
 #include "dialogs.h"
 #include "directories.h"
 #include "entrybox.h"
@@ -1443,9 +1444,9 @@ bool Window::on_delete_event(GdkEventAny *event) {
       return true;
   }
   Terminal::get().kill_async_processes();
+
 #ifdef JUCI_ENABLE_DEBUG
-  if(Project::current)
-    Project::current->debug_cancel();
+  Debug::LLDB::destroy();
 #endif
 
   return false;

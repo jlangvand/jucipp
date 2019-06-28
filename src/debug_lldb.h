@@ -32,11 +32,20 @@ namespace Debug {
 
   private:
     LLDB();
+    void destroy_();
+
+    static bool initialized;
 
   public:
     static LLDB &get() {
       static LLDB singleton;
       return singleton;
+    }
+
+    /// Must be called before application terminates (cannot be placed in destructor sadly)
+    static void destroy() {
+      if(initialized)
+        get().destroy_();
     }
 
     std::list<std::function<void(const lldb::SBProcess &)>> on_start;
@@ -60,8 +69,6 @@ namespace Debug {
     std::vector<Frame> get_backtrace();
     std::vector<Variable> get_variables();
     void select_frame(uint32_t frame_index, uint32_t thread_index_id = 0);
-
-    void cancel();
 
     /// Get value using variable name and location
     std::string get_value(const std::string &variable_name, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);

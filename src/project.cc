@@ -663,10 +663,6 @@ bool Project::LLDB::debug_is_running() {
 void Project::LLDB::debug_write(const std::string &buffer) {
   Debug::LLDB::get().write(buffer);
 }
-
-void Project::LLDB::debug_cancel() {
-  Debug::LLDB::get().cancel();
-}
 #endif
 
 void Project::LanguageProtocol::show_symbols() {

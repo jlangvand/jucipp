@@ -12,6 +12,8 @@
 
 extern char **environ;
 
+bool Debug::LLDB::initialized = false;
+
 void log(const char *msg, void *) {
   std::cout << "debugger log: " << msg << std::endl;
 }
@@ -29,6 +31,21 @@ Debug::LLDB::LLDB() : state(lldb::StateType::eStateInvalid), buffer_size(131072)
     }
 #endif
   }
+}
+
+void Debug::LLDB::destroy_() {
+  {
+    LockGuard lock(mutex);
+    if(process)
+      process->Kill();
+  }
+
+  if(debug_thread.joinable())
+    debug_thread.join();
+
+  LockGuard lock(mutex);
+  if(debugger)
+    lldb::SBDebugger::Destroy(*debugger);
 }
 
 std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> Debug::LLDB::parse_run_arguments(const std::string &command) {
@@ -89,6 +106,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
   LockGuard lock(mutex);
 
   if(!debugger) {
+    initialized = true;
     lldb::SBDebugger::Initialize();
     debugger = std::make_unique<lldb::SBDebugger>(lldb::SBDebugger::Create(true, log, nullptr));
     listener = std::make_unique<lldb::SBListener>("juCi++ lldb listener");
@@ -409,12 +427,6 @@ void Debug::LLDB::select_frame(uint32_t frame_index, uint32_t thread_index_id) {
     process->GetSelectedThread().SetSelectedFrame(frame_index);
     ;
   }
-}
-
-void Debug::LLDB::cancel() {
-  kill();
-  if(debug_thread.joinable())
-    debug_thread.join();
 }
 
 std::string Debug::LLDB::get_value(const std::string &variable, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index) {

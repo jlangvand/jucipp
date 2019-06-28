@@ -136,5 +136,5 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 
-  Debug::LLDB::get().cancel();
+  Debug::LLDB::destroy();
 }
