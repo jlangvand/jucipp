@@ -17,8 +17,25 @@
 
 const std::string type_coverage_message = "Un-type checked code. Consider adding type annotations.";
 
-LanguageProtocol::Offset::Offset(const boost::property_tree::ptree &pt) : line(pt.get<int>("line")), character(pt.get<int>("character")) {}
-
+LanguageProtocol::Offset::Offset(const boost::property_tree::ptree &pt) {
+  try {
+    line = pt.get<int>("line");
+    character = pt.get<int>("character");
+  }
+  catch(...) {
+    // Workaround for buggy rls
+    auto line = pt.get<std::size_t>("line");
+    auto character = pt.get<std::size_t>("character");
+    if(line > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+      this->line = std::numeric_limits<int>::max();
+    else
+      this->line = line;
+    if(character > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+      this->character = std::numeric_limits<int>::max();
+    else
+      this->character = character;
+  }
+}
 LanguageProtocol::Range::Range(const boost::property_tree::ptree &pt) : start(pt.get_child("start")), end(pt.get_child("end")) {}
 
 LanguageProtocol::Location::Location(const boost::property_tree::ptree &pt, std::string file_) : range(pt.get_child("range")) {
@@ -1153,7 +1170,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
         if(current_request != request_count || !clickable_tag_applied)
           return;
         get_buffer()->remove_tag(clickable_tag, get_buffer()->begin(), get_buffer()->end());
-        auto range = get_token_iters(get_iter_at_line_offset(line, offset));
+        auto range = get_token_iters(get_iter_at_line_pos(line, offset));
         get_buffer()->apply_tag(clickable_tag, range.first, range.second);
       });
     }
@@ -1534,8 +1551,8 @@ void Source::LanguageProtocolView::update_type_coverage() {
         type_coverage_marks.clear();
         get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
         for(auto &range : ranges) {
-          auto start = get_iter_at_line_offset(range.start.line, range.start.character);
-          auto end = get_iter_at_line_offset(range.end.line, range.end.character);
+          auto start = get_iter_at_line_pos(range.start.line, range.start.character);
+          auto end = get_iter_at_line_pos(range.end.line, range.end.character);
           add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
             buffer->insert_at_cursor(type_coverage_message);
           });
