@@ -24,16 +24,8 @@ LanguageProtocol::Offset::Offset(const boost::property_tree::ptree &pt) {
   }
   catch(...) {
     // Workaround for buggy rls
-    auto line = pt.get<std::size_t>("line");
-    auto character = pt.get<std::size_t>("character");
-    if(line > static_cast<std::size_t>(std::numeric_limits<int>::max()))
-      this->line = std::numeric_limits<int>::max();
-    else
-      this->line = line;
-    if(character > static_cast<std::size_t>(std::numeric_limits<int>::max()))
-      this->character = std::numeric_limits<int>::max();
-    else
-      this->character = character;
+    line = std::min(pt.get<std::size_t>("line"), static_cast<std::size_t>(std::numeric_limits<int>::max()));
+    character = std::min(pt.get<std::size_t>("character"), static_cast<std::size_t>(std::numeric_limits<int>::max()));
   }
 }
 LanguageProtocol::Range::Range(const boost::property_tree::ptree &pt) : start(pt.get_child("start")), end(pt.get_child("end")) {}
