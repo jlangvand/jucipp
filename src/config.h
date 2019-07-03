@@ -40,6 +40,7 @@ public:
       std::string compile_command;
     };
 
+    std::string default_build_system;
     std::string default_build_path;
     std::string debug_build_path;
     CMake cmake;
