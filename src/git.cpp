@@ -318,9 +318,6 @@ void Git::init_module(py::module &api) {
       ;
 
   repository
-      .def_static("status_string", &Git::Repository::status_string,
-                  py::arg("status"))
-
       .def("get_status", &Git::Repository::get_status)
       .def("clear_saved_status", &Git::Repository::clear_saved_status)
       .def("get_work_path", &Git::Repository::get_work_path)

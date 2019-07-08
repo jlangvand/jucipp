@@ -48,3 +48,4 @@ void Dispatcher::init_module(py::module &api) {
       .def("post", &Dispatcher::post<std::function<void()> &>)
 
       ;
+}

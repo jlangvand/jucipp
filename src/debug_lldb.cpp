@@ -608,13 +608,11 @@ void Debug::LLDB::init_module(pybind11::module &api) {
       .def("step_over", &Debug::LLDB::step_over)
       .def("step_into", &Debug::LLDB::step_into)
       .def("step_out", &Debug::LLDB::step_out)
-      .def("cancel", &Debug::LLDB::cancel)
       .def("is_invalid", &Debug::LLDB::is_invalid)
       .def("is_stopped", &Debug::LLDB::is_stopped)
       .def("is_running", &Debug::LLDB::is_running)
       .def("get_backtrace", &Debug::LLDB::get_backtrace)
       .def("get_variables", &Debug::LLDB::get_variables)
-      .def("cancel", &Debug::LLDB::cancel)
       .def("start", &Debug::LLDB::start,
            py::arg("command"),
            py::arg("path") = "",
@@ -626,11 +624,6 @@ void Debug::LLDB::init_module(pybind11::module &api) {
       .def("select_frame", &Debug::LLDB::select_frame,
            py::arg("frame_index"),
            py::arg("thread_index_id") = 0)
-      .def("get_value", &Debug::LLDB::get_value,
-           py::arg("variable"),
-           py::arg("file_path"),
-           py::arg("line_nr"),
-           py::arg("line_index"))
       .def("get_return_value", &Debug::LLDB::get_return_value,
            py::arg("file_path"),
            py::arg("line_nr"),
