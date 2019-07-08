@@ -267,21 +267,25 @@ void Window::set_menu_actions() {
         if(chr == ' ')
           chr = '_';
       }
-      boost::filesystem::path buildsys_path;
-      std::string buildsys;
-      // Depending on default_build_system, generate build configuration
-      if(Config::get().project.default_build_system == "cmake") {
-        buildsys_path = project_path / "CMakeLists.txt";
-        buildsys = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_C_FLAGS \"${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.c)\n";
+      boost::filesystem::path build_config_path;
+      std::string build_config;
+      // Depending on default_build_management_system, generate build configuration
+      if(Config::get().project.default_build_management_system == "cmake") {
+        build_config_path = project_path / "CMakeLists.txt";
+        build_config = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_C_FLAGS \"${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.c)\n";
       }
-      else if(Config::get().project.default_build_system == "meson") {
-        buildsys_path = project_path / "meson.build";
-        buildsys = "project('" + project_name + "', 'c')\nexecutable('" + project_name + "', 'main.c')\n";
+      else if(Config::get().project.default_build_management_system == "meson") {
+        build_config_path = project_path / "meson.build";
+        build_config = "project('" + project_name + "', 'c')\n\nadd_project_arguments('-std=c11', '-Wall', '-Wextra', language: 'c')\n\nexecutable('" + project_name + "', 'main.c')\n";
+      }
+      else {
+        Terminal::get().print("Error: build management system " + Config::get().project.default_build_management_system + " not supported.\n", true);
+        return;
       }
       auto c_main_path = project_path / "main.c";
       auto clang_format_path = project_path / ".clang-format";
-      if(boost::filesystem::exists(buildsys_path)) {
-        Terminal::get().print("Error: " + buildsys_path.string() + " already exists.\n", true);
+      if(boost::filesystem::exists(build_config_path)) {
+        Terminal::get().print("Error: " + build_config_path.string() + " already exists.\n", true);
         return;
       }
       if(boost::filesystem::exists(c_main_path)) {
@@ -294,7 +298,7 @@ void Window::set_menu_actions() {
       }
       std::string c_main = "#include <stdio.h>\n\nint main() {\n  printf(\"Hello World!\\n\");\n}\n";
       std::string clang_format = "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\n";
-      if(filesystem::write(buildsys_path, buildsys) && filesystem::write(c_main_path, c_main) && filesystem::write(clang_format_path, clang_format)) {
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(c_main_path, c_main) && filesystem::write(clang_format_path, clang_format)) {
         Directories::get().open(project_path);
         Notebook::get().open(c_main_path);
         Directories::get().update();
@@ -312,21 +316,25 @@ void Window::set_menu_actions() {
         if(chr == ' ')
           chr = '_';
       }
-      boost::filesystem::path buildsys_path;
-      std::string buildsys;
-      // Depending on default_build_system, generate build configuration
-      if(Config::get().project.default_build_system == "cmake") {
-        buildsys_path = project_path / "CMakeLists.txt";
-        buildsys = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.cpp)\n";
+      boost::filesystem::path build_config_path;
+      std::string build_config;
+      // Depending on default_build_management_system, generate build configuration
+      if(Config::get().project.default_build_management_system == "cmake") {
+        build_config_path = project_path / "CMakeLists.txt";
+        build_config = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.cpp)\n";
       }
-      else if(Config::get().project.default_build_system == "meson") {
-        buildsys_path = project_path / "meson.build";
-        buildsys = "project('" + project_name + "', 'cpp')\nexecutable('" + project_name + "', 'main.cpp')\n";
+      else if(Config::get().project.default_build_management_system == "meson") {
+        build_config_path = project_path / "meson.build";
+        build_config = "project('" + project_name + "', 'cpp')\n\nadd_project_arguments('-std=c++1y', '-Wall', '-Wextra', language: 'cpp')\n\nexecutable('" + project_name + "', 'main.cpp')\n";
+      }
+      else {
+        Terminal::get().print("Error: build management system " + Config::get().project.default_build_management_system + " not supported.\n", true);
+        return;
       }
       auto cpp_main_path = project_path / "main.cpp";
       auto clang_format_path = project_path / ".clang-format";
-      if(boost::filesystem::exists(buildsys_path)) {
-        Terminal::get().print("Error: " + buildsys_path.string() + " already exists.\n", true);
+      if(boost::filesystem::exists(build_config_path)) {
+        Terminal::get().print("Error: " + build_config_path.string() + " already exists.\n", true);
         return;
       }
       if(boost::filesystem::exists(cpp_main_path)) {
@@ -339,7 +347,7 @@ void Window::set_menu_actions() {
       }
       std::string cpp_main = "#include <iostream>\n\nint main() {\n  std::cout << \"Hello World!\\n\";\n}\n";
       std::string clang_format = "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\nNamespaceIndentation: All\n";
-      if(filesystem::write(buildsys_path, buildsys) && filesystem::write(cpp_main_path, cpp_main) && filesystem::write(clang_format_path, clang_format)) {
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(cpp_main_path, cpp_main) && filesystem::write(clang_format_path, clang_format)) {
         Directories::get().open(project_path);
         Notebook::get().open(cpp_main_path);
         Directories::get().update();

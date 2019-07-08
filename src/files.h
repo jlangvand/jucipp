@@ -179,6 +179,8 @@ const std::string default_config_file = R"RAW({
             "command": "meson",
             "compile_command": "ninja"
         },
+        "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
+        "default_build_management_system": "cmake",
         "save_on_compile_or_run": true,
         "clear_terminal_on_compile": true,
         "ctags_command": "ctags",

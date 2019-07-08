@@ -40,11 +40,11 @@ public:
       std::string compile_command;
     };
 
-    std::string default_build_system;
     std::string default_build_path;
     std::string debug_build_path;
     CMake cmake;
     Meson meson;
+    std::string default_build_management_system;
     bool save_on_compile_or_run;
     bool clear_terminal_on_compile;
     std::string ctags_command;
