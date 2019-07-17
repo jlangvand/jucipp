@@ -925,6 +925,21 @@ void Source::View::setup_format_style(bool is_generic_view) {
             iter.forward_chars(3);
             continue;
           }
+          // Test for YAML headers
+          test_iter = iter;
+          if(*test_iter == '-' && test_iter.forward_char() &&
+             *test_iter == '-' && test_iter.forward_char() &&
+             *test_iter == '-' && test_iter.forward_char() &&
+             test_iter.ends_line()) {
+            auto previous_line = iter;
+            auto next_line = test_iter;
+            if((previous_line.backward_char() && !previous_line.starts_line()) ||
+               (next_line.forward_char() && !next_line.ends_line())) {
+              script = !script;
+              iter.forward_chars(3);
+              continue;
+            }
+          }
           table = *iter == '|';
         }
         if(!script && *iter == '`')
