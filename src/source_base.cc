@@ -607,7 +607,7 @@ Gtk::TextIter Source::BaseView::get_tabs_end_iter() {
 }
 
 bool Source::BaseView::is_token_char(gunichar chr) {
-  if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_')
+  if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr >= 128)
     return true;
   return false;
 }

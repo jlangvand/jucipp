@@ -199,6 +199,16 @@ const Glib::ustring menu_xml = R"RAW(<interface>
       </section>
       <section>
         <item>
+          <attribute name='label' translatable='yes'>_Extend _Selection</attribute>
+          <attribute name='action'>app.edit_extend_selection</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Shrink _Selection</attribute>
+          <attribute name='action'>app.edit_shrink_selection</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
           <attribute name='label' translatable='yes'>_Show/_Hide</attribute>
           <attribute name='action'>app.edit_show_or_hide</attribute>
         </item>

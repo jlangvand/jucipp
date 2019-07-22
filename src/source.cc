@@ -463,6 +463,8 @@ void Source::View::setup_signals() {
       get_buffer()->remove_tag(clickable_tag, get_buffer()->begin(), get_buffer()->end());
       clickable_tag_applied = false;
     }
+
+    previous_extended_selections.clear();
   });
 
 
@@ -558,10 +560,12 @@ void Source::View::setup_signals() {
   });
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
-    if(get_buffer()->get_has_selection() && mark->get_name() == "selection_bound")
+    auto mark_name = mark->get_name();
+
+    if(get_buffer()->get_has_selection() && mark_name == "selection_bound")
       delayed_tooltips_connection.disconnect();
 
-    if(mark->get_name() == "insert") {
+    if(mark_name == "insert") {
       hide_tooltips();
 
       delayed_tooltips_connection.disconnect();
@@ -595,7 +599,14 @@ void Source::View::setup_signals() {
 
       if(update_status_location)
         update_status_location(this);
+
+      if(!keep_previous_extended_selections)
+        previous_extended_selections.clear();
     }
+
+    if(!keep_previous_extended_selections && (mark_name == "insert" || mark_name == "selection_bound"))
+      if(!keep_previous_extended_selections)
+        previous_extended_selections.clear();
   });
 
   signal_key_release_event().connect([this](GdkEventKey *event) {
@@ -1024,6 +1035,534 @@ void Source::View::hide_dialogs() {
     CompletionDialog::get()->hide();
 }
 
+void Source::View::extend_selection() {
+  // Have tried to generalize this function as much as possible due to the complexity of this task,
+  // but some further workarounds for edge cases might be needed
+
+  // It is impossible to identify <> used for templates by syntax alone, but
+  // this function works in most cases.
+  auto is_template_arguments = [this](Gtk::TextIter start, Gtk::TextIter end) {
+    if(*start != '<' || *end != '>' || start.get_line() != end.get_line())
+      return false;
+    auto prev = start;
+    if(!prev.backward_char())
+      return false;
+    if(!is_token_char(*prev))
+      return false;
+    auto next = end;
+    next.forward_char();
+    if(*next != '(' && *next != ' ')
+      return false;
+    return true;
+  };
+
+  // Extends expression from 'here' in for instance: test->here(...), test.test(here) or here.test(test)
+  auto extend_expression = [&](Gtk::TextIter &start, Gtk::TextIter &end) {
+    auto start_stored = start;
+    auto end_stored = end;
+    bool extend_token_forward = true, extend_token_backward = true;
+
+    auto iter = start;
+    auto prev = iter;
+    if(prev.backward_char() && ((*prev == '(' && *end == ')') || (*prev == '[' && *end == ']') || (*prev == '<' && *end == '>') || (*prev == '{' && *end == '}'))) {
+      if(*prev == '<' && !is_template_arguments(prev, end))
+        return false;
+      iter = start = prev;
+      end.forward_char();
+      extend_token_forward = false;
+    }
+    else if(is_token_char(*iter)) {
+      auto token = get_token_iters(iter);
+      if(start != token.first || end != token.second)
+        return false;
+      extend_token_forward = false;
+      extend_token_backward = false;
+    }
+    else
+      return false;
+
+    // Extend expression forward passed for instance member function
+    {
+      auto iter = end;
+
+      bool extend_token = extend_token_forward;
+      while(forward_to_code(iter)) {
+        if(extend_token && is_token_char(*iter)) {
+          auto token = get_token_iters(iter);
+          iter = end = token.second;
+          extend_token = false;
+          continue;
+        }
+
+        if(!extend_token && *iter == '(' && iter.forward_char() && find_close_symbol_forward(iter, iter, '(', ')')) {
+          iter.forward_char();
+          end = iter;
+          extend_token = false;
+          continue;
+        }
+        if(!extend_token && *iter == '[' && iter.forward_char() && find_close_symbol_forward(iter, iter, '[', ']')) {
+          iter.forward_char();
+          end = iter;
+          extend_token = false;
+          continue;
+        }
+        auto prev = iter;
+        if(!extend_token && *iter == '<' && iter.forward_char() && find_close_symbol_forward(iter, iter, '<', '>') && is_template_arguments(prev, iter)) { // Only extend for instance std::max<int>(1, 2)
+          iter.forward_char();
+          end = iter;
+          extend_token = false;
+          continue;
+        }
+
+        if(!extend_token && *iter == '.') {
+          iter.forward_char();
+          extend_token = true;
+          continue;
+        }
+        auto next = iter;
+        if(!extend_token && next.forward_char() && ((*iter == ':' && *next == ':') || (*iter == '-' && *next == '>'))) {
+          iter = next;
+          iter.forward_char();
+          extend_token = true;
+          continue;
+        }
+
+        break;
+      }
+
+      // Extend through {}
+      auto prev = iter = end;
+      prev.backward_char();
+      if(*prev != '}' && forward_to_code(iter) && *iter == '{' && iter.forward_char() && find_close_symbol_forward(iter, iter, '{', '}')) {
+        iter.forward_char();
+        end = iter;
+      }
+    }
+
+    // Extend backward
+    iter = start;
+    bool extend_token = extend_token_backward;
+    while(true) {
+      if(!iter.backward_char() || !backward_to_code(iter))
+        break;
+
+      if(extend_token && is_token_char(*iter)) {
+        auto token = get_token_iters(iter);
+        start = iter = token.first;
+        extend_token = false;
+        continue;
+      }
+
+      if(extend_token && *iter == ')' && iter.backward_char() && find_open_symbol_backward(iter, iter, '(', ')')) {
+        start = iter;
+        extend_token = true;
+        continue;
+      }
+      if(extend_token && *iter == ']' && iter.backward_char() && find_open_symbol_backward(iter, iter, '[', ']')) {
+        start = iter;
+        extend_token = true;
+        continue;
+      }
+      auto angle_end = iter;
+      if(extend_token && *iter == '>' && iter.backward_char() && find_open_symbol_backward(iter, iter, '<', '>') && is_template_arguments(iter, angle_end)) { // Only extend for instance std::max<int>(1, 2)
+        start = iter;
+        continue;
+      }
+
+      if(*iter == '.') {
+        extend_token = true;
+        continue;
+      }
+      if(angle_end.backward_char() && ((*angle_end == ':' && *iter == ':') || (*angle_end == '-' && *iter == '>'))) {
+        iter = angle_end;
+        extend_token = true;
+        continue;
+      }
+
+      break;
+    }
+
+    if(start != start_stored || end != end_stored)
+      return true;
+    return false;
+  };
+
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  auto start_stored = start;
+  auto end_stored = end;
+
+  previous_extended_selections.emplace_back(start, end);
+  keep_previous_extended_selections = true;
+  ScopeGuard guard{[this] {
+    keep_previous_extended_selections = false;
+  }};
+
+  // Select token
+  if(!get_buffer()->get_has_selection()) {
+    auto iter = get_buffer()->get_insert()->get_iter();
+    if(is_token_char(*iter)) {
+      auto token = get_token_iters(iter);
+      get_buffer()->select_range(token.first, token.second);
+      return;
+    }
+  }
+
+  // Select string or comment block
+  auto before_start = start;
+  if(!is_code_iter(start) && !(before_start.backward_char() && is_code_iter(before_start) && is_code_iter(end))) {
+    bool no_code_iter = true;
+    for(auto iter = start; iter.forward_char() && iter < end;) {
+      if(is_code_iter(iter)) {
+        no_code_iter = false;
+        break;
+      }
+    }
+    if(no_code_iter) {
+      if(backward_to_code(start)) {
+        while(start.forward_char() && (*start == ' ' || *start == '\t' || start.ends_line())) {
+        }
+      }
+      if(forward_to_code(end)) {
+        while(end.backward_char() && (*end == ' ' || *end == '\t' || end.ends_line())) {
+        }
+        end.forward_char();
+      }
+      if(start != start_stored || end != end_stored) {
+        get_buffer()->select_range(start, end);
+        return;
+      }
+      start = start_stored;
+      end = end_stored;
+    }
+  }
+
+  // Select expression from token
+  if(get_buffer()->get_has_selection() && is_token_char(*start) && start.get_line() == end.get_line() && extend_expression(start, end)) {
+    get_buffer()->select_range(start, end);
+    return;
+  }
+
+  before_start = start;
+  auto before_end = end;
+  bool ignore_comma = false;
+  auto start_sentence_iter = get_buffer()->end();
+  auto end_sentence_iter = get_buffer()->end();
+  if(is_code_iter(start) && is_code_iter(end) && before_start.backward_char() && before_end.backward_char()) {
+    if((*before_start == '(' && *end == ')') ||
+       (*before_start == '[' && *end == ']') ||
+       (*before_start == '<' && *end == '>') ||
+       (*before_start == '{' && *end == '}')) {
+      // Select expression from selected brackets
+      if(extend_expression(start, end)) {
+        get_buffer()->select_range(start, end);
+        return;
+      }
+      start = before_start;
+      end.forward_char();
+    }
+    else if((*before_start == ',' && *end == ',') ||
+            (*before_start == ',' && *end == ')') ||
+            (*before_start == ',' && *end == ']') ||
+            (*before_start == ',' && *end == '>') ||
+            (*before_start == ',' && *end == '}') ||
+            (*before_start == '(' && *end == ',') ||
+            (*before_start == '[' && *end == ',') ||
+            (*before_start == '<' && *end == ',') ||
+            (*before_start == '{' && *end == ','))
+      ignore_comma = true;
+    else if(start != end && (*before_end == ';' || *before_end == '}')) {
+      auto iter = end;
+      if(*before_end == '}' && forward_to_code(iter) && *iter == ';')
+        end_sentence_iter = iter;
+      else
+        end_sentence_iter = before_end;
+    }
+  }
+
+  int para_count = 0;
+  int square_count = 0;
+  int curly_count = 0;
+  auto start_comma_iter = get_buffer()->end();
+  auto start_angle_iter = get_buffer()->end();
+  while(start.backward_char()) {
+    if(*start == '(' && is_code_iter(start))
+      para_count++;
+    else if(*start == ')' && is_code_iter(start))
+      para_count--;
+    else if(*start == '[' && is_code_iter(start))
+      square_count++;
+    else if(*start == ']' && is_code_iter(start))
+      square_count--;
+    else if(*start == '{' && is_code_iter(start)) {
+      if(!start_sentence_iter &&
+         para_count == 0 && square_count == 0 && curly_count == 0) {
+        start_sentence_iter = start;
+      }
+      curly_count++;
+    }
+    else if(*start == '}' && is_code_iter(start)) {
+      if(!start_sentence_iter &&
+         para_count == 0 && square_count == 0 && curly_count == 0) {
+        auto next = start;
+        if(next.forward_char() && forward_to_code(next) && *next != ';')
+          start_sentence_iter = start;
+      }
+      curly_count--;
+    }
+    else if(!ignore_comma && !start_comma_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *start == ',' && is_code_iter(start))
+      start_comma_iter = start;
+    else if(!start_sentence_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *start == ';' && is_code_iter(start))
+      start_sentence_iter = start;
+    else if(!start_angle_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *start == '<' && is_code_iter(start))
+      start_angle_iter = start;
+    if(*start == ';' && is_code_iter(start)) {
+      ignore_comma = true;
+      start_comma_iter = get_buffer()->end();
+    }
+    if(para_count > 0 || square_count > 0 || curly_count > 0)
+      break;
+  }
+
+  para_count = 0;
+  square_count = 0;
+  curly_count = 0;
+  auto end_comma_iter = get_buffer()->end();
+  auto end_angle_iter = get_buffer()->end();
+  do {
+    if(*end == '(' && is_code_iter(end))
+      para_count++;
+    else if(*end == ')' && is_code_iter(end))
+      para_count--;
+    else if(*end == '[' && is_code_iter(end))
+      square_count++;
+    else if(*end == ']' && is_code_iter(end))
+      square_count--;
+    else if(*end == '{' && is_code_iter(end))
+      curly_count++;
+    else if(*end == '}' && is_code_iter(end)) {
+      curly_count--;
+      if(!end_sentence_iter &&
+         para_count == 0 && square_count == 0 && curly_count == 0) {
+        auto next = end_sentence_iter = end;
+        if(next.forward_char() && forward_to_code(next) && *next == ';')
+          end_sentence_iter = next;
+      }
+    }
+    else if(!ignore_comma && !end_comma_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *end == ',' && is_code_iter(end))
+      end_comma_iter = end;
+    else if(!end_sentence_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *end == ';' && is_code_iter(end))
+      end_sentence_iter = end;
+    else if(!end_angle_iter &&
+            para_count == 0 && square_count == 0 && curly_count == 0 &&
+            *end == '>' && is_code_iter(end))
+      end_angle_iter = end;
+    if(*end == ';' && is_code_iter(end)) {
+      ignore_comma = true;
+      start_comma_iter = get_buffer()->end();
+      end_comma_iter = get_buffer()->end();
+    }
+    if(para_count < 0 || square_count < 0 || curly_count < 0)
+      break;
+  } while(end.forward_char());
+
+  // Test for <> used for template arguments
+  if(start_angle_iter && end_angle_iter && is_template_arguments(start_angle_iter, end_angle_iter)) {
+    start = start_angle_iter;
+    end = end_angle_iter;
+  }
+
+  // Test for matching brackets and try select regions within brackets separated by ','
+  bool comma_used = false;
+  bool select_matching_brackets = false;
+  if((*start == '(' && *end == ')') ||
+     (*start == '[' && *end == ']') ||
+     (*start == '<' && *end == '>') ||
+     (*start == '{' && *end == '}')) {
+    if(start_comma_iter && start < start_comma_iter) {
+      start = start_comma_iter;
+      comma_used = true;
+    }
+    if(end_comma_iter && end > end_comma_iter) {
+      end = end_comma_iter;
+      comma_used = true;
+    }
+    select_matching_brackets = true;
+  }
+
+  // Attempt to select a sentence, for instance: int a = 2;
+  if(!is_bracket_language) { // If for instance cmake, meson or python
+    if(!select_matching_brackets) {
+      bool select_end_block = language->get_id() == "cmake" || language->get_id() == "meson";
+
+      auto get_tabs = [this](Gtk::TextIter iter) {
+        iter = get_buffer()->get_iter_at_line(iter.get_line());
+        int tabs = 0;
+        while(!iter.ends_line() && (*iter == ' ' || *iter == '\t')) {
+          tabs++;
+          if(!iter.forward_char())
+            break;
+        }
+        if(iter.ends_line())
+          return -1;
+        return tabs;
+      };
+
+      // Forward to code iter
+      forward_to_code(start_stored);
+      if(start_stored > end_stored)
+        end_stored = start_stored;
+
+      // Forward start to non-empty line
+      start = start_stored;
+      start = get_buffer()->get_iter_at_line(start.get_line());
+      while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
+      }
+
+      // Forward end to end of line
+      end = end_stored;
+      if(!end.ends_line())
+        end.forward_to_line_end();
+
+      // Try select block that starts at cursor
+      auto end_tabs = get_tabs(end);
+      auto iter = end;
+      if(end_tabs >= 0) {
+        bool can_select_end_block = false;
+        while(iter.forward_char()) {
+          auto tabs = get_tabs(iter);
+          if(tabs < 0 || tabs > end_tabs || (select_end_block && can_select_end_block && tabs == end_tabs)) {
+            if(!iter.ends_line())
+              iter.forward_to_line_end();
+            end = iter;
+            if(tabs > end_tabs)
+              can_select_end_block = true;
+            if(tabs == end_tabs)
+              break;
+            continue;
+          }
+          break;
+        }
+      }
+      while(end > end_stored && end.starts_line() && end.ends_line() && end.backward_char()) {
+      }
+
+      if(start == start_stored && end == end_stored) { // Try select block that cursor is within
+        // Backward start to line with less indentation
+        auto iter = get_buffer()->get_iter_at_line(start.get_line());
+        auto start_tabs = get_tabs(iter);
+        if(start_tabs >= 0) {
+          while(iter.backward_char()) {
+            auto tabs = get_tabs(iter);
+            iter = get_buffer()->get_iter_at_line(iter.get_line());
+            if(tabs >= 0 && tabs < start_tabs) {
+              start = iter;
+              break;
+            }
+          }
+        }
+        // Forward start to non-empty line
+        start = get_buffer()->get_iter_at_line(start.get_line());
+        while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
+        }
+
+        if(start != start_stored) {
+          // Forward end through lines with higher indentation
+          start_tabs = get_tabs(start);
+          iter = end;
+          if(start_tabs >= 0) {
+            while(iter.forward_char()) {
+              auto tabs = get_tabs(iter);
+              if(tabs < 0 || tabs > start_tabs || (select_end_block && tabs == start_tabs)) {
+                if(!iter.ends_line())
+                  iter.forward_to_line_end();
+                end = iter;
+                if(tabs == start_tabs)
+                  break;
+                continue;
+              }
+              break;
+            }
+          }
+          while(end > end_stored && end.starts_line() && end.ends_line() && end.backward_char()) {
+          }
+        }
+
+        if(start == start_stored && end == end_stored) {
+          start = get_buffer()->begin();
+          end = get_buffer()->end();
+        }
+      }
+      get_buffer()->select_range(start, end);
+      return;
+    }
+  }
+  else if(!comma_used && end_sentence_iter && end > end_sentence_iter) {
+    if(!start_sentence_iter)
+      start_sentence_iter = start;
+    else
+      start_sentence_iter.forward_char();
+
+    // Forward to code iter (move passed macros)
+    while(forward_to_code(start_sentence_iter) && *start_sentence_iter == '#' && start_sentence_iter.forward_to_line_end()) {
+      auto prev = start_sentence_iter;
+      if(prev.backward_char() && *prev == '\\' && start_sentence_iter.forward_char()) {
+        while(start_sentence_iter.forward_to_line_end()) {
+          prev = start_sentence_iter;
+          if(prev.backward_char() && *prev == '\\' && start_sentence_iter.forward_char())
+            continue;
+          break;
+        }
+      }
+    }
+
+    end_sentence_iter.forward_char();
+    if((end_sentence_iter != end_stored || start_sentence_iter != start_stored) &&
+       ((*start == '{' && *end == '}') || (start.is_start() && end.is_end()))) {
+      start = start_sentence_iter;
+      end = end_sentence_iter;
+      select_matching_brackets = false;
+    }
+  }
+  if(select_matching_brackets)
+    start.forward_char();
+
+  if(start == start_stored && end == end_stored) { // In case of no change due to inbalanced brackets
+    previous_extended_selections.pop_back();
+    if(!start.backward_char() && !end.forward_char())
+      return;
+    get_buffer()->select_range(start, end);
+    extend_selection();
+    return;
+  }
+
+  get_buffer()->select_range(start, end);
+  return;
+}
+
+void Source::View::shrink_selection() {
+  if(previous_extended_selections.empty()) {
+    Info::get().print("No previous extended selections found");
+    return;
+  }
+  auto selection = previous_extended_selections.back();
+  keep_previous_extended_selections = true;
+  get_buffer()->select_range(selection.first, selection.second);
+  hide_tooltips();
+  keep_previous_extended_selections = false;
+  previous_extended_selections.pop_back();
+}
+
 void Source::View::show_or_hide() {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
@@ -1065,7 +1604,7 @@ void Source::View::show_or_hide() {
                 break;
               }
               static std::vector<std::string> exact = {"}", ")", "]", ">", "</", "else", "endif"};
-              static std::vector<std::string> followed_by_non_token_char = {"elseif", "elif", "case", "default", "private", "public", "protected"};
+              static std::vector<std::string> followed_by_non_token_char = {"elseif", "elif", "catch", "case", "default", "private", "public", "protected"};
               if(text == "{") { // C/C++ sometimes starts a block with a standalone {
                 if(!is_token_char(*last_tabs_end)) {
                   end = get_buffer()->get_iter_at_line(end.get_line());
@@ -1183,17 +1722,25 @@ void Source::View::place_cursor_at_next_diagnostic() {
   }
 }
 
-Gtk::TextIter Source::View::find_non_whitespace_code_iter_backward(Gtk::TextIter iter) {
-  if(iter.starts_line())
-    return iter;
+bool Source::View::backward_to_code(Gtk::TextIter &iter) {
+  while((*iter == ' ' || *iter == '\t' || *iter == '\n' || iter.ends_line() || !is_code_iter(iter)) && iter.backward_char()) {
+  }
+  return !iter.is_start() || is_code_iter(iter);
+}
+
+bool Source::View::forward_to_code(Gtk::TextIter &iter) {
+  while((*iter == ' ' || *iter == '\t' || *iter == '\n' || iter.ends_line() || !is_code_iter(iter)) && iter.forward_char()) {
+  }
+  return !iter.is_end();
+}
+
+void Source::View::backward_to_code_or_line_start(Gtk::TextIter &iter) {
   while(!iter.starts_line() && (!is_code_iter(iter) || *iter == ' ' || *iter == '\t' || iter.ends_line()) && iter.backward_char()) {
   }
-  return iter;
 }
 
 Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
-  while(!iter.starts_line() && (*iter == ' ' || *iter == '\t' || iter.ends_line() || !is_code_iter(iter)) && iter.backward_char()) {
-  }
+  backward_to_code_or_line_start(iter);
 
   if(iter.starts_line())
     return iter;
@@ -1259,15 +1806,13 @@ Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
       // Handle ',', ':', or operators that can be used between two lines, on previous line:
       auto previous_iter = iter;
       previous_iter.backward_char();
-      while(!previous_iter.starts_line() && (*previous_iter == ' ' || previous_iter.ends_line() || !is_code_iter(previous_iter)) && previous_iter.backward_char()) {
-      }
+      backward_to_code_or_line_start(previous_iter);
       if(previous_iter.starts_line())
         return iter;
       // Handle for instance: Test::Test():\n    test(2) {
       if(has_open_curly && *previous_iter == ':') {
         previous_iter.backward_char();
-        while(!previous_iter.starts_line() && *previous_iter == ' ' && previous_iter.backward_char()) {
-        }
+        backward_to_code_or_line_start(previous_iter);
         if(*previous_iter == ')') {
           auto token = get_token(get_tabs_end_iter(previous_iter));
           if(token != "case")
@@ -1290,36 +1835,19 @@ Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
   return iter;
 }
 
-bool Source::View::find_open_curly_bracket_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter) {
-  long count = 0;
-
-  do {
-    if(*iter == '{') {
-      if(count == 0 && is_code_iter(iter)) {
-        found_iter = iter;
-        return true;
-      }
-      count++;
-    }
-    else if(*iter == '}' && is_code_iter(iter))
-      count--;
-  } while(iter.backward_char());
-  return false;
-}
-
 bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char) {
   long count = 0;
   if(positive_char == '{' && negative_char == '}') {
     do {
-      if(*iter == negative_char && is_code_iter(iter)) {
+      if(*iter == positive_char && is_code_iter(iter))
+        count++;
+      else if(*iter == negative_char && is_code_iter(iter)) {
         if(count == 0) {
           found_iter = iter;
           return true;
         }
         count--;
       }
-      else if(*iter == positive_char && is_code_iter(iter))
-        count++;
     } while(iter.forward_char());
     return false;
   }
@@ -1343,6 +1871,46 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
         curly_count--;
       }
     } while(iter.forward_char());
+    return false;
+  }
+}
+
+bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char) {
+  long count = 0;
+  if(positive_char == '{' && negative_char == '}') {
+    do {
+      if(*iter == positive_char && is_code_iter(iter)) {
+        if(count == 0) {
+          found_iter = iter;
+          return true;
+        }
+        count++;
+      }
+      else if(*iter == negative_char && is_code_iter(iter))
+        count--;
+    } while(iter.backward_char());
+    return false;
+  }
+  else {
+    long curly_count = 0;
+    do {
+      if(*iter == positive_char && is_code_iter(iter)) {
+        if(count == 0) {
+          found_iter = iter;
+          return true;
+        }
+        count++;
+      }
+      else if(*iter == negative_char && is_code_iter(iter))
+        count--;
+      else if(*iter == '{' && is_code_iter(iter)) {
+        if(curly_count == 0)
+          return false;
+        curly_count++;
+      }
+      else if(*iter == '}' && is_code_iter(iter))
+        curly_count--;
+    } while(iter.backward_char());
     return false;
   }
 }
@@ -1492,9 +2060,7 @@ bool Source::View::is_possible_argument() {
   auto iter = get_buffer()->get_insert()->get_iter();
   if(iter.backward_char() && (!interactive_completion || last_keyval == '(' || last_keyval == ',' || last_keyval == ' ' ||
                               last_keyval == GDK_KEY_Return || last_keyval == GDK_KEY_KP_Enter)) {
-    while((*iter == ' ' || *iter == '\t' || *iter == '\n' || *iter == '\r') && iter.backward_char()) {
-    }
-    if(*iter == '(' || *iter == ',')
+    if(backward_to_code(iter) && (*iter == '(' || *iter == ','))
       return true;
   }
   return false;
@@ -1637,7 +2203,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     iter = get_buffer()->get_insert()->get_iter();
     auto condition_iter = iter;
     condition_iter.backward_char();
-    condition_iter = find_non_whitespace_code_iter_backward(condition_iter);
+    backward_to_code_or_line_start(condition_iter);
     auto start_iter = get_start_of_expression(condition_iter);
     auto tabs_end_iter = get_tabs_end_iter(start_iter);
     auto tabs = get_line_before(tabs_end_iter);
@@ -1782,8 +2348,6 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
         break;
       }
       if(iter.ends_line()) {
-        if(*iter == '\r') // For CR+LF
-          iter.forward_char();
         if(!iter.forward_char())
           do_smart_delete = false;
         break;
@@ -1901,7 +2465,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
     }
 
     auto condition_iter = previous_iter;
-    condition_iter = find_non_whitespace_code_iter_backward(condition_iter);
+    backward_to_code_or_line_start(condition_iter);
     auto start_iter = get_start_of_expression(condition_iter);
     auto tabs_end_iter = get_tabs_end_iter(start_iter);
     auto tabs = get_line_before(tabs_end_iter);
@@ -2014,7 +2578,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
             if(is_cpp && tabs_end_iter.starts_line()) {
               auto iter = condition_iter;
               Gtk::TextIter open_iter;
-              if(iter.backward_char() && find_open_curly_bracket_backward(iter, open_iter)) {
+              if(iter.backward_char() && find_open_symbol_backward(iter, open_iter, '{', '}')) {
                 if(open_iter.starts_line()) // in case of: namespace test\n{
                   open_iter.backward_char();
                 auto iter = get_buffer()->get_iter_at_line(open_iter.get_line());
@@ -2145,7 +2709,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
       auto previous_end_iter = start_iter;
       while(previous_end_iter.backward_char() && !previous_end_iter.ends_line()) {
       }
-      previous_end_iter = find_non_whitespace_code_iter_backward(previous_end_iter);
+      backward_to_code_or_line_start(previous_end_iter);
       auto previous_start_iter = get_tabs_end_iter(get_buffer()->get_iter_at_line(get_start_of_expression(previous_end_iter).get_line()));
       auto previous_tabs = get_line_before(previous_start_iter);
       if(!previous_end_iter.ends_line())
@@ -2164,8 +2728,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
       auto iter = condition_iter;
       if(!iter.starts_line())
         iter.backward_char();
-      while(!iter.starts_line() && *iter == ' ' && iter.backward_char()) {
-      }
+      backward_to_code_or_line_start(iter);
       if(*iter == ')') {
         auto token = get_token(get_tabs_end_iter(get_buffer()->get_iter_at_line(iter.get_line())));
         if(token != "case") // Do not move left for instance: void Test::Test():
@@ -2174,7 +2737,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
 
       if(perform_indent) {
         Gtk::TextIter found_curly_iter;
-        if(find_open_curly_bracket_backward(iter, found_curly_iter)) {
+        if(find_open_symbol_backward(iter, found_curly_iter, '{', '}')) {
           auto tabs_end_iter = get_tabs_end_iter(get_buffer()->get_iter_at_line(found_curly_iter.get_line()));
           auto tabs_start_of_sentence = get_line_before(tabs_end_iter);
           if(tabs.size() == (tabs_start_of_sentence.size() + tab_size)) {
@@ -2247,7 +2810,8 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
       auto previous_end_iter = iter;
       while(previous_end_iter.backward_char() && !previous_end_iter.ends_line()) {
       }
-      auto condition_iter = find_non_whitespace_code_iter_backward(previous_end_iter);
+      auto condition_iter = previous_end_iter;
+      backward_to_code_or_line_start(condition_iter);
       auto previous_start_iter = get_tabs_end_iter(get_buffer()->get_iter_at_line(get_start_of_expression(condition_iter).get_line()));
       auto previous_tabs = get_line_before(previous_start_iter);
       auto after_condition_iter = condition_iter;
@@ -2284,13 +2848,13 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
       auto condition_iter = iter;
       while(condition_iter.starts_line() && condition_iter.backward_char()) {
       }
-      condition_iter = find_non_whitespace_code_iter_backward(condition_iter);
+      backward_to_code_or_line_start(condition_iter);
       if(*condition_iter == ';' && condition_iter.get_line() > 0 && is_code_iter(condition_iter)) {
         auto start_iter = get_start_of_expression(condition_iter);
         auto previous_end_iter = start_iter;
         while(previous_end_iter.backward_char() && !previous_end_iter.ends_line()) {
         }
-        previous_end_iter = find_non_whitespace_code_iter_backward(previous_end_iter);
+        backward_to_code_or_line_start(previous_end_iter);
         auto previous_start_iter = get_tabs_end_iter(get_buffer()->get_iter_at_line(get_start_of_expression(previous_end_iter).get_line()));
         auto previous_tabs = get_line_before(previous_start_iter);
         if(!previous_end_iter.ends_line())
@@ -2534,7 +3098,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
           // Special case for functions and classes with no indentation after: namespace {:
           if(is_cpp && tabs_end_iter.starts_line()) {
             Gtk::TextIter open_iter;
-            if(find_open_curly_bracket_backward(iter, open_iter)) {
+            if(find_open_symbol_backward(iter, open_iter, '{', '}')) {
               if(open_iter.starts_line()) // in case of: namespace test\n{
                 open_iter.backward_char();
               auto iter = get_buffer()->get_iter_at_line(open_iter.get_line());

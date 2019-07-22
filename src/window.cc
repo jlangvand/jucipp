@@ -551,6 +551,16 @@ void Window::set_menu_actions() {
     }
   });
 
+  menu.add_action("edit_extend_selection", []() {
+    if(auto view = Notebook::get().get_current_view())
+      view->extend_selection();
+  });
+
+  menu.add_action("edit_shrink_selection", []() {
+    if(auto view = Notebook::get().get_current_view())
+      view->shrink_selection();
+  });
+
   menu.add_action("edit_show_or_hide", []() {
     if(auto view = Notebook::get().get_current_view())
       view->show_or_hide();

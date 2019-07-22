@@ -174,4 +174,190 @@ int main() {
       assert(buffer->get_insert()->get_iter().get_line_offset() == 0);
     }
   }
+
+  // extend_selection() tests
+  {
+    auto buffer = source_view.get_buffer();
+    source_view.is_bracket_language = true;
+    std::string source = "test(1, test(10), \"100\");";
+    buffer->set_text(source);
+    {
+      source_view.place_cursor_at_line_offset(0, 0);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test(1, test(10), \"100\")");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 5);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "1");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "1, test(10), \"100\"");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test(1, test(10), \"100\")");
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 7);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == " test(10)");
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 8);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test(10)");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == " test(10)");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "1, test(10), \"100\"");
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 18);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == " \"100\"");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "1, test(10), \"100\"");
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 26);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 27);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+
+    source = "int main() {\n  return 1;\n}\n";
+    buffer->set_text(source);
+    {
+      source_view.place_cursor_at_line_offset(0, 0);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "int");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 4);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "main");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(4, source.size() - 1 - 4));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+    {
+      source_view.place_cursor_at_line_offset(1, 2);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "return");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "return 1;");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(12, 13));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(4, source.size() - 1 - 4));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+
+    source = "test<int, int>(11, 22);";
+    buffer->set_text(source);
+    {
+      source_view.place_cursor_at_line_offset(0, 0);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 5);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "int");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(5, 8));
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+    }
+    {
+      source_view.place_cursor_at_line_offset(0, 15);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "11");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "11, 22");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source.substr(0, source.size() - 1));
+    }
+
+    source = "{\n  {\n    test;\n  }\n}\n";
+    buffer->set_text(source);
+    {
+      source_view.place_cursor_at_line_offset(2, 4);
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "test;");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "\n    test;\n  ");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "{\n    test;\n  }");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "\n  {\n    test;\n  }\n");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == "{\n  {\n    test;\n  }\n}");
+
+      source_view.extend_selection();
+      assert(source_view.get_selected_text() == source);
+
+      source_view.shrink_selection();
+      assert(source_view.get_selected_text() == "{\n  {\n    test;\n  }\n}");
+
+      source_view.shrink_selection();
+      assert(source_view.get_selected_text() == "\n  {\n    test;\n  }\n");
+
+      source_view.shrink_selection();
+      assert(source_view.get_selected_text() == "{\n    test;\n  }");
+    }
+  }
 }

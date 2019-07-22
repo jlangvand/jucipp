@@ -84,6 +84,9 @@ namespace Source {
     void hide_tooltips() override;
     void hide_dialogs() override;
 
+    void extend_selection();
+    void shrink_selection();
+
     void show_or_hide(); /// Show or hide text selection
 
     bool soft_reparse_needed = false;
@@ -120,13 +123,15 @@ namespace Source {
     gdouble on_motion_last_x = 0.0;
     gdouble on_motion_last_y = 0.0;
 
-    Gtk::TextIter find_non_whitespace_code_iter_backward(Gtk::TextIter iter);
+    bool backward_to_code(Gtk::TextIter &iter);
+    bool forward_to_code(Gtk::TextIter &iter);
+    void backward_to_code_or_line_start(Gtk::TextIter &iter);
     /// If closing bracket is found, continues until the open bracket.
     /// Returns if open bracket is found that has no corresponding closing bracket.
     /// Else, return at start of line.
     Gtk::TextIter get_start_of_expression(Gtk::TextIter iter);
-    bool find_open_curly_bracket_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter);
     bool find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
+    bool find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
     long symbol_count(Gtk::TextIter iter, unsigned int positive_char, unsigned int negative_char);
     bool is_templated_function(Gtk::TextIter iter, Gtk::TextIter &parenthesis_end_iter);
     /// If insert is at an possible argument. Also based on last key press.
@@ -153,6 +158,9 @@ namespace Source {
     bool use_fixed_continuation_indenting = true;
     bool is_cpp = false;
     guint previous_non_modifier_keyval = 0;
+
+    bool keep_previous_extended_selections = false;
+    std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> previous_extended_selections;
 
     bool on_key_press_event_extra_cursors(GdkEventKey *key);
   };

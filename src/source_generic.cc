@@ -79,36 +79,13 @@ void Source::GenericView::parse_language_file(bool &has_context_class, const boo
   }
 }
 
-bool Source::GenericView::is_word_iter(const Gtk::TextIter &iter) {
-  if(((*iter >= '0' && *iter <= '9') || (*iter >= 'A' && *iter <= 'Z') || (*iter >= 'a' && *iter <= 'z') || *iter >= 128))
-    return true;
-  return false;
-}
-
-std::pair<Gtk::TextIter, Gtk::TextIter> Source::GenericView::get_word(Gtk::TextIter iter) {
-  auto start = iter;
-  auto end = iter;
-
-  while(is_word_iter(iter)) {
-    start = iter;
-    if(!iter.backward_char())
-      break;
-  }
-  while(is_word_iter(end)) {
-    if(!end.forward_char())
-      break;
-  }
-
-  return {start, end};
-}
-
 std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> Source::GenericView::get_words(const Gtk::TextIter &start, const Gtk::TextIter &end) {
   std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> words;
 
   auto iter = start;
   while(iter && iter < end) {
-    if(is_word_iter(iter)) {
-      auto word = get_word(iter);
+    if(is_token_char(*iter)) {
+      auto word = get_token_iters(iter);
       if(!(*word.first >= '0' && *word.first <= '9') && (word.second.get_offset() - word.first.get_offset()) >= 3) // Minimum word length: 3
         words.emplace_back(word.first, word.second);
       iter = word.second;
@@ -133,11 +110,11 @@ void Source::GenericView::setup_buffer_words() {
   // Remove changed word at insert
   get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &iter_, const Glib::ustring &text, int bytes) {
     auto iter = iter_;
-    if(!is_word_iter(iter))
+    if(!is_token_char(*iter))
       iter.backward_char();
 
-    if(is_word_iter(iter)) {
-      auto word = get_word(iter);
+    if(is_token_char(*iter)) {
+      auto word = get_token_iters(iter);
       if(word.second.get_offset() - word.first.get_offset() >= 3) {
         LockGuard lock(buffer_words_mutex);
         auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
@@ -156,7 +133,7 @@ void Source::GenericView::setup_buffer_words() {
     auto start = iter;
     auto end = iter;
     start.backward_chars(text.size());
-    if(!is_word_iter(start))
+    if(!is_token_char(*start))
       start.backward_char();
     end.forward_char();
 
@@ -173,7 +150,7 @@ void Source::GenericView::setup_buffer_words() {
   get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start_, const Gtk::TextBuffer::iterator &end_) {
     auto start = start_;
     auto end = end_;
-    if(!is_word_iter(start))
+    if(!is_token_char(*start))
       start.backward_char();
     end.forward_char();
     auto words = get_words(start, end);
@@ -192,10 +169,10 @@ void Source::GenericView::setup_buffer_words() {
   // Add new word resulting from erased text
   get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start_, const Gtk::TextBuffer::iterator & /*end*/) {
     auto start = start_;
-    if(!is_word_iter(start))
+    if(!is_token_char(*start))
       start.backward_char();
-    if(is_word_iter(start)) {
-      auto word = get_word(start);
+    if(is_token_char(*start)) {
+      auto word = get_token_iters(start);
       if(word.second.get_offset() - word.first.get_offset() >= 3) {
         LockGuard lock(buffer_words_mutex);
         auto result = buffer_words.emplace(get_buffer()->get_text(word.first, word.second), 1);

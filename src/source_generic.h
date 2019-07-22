@@ -16,8 +16,6 @@ namespace Source {
 
     std::set<std::string> keywords;
 
-    bool is_word_iter(const Gtk::TextIter &iter);
-    std::pair<Gtk::TextIter, Gtk::TextIter> get_word(Gtk::TextIter iter);
     std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> get_words(const Gtk::TextIter &start, const Gtk::TextIter &end);
 
     Mutex buffer_words_mutex ACQUIRED_AFTER(autocomplete.prefix_mutex);

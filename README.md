@@ -40,6 +40,7 @@ towards libclang with speed, stability, and ease of use in mind.
 * Run shell commands within juCi++
 * Regex search and replace
 * Smart paste, keys and indentation
+* Extend/shrink selection
 * Multiple cursors
 * Snippets can be added in ~/.juci/snippets.json. The language ids used in the regexes can be found here: https://gitlab.gnome.org/GNOME/gtksourceview/tree/master/data/language-specs.
 * Auto-indentation through [clang-format](http://clang.llvm.org/docs/ClangFormat.html) or [Prettier](https://github.com/prettier/prettier) if installed
