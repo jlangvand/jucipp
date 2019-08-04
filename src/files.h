@@ -190,11 +190,11 @@ const std::string default_config_file = R"RAW({
         "clang": {
             "separator": "::",
             "queries": {
-                "@empty": "https://www.google.com/search?btnI&q=c%2B%2B+",
-                "std": "https://www.google.com/search?btnI&q=site:http://www.cplusplus.com/reference/+",
-                "boost": "https://www.google.com/search?btnI&q=site:http://www.boost.org/doc/libs/1_59_0/+",
-                "Gtk": "https://www.google.com/search?btnI&q=site:https://developer.gnome.org/gtkmm/stable/+",
-                "@any": "https://www.google.com/search?btnI&q="
+                "@empty": "https://www.google.com/search?q=c%2B%2B+",
+                "std": "https://www.google.com/search?q=site:http://www.cplusplus.com/reference/+",
+                "boost": "https://www.google.com/search?q=site:http://www.boost.org/doc/libs/1_59_0/+",
+                "Gtk": "https://www.google.com/search?q=site:https://developer.gnome.org/gtkmm/stable/+",
+                "@any": "https://www.google.com/search?q="
             }
         }
     },
