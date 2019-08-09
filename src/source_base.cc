@@ -69,6 +69,15 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   rgba.set_rgba(0.5, 0.5, 0.5, 0.4);
   snippet_argument_tag->property_background_rgba() = rgba;
   snippet_argument_tag->property_background_set() = true;
+
+  get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+    if(mark->get_name() == "insert")
+      keep_clipboard = false;
+  });
+
+  get_buffer()->signal_changed().connect([this] {
+    keep_clipboard = false;
+  });
 }
 
 Source::BaseView::~BaseView() {
@@ -676,6 +685,29 @@ void Source::BaseView::cleanup_whitespace_characters(const Gtk::TextIter &iter) 
     get_buffer()->erase(iter, end_blank_iter);
   else
     get_buffer()->erase(start_blank_iter, end_blank_iter);
+}
+
+void Source::BaseView::cut() {
+  if(!get_buffer()->get_has_selection())
+    cut_line();
+  else
+    get_buffer()->cut_clipboard(Gtk::Clipboard::get());
+  keep_clipboard = true;
+}
+
+void Source::BaseView::cut_line() {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  start = get_buffer()->get_iter_at_line(start.get_line());
+  if(!end.ends_line())
+    end.forward_to_line_end();
+  end.forward_char();
+  if(keep_clipboard)
+    Gtk::Clipboard::get()->set_text(Gtk::Clipboard::get()->wait_for_text() + get_buffer()->get_text(start, end));
+  else
+    Gtk::Clipboard::get()->set_text(get_buffer()->get_text(start, end));
+  get_buffer()->erase(start, end);
+  keep_clipboard = true;
 }
 
 void Source::BaseView::paste() {

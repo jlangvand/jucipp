@@ -66,6 +66,8 @@ namespace Source {
     std::string status_branch;
     std::function<void(int number)> update_search_occurrences;
 
+    void cut();
+    void cut_line();
     void paste();
 
     std::string get_selected_text();
@@ -85,6 +87,8 @@ namespace Source {
     GtkSourceSearchContext *search_context;
     GtkSourceSearchSettings *search_settings;
     static void search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data);
+
+    bool keep_clipboard = false;
 
   protected:
     std::time_t last_write_time;

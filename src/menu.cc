@@ -189,8 +189,16 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='action'>app.edit_cut</attribute>
         </item>
         <item>
+          <attribute name='label' translatable='yes'>_Cut _Lines</attribute>
+          <attribute name='action'>app.edit_cut_lines</attribute>
+        </item>
+        <item>
           <attribute name='label' translatable='yes'>_Copy</attribute>
           <attribute name='action'>app.edit_copy</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Copy _Lines</attribute>
+          <attribute name='action'>app.edit_copy_lines</attribute>
         </item>
         <item>
           <attribute name='label' translatable='yes'>_Paste</attribute>
