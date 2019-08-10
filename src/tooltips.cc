@@ -268,7 +268,7 @@ void Tooltip::wrap_lines() {
       }
       if(*iter == ' ')
         last_space = iter;
-      if(*iter == '\n') {
+      if(iter.ends_line()) {
         end = true;
         iter.forward_char();
         break;

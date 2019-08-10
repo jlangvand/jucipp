@@ -1723,13 +1723,13 @@ void Source::View::place_cursor_at_next_diagnostic() {
 }
 
 bool Source::View::backward_to_code(Gtk::TextIter &iter) {
-  while((*iter == ' ' || *iter == '\t' || *iter == '\n' || iter.ends_line() || !is_code_iter(iter)) && iter.backward_char()) {
+  while((*iter == ' ' || *iter == '\t' || iter.ends_line() || !is_code_iter(iter)) && iter.backward_char()) {
   }
   return !iter.is_start() || is_code_iter(iter);
 }
 
 bool Source::View::forward_to_code(Gtk::TextIter &iter) {
-  while((*iter == ' ' || *iter == '\t' || *iter == '\n' || iter.ends_line() || !is_code_iter(iter)) && iter.forward_char()) {
+  while((*iter == ' ' || *iter == '\t' || iter.ends_line() || !is_code_iter(iter)) && iter.forward_char()) {
   }
   return !iter.is_end();
 }
@@ -2103,9 +2103,9 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
         break;
       if(iter.starts_line())
         empty_line = true;
-      if(empty_line && !iter.ends_line() && *iter != '\n' && *iter != ' ' && *iter != '\t')
+      if(empty_line && !iter.ends_line() && *iter != ' ' && *iter != '\t')
         empty_line = false;
-      if(!text_found && !iter.ends_line() && *iter != '\n' && *iter != ' ' && *iter != '\t')
+      if(!text_found && !iter.ends_line() && *iter != ' ' && *iter != '\t')
         text_found = true;
       if(empty_line && text_found && iter.ends_line())
         break;
@@ -2132,9 +2132,9 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
         break;
       if(iter.ends_line())
         empty_line = true;
-      if(empty_line && !iter.ends_line() && *iter != '\n' && *iter != ' ' && *iter != '\t')
+      if(empty_line && !iter.ends_line() && *iter != ' ' && *iter != '\t')
         empty_line = false;
-      if(!text_found && !iter.ends_line() && *iter != '\n' && *iter != ' ' && *iter != '\t')
+      if(!text_found && !iter.ends_line() && *iter != ' ' && *iter != '\t')
         text_found = true;
       if(empty_line && text_found && iter.starts_line())
         break;
