@@ -148,7 +148,8 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
     arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");
     arguments.emplace_back("-I/Library/Developer/CommandLineTools/usr/bin/../include/c++/v1"); //Added for OS X 10.11
 #else
-    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"); // Missing include folder in llvm 8.0.0
+    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");          // Missing include folder in llvm 8.0.0
+    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"); // Missing include folder in newer MacOS versions
 #endif
 #endif
 #ifdef _WIN32
