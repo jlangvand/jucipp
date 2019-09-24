@@ -154,6 +154,10 @@ namespace Source {
 
     void update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
 
+  private:
+    void update_diagnostics(const std::vector<LanguageProtocol::Diagnostic> &diagnostics);
+
+  public:
     Gtk::TextIter get_iter_at_line_pos(int line, int pos) override;
 
     std::string uri;
@@ -193,6 +197,8 @@ namespace Source {
     sigc::connection autocomplete_delayed_show_arguments_connection;
 
     bool has_named_parameters();
+
+    std::vector<LanguageProtocol::Diagnostic> last_diagnostics;
 
     sigc::connection update_type_coverage_connection;
     std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> type_coverage_marks;

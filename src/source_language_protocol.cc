@@ -935,68 +935,74 @@ void Source::LanguageProtocolView::escape_text(std::string &text) {
 
 void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
   dispatcher.post([this, diagnostics = std::move(diagnostics)]() {
-    diagnostic_offsets.clear();
-    diagnostic_tooltips.clear();
-    if(!capabilities.type_coverage)
-      get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
-    get_buffer()->remove_tag_by_name("def:error_underline", get_buffer()->begin(), get_buffer()->end());
-    if(!capabilities.type_coverage)
-      num_warnings = 0;
-    num_errors = 0;
-    num_fix_its = 0;
-    for(auto &diagnostic : diagnostics) {
-      auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
-      auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
+    update_diagnostics(diagnostics);
+    last_diagnostics = std::move(diagnostics);
+  });
+}
 
-      if(start == end) {
-        if(!end.ends_line())
-          end.forward_char();
-        else
-          while(start.ends_line() && start.backward_char()) { // Move start so that diagnostic underline is visible
-          }
-      }
+void Source::LanguageProtocolView::update_diagnostics(const std::vector<LanguageProtocol::Diagnostic> &diagnostics) {
+  diagnostic_offsets.clear();
+  diagnostic_tooltips.clear();
+  get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
+  get_buffer()->remove_tag_by_name("def:error_underline", get_buffer()->begin(), get_buffer()->end());
+  num_warnings = 0;
+  num_errors = 0;
+  num_fix_its = 0;
 
-      bool error = false;
-      std::string severity_tag_name;
-      if(diagnostic.severity >= 2) {
-        severity_tag_name = "def:warning";
-        num_warnings++;
-      }
-      else {
-        severity_tag_name = "def:error";
-        num_errors++;
-        error = true;
-      }
+  for(auto &diagnostic : diagnostics) {
+    auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
+    auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
 
-      add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-        buffer->insert_at_cursor(diagnostic.message);
-
-        for(size_t i = 0; i < diagnostic.related_informations.size(); ++i) {
-          auto link = filesystem::get_relative_path(diagnostic.related_informations[i].location.file, file_path.parent_path()).string();
-          link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.line + 1);
-          link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.character + 1);
-
-          if(i == 0)
-            buffer->insert_at_cursor("\n\n");
-          buffer->insert_at_cursor(diagnostic.related_informations[i].message);
-          buffer->insert_at_cursor(": ");
-          auto pos = buffer->get_insert()->get_iter();
-          buffer->insert_with_tag(pos, link, link_tag);
-          if(i != diagnostic.related_informations.size() - 1)
-            buffer->insert_at_cursor("\n");
+    if(start == end) {
+      if(!end.ends_line())
+        end.forward_char();
+      else
+        while(start.ends_line() && start.backward_char()) { // Move start so that diagnostic underline is visible
         }
-      });
     }
 
-    for(auto &mark : type_coverage_marks)
-      add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-        buffer->insert_at_cursor(type_coverage_message);
-      });
+    bool error = false;
+    std::string severity_tag_name;
+    if(diagnostic.severity >= 2) {
+      severity_tag_name = "def:warning";
+      num_warnings++;
+    }
+    else {
+      severity_tag_name = "def:error";
+      num_errors++;
+      error = true;
+    }
 
-    status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
-    if(update_status_diagnostics)
-      update_status_diagnostics(this);
-  });
+    add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+      buffer->insert_at_cursor(diagnostic.message);
+
+      for(size_t i = 0; i < diagnostic.related_informations.size(); ++i) {
+        auto link = filesystem::get_relative_path(diagnostic.related_informations[i].location.file, file_path.parent_path()).string();
+        link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.line + 1);
+        link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.character + 1);
+
+        if(i == 0)
+          buffer->insert_at_cursor("\n\n");
+        buffer->insert_at_cursor(diagnostic.related_informations[i].message);
+        buffer->insert_at_cursor(": ");
+        auto pos = buffer->get_insert()->get_iter();
+        buffer->insert_with_tag(pos, link, link_tag);
+        if(i != diagnostic.related_informations.size() - 1)
+          buffer->insert_at_cursor("\n");
+      }
+    });
+  }
+
+  for(auto &mark : type_coverage_marks) {
+    add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+      buffer->insert_at_cursor(type_coverage_message);
+    });
+    num_warnings++;
+  }
+
+  status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
+  if(update_status_diagnostics)
+    update_status_diagnostics(this);
 }
 
 Gtk::TextIter Source::LanguageProtocolView::get_iter_at_line_pos(int line, int pos) {
@@ -1535,27 +1541,18 @@ void Source::LanguageProtocolView::update_type_coverage() {
       }
 
       dispatcher.post([this, ranges = std::move(ranges)] {
-        num_warnings = 0;
         for(auto &mark : type_coverage_marks) {
           get_buffer()->delete_mark(mark.first);
           get_buffer()->delete_mark(mark.second);
         }
         type_coverage_marks.clear();
-        get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
         for(auto &range : ranges) {
           auto start = get_iter_at_line_pos(range.start.line, range.start.character);
           auto end = get_iter_at_line_pos(range.end.line, range.end.character);
-          add_diagnostic_tooltip(start, end, false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-            buffer->insert_at_cursor(type_coverage_message);
-          });
           type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
-
-          ++num_warnings;
         }
 
-        status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
-        if(update_status_diagnostics)
-          update_status_diagnostics(this);
+        update_diagnostics(last_diagnostics);
       });
     });
   }
