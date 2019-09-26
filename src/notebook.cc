@@ -147,6 +147,8 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
     if(language_protocol_language_id == "js") {
       if(file_path.extension() == ".ts")
         language_protocol_language_id = "typescript";
+      else if(file_path.extension() == ".tsx")
+        language_protocol_language_id = "typescriptreact";
       else
         language_protocol_language_id = "javascript";
     }
