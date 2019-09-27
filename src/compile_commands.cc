@@ -150,6 +150,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
 #else
     arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");          // Missing include folder in llvm 8.0.0
     arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"); // Missing include folder in newer MacOS versions
+    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/lib/clang/" + clang_version + "/include");                       // Missing include folder in llvm 9.0.0
 #endif
 #endif
 #ifdef _WIN32
