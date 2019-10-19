@@ -92,6 +92,8 @@ public:
     std::string clang_format_style;
     unsigned clang_usages_threads;
 
+    bool debug_place_cursor_at_stop;
+
     std::unordered_map<std::string, DocumentationSearch> documentation_searches;
   };
 

@@ -447,7 +447,14 @@ void Project::LLDB::debug_start() {
             Project::debug_stop.second.first = stop_line;
             Project::debug_stop.second.second = stop_column;
             debug_update_stop();
-            if(auto view = Notebook::get().get_current_view())
+
+            if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
+              Notebook::get().open(stop_path);
+              auto view = Notebook::get().get_current_view();
+              view->place_cursor_at_line_index(stop_line, stop_column);
+              view->scroll_to_cursor_delayed(view, true, false);
+            }
+            else if(auto view = Notebook::get().get_current_view())
               view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
           });
         });
