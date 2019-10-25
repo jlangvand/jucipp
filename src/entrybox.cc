@@ -6,15 +6,22 @@ EntryBox::Entry::Entry(const std::string &content, std::function<void(const std:
   set_max_length(0);
   set_width_chars(width_chars);
   set_text(content);
-  selected_history = 0;
+  last_content = content;
+  selected_history = -1;
   signal_activate().connect([this]() {
     if(this->on_activate) {
       auto &history = EntryBox::entry_histories[get_placeholder_text()];
       auto text = get_text();
-      if(history.size() == 0 || (history.size() > 0 && *history.begin() != text))
+      if(!text.empty() && (history.empty() || *history.begin() != text))
         history.emplace(history.begin(), text);
-      selected_history = 0;
+      selected_history = -1;
       this->on_activate(text);
+    }
+  });
+  signal_changed().connect([this] {
+    if(!set_text_from_history) {
+      last_content = get_text();
+      selected_history = -1;
     }
   });
   signal_key_press_event().connect([this](GdkEventKey *key) {
@@ -22,18 +29,28 @@ EntryBox::Entry::Entry(const std::string &content, std::function<void(const std:
       auto &history = entry_histories[get_placeholder_text()];
       if(history.size() > 0) {
         selected_history++;
-        if(selected_history >= history.size())
+        if(selected_history == 0 && get_text() == history[selected_history])
+          selected_history++;
+        if(selected_history >= static_cast<long>(history.size()))
           selected_history = history.size() - 1;
+        set_text_from_history = true;
         set_text(history[selected_history]);
+        set_text_from_history = false;
         set_position(-1);
       }
     }
     if(key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) {
       auto &history = entry_histories[get_placeholder_text()];
       if(history.size() > 0) {
-        if(selected_history != 0)
-          selected_history--;
-        set_text(history[selected_history]);
+        selected_history--;
+        if(selected_history < -1)
+          selected_history = -1;
+        set_text_from_history = true;
+        if(selected_history == -1)
+          set_text(last_content);
+        else
+          set_text(history[selected_history]);
+        set_text_from_history = false;
         set_position(-1);
       }
     }

@@ -14,7 +14,9 @@ public:
     std::function<void(const std::string &content)> on_activate;
 
   private:
-    size_t selected_history;
+    long selected_history;
+    std::string last_content;
+    bool set_text_from_history = false;
   };
   class Button : public Gtk::Button {
   public:
