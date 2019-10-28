@@ -16,6 +16,7 @@ void Snippets::load() {
     filesystem::write(snippets_file, R"({
   "^markdown$": [
     {
+      "key": "<primary>1",
       "prefix": "code_block",
       "body": "```${1:language}\n${2:code}\n```\n",
       "description": "Insert code block"
@@ -30,8 +31,17 @@ void Snippets::load() {
     boost::property_tree::json_parser::read_json(snippets_file.string(), pt);
     for(auto language_it = pt.begin(); language_it != pt.end(); ++language_it) {
       snippets.emplace_back(std::regex(language_it->first), std::vector<Snippet>());
-      for(auto snippet_it = language_it->second.begin(); snippet_it != language_it->second.end(); ++snippet_it)
-        snippets.back().second.emplace_back(Snippet{snippet_it->second.get<std::string>("prefix"), snippet_it->second.get<std::string>("body"), snippet_it->second.get<std::string>("description", "")});
+      for(auto snippet_it = language_it->second.begin(); snippet_it != language_it->second.end(); ++snippet_it) {
+        auto key_string = snippet_it->second.get<std::string>("key", "");
+        guint key = 0;
+        GdkModifierType modifier = static_cast<GdkModifierType>(0);
+        if(!key_string.empty()) {
+          gtk_accelerator_parse(key_string.c_str(), &key, &modifier);
+          if(key == 0 && modifier == 0)
+            Terminal::get().async_print("Error: could not parse key string: " + key_string + "\n", true);
+        }
+        snippets.back().second.emplace_back(Snippet{snippet_it->second.get<std::string>("prefix", ""), key, modifier, snippet_it->second.get<std::string>("body"), snippet_it->second.get<std::string>("description", "")});
+      }
     }
   }
   catch(const std::exception &e) {

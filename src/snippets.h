@@ -1,5 +1,6 @@
 #pragma once
 
+#include <gdk/gdk.h>
 #include <regex>
 #include <string>
 #include <vector>
@@ -11,6 +12,8 @@ public:
   class Snippet {
   public:
     std::string prefix;
+    guint key;
+    GdkModifierType modifier;
     std::string body;
     std::string description;
   };

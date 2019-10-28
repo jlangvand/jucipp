@@ -501,8 +501,6 @@ Gtk::TextIter Source::BaseView::get_iter_at_line_end(int line_nr) {
   else if(line_nr + 1 < get_buffer()->get_line_count()) {
     auto iter = get_buffer()->get_iter_at_line(line_nr + 1);
     iter.backward_char();
-    if(!iter.ends_line()) // for CR+LF
-      iter.backward_char();
     return iter;
   }
   else {
@@ -1082,32 +1080,187 @@ void Source::BaseView::setup_extra_cursor_signals() {
   });
 }
 
-void Source::BaseView::insert_snippet(Gtk::TextIter iter, Glib::ustring snippet) {
+void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &snippet) {
   std::map<size_t, std::vector<std::pair<size_t, size_t>>> arguments_offsets;
-  size_t pos1 = 0;
-  while((pos1 = snippet.find("${", pos1)) != Glib::ustring::npos) {
-    size_t pos2 = snippet.find(":", pos1 + 2);
-    if(pos2 != Glib::ustring::npos) {
-      size_t pos3 = snippet.find("}", pos2 + 1);
-      if(pos3 != Glib::ustring::npos) {
-        try {
-          auto number = std::stoul(snippet.substr(pos1 + 2, pos2 - pos1 - 2));
-          size_t length = pos3 - pos2 - 1;
-          snippet.erase(pos3, 1);
-          snippet.erase(pos1, pos2 - pos1 + 1);
-          arguments_offsets[number].emplace_back(pos1, pos1 + length);
-          pos1 += length;
-          continue;
-        }
-        catch(...) {
-        }
-      }
+
+  Glib::ustring insert;
+  insert.reserve(snippet.size());
+  size_t i = 0;
+  int number;
+  auto parse_number = [&snippet, &i, &number]() {
+    if(i >= snippet.size())
+      throw std::out_of_range("unexpected end");
+    std::string str;
+    for(; i < snippet.size() && snippet[i] >= '0' && snippet[i] <= '9'; ++i)
+      str += snippet[i];
+    if(str.empty())
+      return false;
+    try {
+      number = std::stoi(str);
+      return true;
     }
-    break;
+    catch(...) {
+      return false;
+    }
+  };
+  bool erase_line = false, erase_word = false;
+  auto parse_variable = [this, &iter, &snippet, &i, &insert, &erase_line, &erase_word] {
+    if(i >= snippet.size())
+      throw std::out_of_range("unexpected end");
+    if(snippet.compare(i, 16, "TM_SELECTED_TEXT") == 0) {
+      i += 16;
+      Gtk::TextIter start, end;
+      if(get_buffer()->get_selection_bounds(start, end)) {
+        insert += get_buffer()->get_text(start, end);
+        return true;
+      }
+      return false;
+    }
+    else if(snippet.compare(i, 15, "TM_CURRENT_LINE") == 0) {
+      i += 15;
+      auto start = get_buffer()->get_iter_at_line(iter.get_line());
+      auto end = get_iter_at_line_end(iter.get_line());
+      insert += get_buffer()->get_text(start, end);
+      erase_line = true;
+      return true;
+    }
+    else if(snippet.compare(i, 15, "TM_CURRENT_WORD") == 0) {
+      i += 15;
+      if(is_token_char(*iter)) {
+        auto token_iters = get_token_iters(iter);
+        insert += get_buffer()->get_text(token_iters.first, token_iters.second);
+        erase_word = true;
+        return true;
+      }
+      return false;
+    }
+    else if(snippet.compare(i, 13, "TM_LINE_INDEX") == 0) {
+      i += 13;
+      insert += std::to_string(iter.get_line());
+      return true;
+    }
+    else if(snippet.compare(i, 14, "TM_LINE_NUMBER") == 0) {
+      i += 14;
+      insert += std::to_string(iter.get_line() + 1);
+      return true;
+    }
+    else if(snippet.compare(i, 16, "TM_FILENAME_BASE") == 0) {
+      i += 16;
+      insert += file_path.stem().string();
+      return true;
+    }
+    else if(snippet.compare(i, 11, "TM_FILENAME") == 0) {
+      i += 11;
+      insert += file_path.filename().string();
+      return true;
+    }
+    else if(snippet.compare(i, 12, "TM_DIRECTORY") == 0) {
+      i += 12;
+      insert += file_path.parent_path().string();
+      return true;
+    }
+    else if(snippet.compare(i, 11, "TM_FILEPATH") == 0) {
+      i += 11;
+      insert += file_path.string();
+      return true;
+    }
+    else if(snippet.compare(i, 9, "CLIPBOARD") == 0) {
+      i += 9;
+      insert += Gtk::Clipboard::get()->wait_for_text();
+      return true;
+    }
+    // TODO: support other variables
+    return false;
+  };
+  try {
+    bool escape = false;
+    while(i < snippet.size()) {
+      if(escape) {
+        insert += snippet[i];
+        escape = false;
+        ++i;
+      }
+      else if(snippet[i] == '\\') {
+        escape = true;
+        ++i;
+      }
+      else if(snippet[i] == '$') {
+        ++i;
+        if(snippet.at(i) == '{') {
+          ++i;
+          if(parse_number()) {
+            Glib::ustring placeholder;
+            if(snippet.at(i) == ':') {
+              ++i;
+              for(; snippet.at(i) != '}'; ++i)
+                placeholder += snippet[i];
+            }
+            if(snippet.at(i) != '}')
+              throw std::logic_error("closing } not found");
+            ++i;
+            arguments_offsets[number].emplace_back(insert.size(), insert.size() + placeholder.size());
+            insert += placeholder;
+          }
+          else {
+            if(!parse_variable()) {
+              if(snippet.at(i) == ':') { // Use default value
+                ++i;
+                parse_variable();
+              }
+            }
+            else if(snippet.at(i) == ':') { // Skip default value
+              while(snippet.at(++i) != '}') {
+              }
+            }
+            if(snippet.at(i) != '}')
+              throw std::logic_error("closing } not found");
+            ++i;
+          }
+        }
+        else if(parse_number())
+          arguments_offsets[number].emplace_back(insert.size(), insert.size());
+        else
+          parse_variable();
+      }
+      else
+        insert += snippet[i++];
+    }
+  }
+  catch(...) {
+    Terminal::get().print("Error: could not parse snippet: " + snippet + '\n', true);
+    return;
+  }
+
+  // $0 should be last argument
+  auto it = arguments_offsets.find(0);
+  if(it != arguments_offsets.end()) {
+    auto rit = arguments_offsets.rbegin();
+    arguments_offsets.emplace(rit->first + 1, std::move(it->second));
+    arguments_offsets.erase(it);
   }
 
   auto mark = get_buffer()->create_mark(iter);
-  get_buffer()->insert(iter, snippet);
+
+  get_source_buffer()->begin_user_action();
+  Gtk::TextIter start, end;
+  if(get_buffer()->get_selection_bounds(start, end)) {
+    get_buffer()->erase(start, end);
+    iter = mark->get_iter();
+  }
+  else if(erase_line) {
+    auto start = get_buffer()->get_iter_at_line(iter.get_line());
+    auto end = get_iter_at_line_end(iter.get_line());
+    get_buffer()->erase(start, end);
+    iter = mark->get_iter();
+  }
+  else if(erase_word && is_token_char(*iter)) {
+    auto token_iters = get_token_iters(iter);
+    get_buffer()->erase(token_iters.first, token_iters.second);
+    iter = mark->get_iter();
+  }
+  get_buffer()->insert(iter, insert);
+  get_source_buffer()->end_user_action();
+
   iter = mark->get_iter();
   get_buffer()->delete_mark(mark);
   for(auto arguments_offsets_it = arguments_offsets.rbegin(); arguments_offsets_it != arguments_offsets.rend(); ++arguments_offsets_it) {
@@ -1117,7 +1270,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, Glib::ustring snippet)
       auto end = start;
       start.forward_chars(offsets.first);
       end.forward_chars(offsets.second);
-      snippets_marks.front().emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
+      snippets_marks.front().emplace_back(get_buffer()->create_mark(start, false), get_buffer()->create_mark(end, false));
       get_buffer()->apply_tag(snippet_argument_tag, start, end);
     }
   }

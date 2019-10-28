@@ -2092,6 +2092,18 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
   else if(Config::get().source.enable_multiple_cursors && on_key_press_event_extra_cursors(key))
     return true;
 
+  {
+    LockGuard lock(snippets_mutex);
+    if(snippets) {
+      for(auto &snippet : *snippets) {
+        if(snippet.key == key->keyval && (snippet.modifier & key->state) == snippet.modifier) {
+          insert_snippet(get_buffer()->get_insert()->get_iter(), snippet.body);
+          return true;
+        }
+      }
+    }
+  }
+
   //Move cursor one paragraph down
   if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && (key->state & GDK_CONTROL_MASK) > 0) {
     auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();

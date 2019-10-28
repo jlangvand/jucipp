@@ -42,7 +42,7 @@ towards libclang with speed, stability, and ease of use in mind.
 * Smart paste, keys and indentation
 * Extend/shrink selection
 * Multiple cursors
-* Snippets can be added in ~/.juci/snippets.json. The language ids used in the regexes can be found here: https://gitlab.gnome.org/GNOME/gtksourceview/tree/master/data/language-specs.
+* Snippets can be added in ~/.juci/snippets.json using the [TextMate snippet syntax](https://macromates.com/manual/en/snippets). The language ids used in the regexes can be found here: https://gitlab.gnome.org/GNOME/gtksourceview/tree/master/data/language-specs.
 * Auto-indentation through [clang-format](http://clang.llvm.org/docs/ClangFormat.html) or [Prettier](https://github.com/prettier/prettier) if installed
 * Source minimap
 * Split view
