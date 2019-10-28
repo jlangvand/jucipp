@@ -439,7 +439,8 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       };
                       VisitorData visitor_data{cursor.get_source_range().get_offsets(), {}};
                       auto start_cursor = cursor;
-                      for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit; parent = parent.get_semantic_parent())
+                      for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit &&
+                                                                      parent.get_kind() != clangmm::Cursor::Kind::ClassDecl; parent = parent.get_semantic_parent())
                         start_cursor = parent;
                       clang_visitChildren(start_cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data_) {
                         auto data = static_cast<VisitorData *>(data_);
