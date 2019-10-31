@@ -16,7 +16,7 @@ std::string main_error = R"(int main() {
 
 void flush_events() {
   while(Gtk::Main::events_pending())
-    Gtk::Main::iteration(false);
+    Gtk::Main::iteration();
 }
 
 int main() {

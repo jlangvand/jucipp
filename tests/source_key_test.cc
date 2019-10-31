@@ -27,7 +27,7 @@ int main() {
     {
       buffer->set_text("  ''\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(3);
       assert(view.is_spellcheck_iter(iter));
@@ -36,7 +36,7 @@ int main() {
     {
       buffer->set_text("  \"\"\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(3);
       assert(view.is_spellcheck_iter(iter));
@@ -45,7 +45,7 @@ int main() {
     {
       buffer->set_text("  'test\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_to_line_end();
       assert(view.is_spellcheck_iter(iter));
@@ -54,7 +54,7 @@ int main() {
     {
       buffer->set_text("  \"test'\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_to_line_end();
       iter.backward_char();
@@ -67,7 +67,7 @@ int main() {
     {
       buffer->set_text("  'test'\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(2);
       assert(!view.is_spellcheck_iter(iter));
@@ -85,7 +85,7 @@ int main() {
     {
       buffer->set_text("  \"test\"\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(2);
       assert(!view.is_spellcheck_iter(iter));
@@ -103,7 +103,7 @@ int main() {
     {
       buffer->set_text("  '\\''\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(2);
       assert(!view.is_spellcheck_iter(iter));
@@ -124,7 +124,7 @@ int main() {
     {
       buffer->set_text("  /**/\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(2);
       assert(!view.is_spellcheck_iter(iter));
@@ -145,7 +145,7 @@ int main() {
     {
       buffer->set_text("  //t\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(2);
       assert(!view.is_spellcheck_iter(iter));
@@ -474,7 +474,7 @@ int main() {
     {
       buffer->set_text("  int main() {//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  int main() {//comment\n"
                                      "    \n"
@@ -511,7 +511,7 @@ int main() {
       iter.backward_chars(4);
       buffer->place_cursor(iter);
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  int main() {//comment\n"
                                      "    \n"
@@ -578,7 +578,7 @@ int main() {
       iter.backward_chars(1);
       buffer->place_cursor(iter);
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  int main()\n"
                                      "  {/*comment*/\n"
@@ -598,7 +598,7 @@ int main() {
     {
       buffer->set_text("  else // comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else // comment\n"
                                      "    ");
@@ -614,7 +614,7 @@ int main() {
     {
       buffer->set_text("  else;//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else;//comment\n"
                                      "  ");
@@ -630,7 +630,7 @@ int main() {
     {
       buffer->set_text("  else {}//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else {}//comment\n"
                                      "  ");
@@ -654,7 +654,7 @@ int main() {
     {
       buffer->set_text("  } else if(true)//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  } else if(true)//comment\n"
                                      "    ");
@@ -673,7 +673,7 @@ int main() {
       buffer->set_text("  } else if(true)//comment\n"
                        "    ;//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  } else if(true)//comment\n"
                                      "    ;//comment\n"
@@ -694,7 +694,7 @@ int main() {
       buffer->set_text("  if(true) { /*comment*/\n"
                        "    ;");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  if(true) { /*comment*/\n"
                                      "    ;\n"
@@ -745,7 +745,7 @@ int main() {
       buffer->set_text("  if(true && // comment\n"
                        "     false) { // comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  if(true && // comment\n"
                                      "     false) { // comment\n"
@@ -771,7 +771,7 @@ int main() {
                        "     false)//comment\n"
                        "    ;//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  if(true &&\n"
                                      "     false)//comment\n"
@@ -828,7 +828,7 @@ int main() {
       buffer->set_text("  int a = 2 + // test\n"
                        "    2;");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  int a = 2 + // test\n"
                                      "    2;\n"
@@ -1085,7 +1085,7 @@ int main() {
     {
       buffer->set_text("  auto func=[] {//comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  auto func=[] {//comment\n"
                                      "    \n"
@@ -1193,7 +1193,7 @@ int main() {
       buffer->set_text("  class Class : BaseClass {\n"
                        "    public://comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  class Class : BaseClass {\n"
                                      "  public://comment\n"
@@ -1285,7 +1285,7 @@ int main() {
     {
       buffer->set_text("  /*");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  /*\n"
                                      "   * ");
@@ -1295,7 +1295,7 @@ int main() {
       buffer->set_text("  /*\n"
                        "   */");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  /*\n"
                                      "   */\n"
@@ -1305,7 +1305,7 @@ int main() {
     {
       buffer->set_text("   //comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "   //comment\n"
                                      "   ");
@@ -1315,7 +1315,7 @@ int main() {
       buffer->set_text("   //comment\n"
                        "   //comment");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "   //comment\n"
                                      "   //comment\n"
@@ -1326,7 +1326,7 @@ int main() {
       buffer->set_text("#test\n"
                        "  test();");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_to_line_end();
       buffer->place_cursor(iter);
@@ -1342,7 +1342,7 @@ int main() {
       buffer->set_text("  #test\n"
                        "    test();");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_to_line_end();
       buffer->place_cursor(iter);
@@ -1361,7 +1361,7 @@ int main() {
       iter.backward_char();
       buffer->place_cursor(iter);
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "if('a'=='a'\n"
                                      "   )");
@@ -1392,7 +1392,7 @@ int main() {
       buffer->set_text("  else if(true)//comment\n"
                        "    ");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else if(true)//comment\n"
                                      "  {");
@@ -1516,7 +1516,7 @@ int main() {
     {
       buffer->set_text("  {} //}");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->begin();
       iter.forward_chars(3);
       buffer->place_cursor(iter);
@@ -1624,7 +1624,7 @@ int main() {
       buffer->set_text("  else if(true)//comment\n"
                        "    ");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else if(true)//comment\n"
                                      "  {}");
@@ -1704,7 +1704,7 @@ int main() {
       buffer->set_text("  if(true)  // test\n"
                        "  ;");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(11);
       buffer->place_cursor(iter);
@@ -1719,7 +1719,7 @@ int main() {
       buffer->set_text("  if(true)  // test\n"
                        "    ;");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(0);
       iter.forward_chars(11);
       buffer->place_cursor(iter);
@@ -1847,7 +1847,7 @@ int main() {
       buffer->set_text("  int main() {//comment\n"
                        "    ");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  int main() {//comment\n"
                                      "  }");
@@ -2076,7 +2076,7 @@ int main() {
                        "\n"
                        "    test");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(2);
       buffer->place_cursor(iter);
       view.on_key_press_event(&event);
@@ -2110,7 +2110,7 @@ int main() {
                        "\n"
                        "    test");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(2);
       buffer->place_cursor(iter);
       view.on_key_press_event(&event);
@@ -2489,7 +2489,7 @@ int main() {
       buffer->set_text("\n"
                        "    * [test](https://test.org)\n");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       auto iter = buffer->get_iter_at_line(1);
       iter.forward_to_line_end();
       buffer->place_cursor(iter);
@@ -2505,7 +2505,7 @@ int main() {
       buffer->set_text("\n"
                        "    * [test](https://test.org)");
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "\n"
                                      "    * [test](https://test.org)\n"

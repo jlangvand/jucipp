@@ -1793,7 +1793,7 @@ void Source::ClangViewRefactor::wait_parsing() {
   if(message) {
     for(;;) {
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       bool all_parsed = true;
       for(auto &clang_view : clang_views) {
         if(!clang_view->parsed) {
@@ -1927,7 +1927,7 @@ void Source::ClangView::async_delete() {
   }
 
   auto before_parse_time = std::time(nullptr);
-  delete_thread = std::thread([this, before_parse_time, project_paths_in_use = std::move(project_paths_in_use)] {
+  delete_thread = std::thread([this, before_parse_time, project_paths_in_use = std::move(project_paths_in_use), buffer_modified = get_buffer()->get_modified()] {
     while(!parsed)
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -1935,7 +1935,7 @@ void Source::ClangView::async_delete() {
     parse_state = ParseState::STOP;
     dispatcher.disconnect();
 
-    if(get_buffer()->get_modified()) {
+    if(buffer_modified) {
       std::ifstream stream(file_path.string(), std::ios::binary);
       if(stream) {
         std::string buffer;
@@ -1953,6 +1953,8 @@ void Source::ClangView::async_delete() {
       auto build = Project::Build::create(file_path);
       Usages::Clang::cache(build->project_path, build->get_default_path(), file_path, before_parse_time, project_paths_in_use, clang_tu.get(), clang_tokens.get());
     }
+    else
+      Usages::Clang::cancel_cache_in_progress();
 
     if(full_reparse_thread.joinable())
       full_reparse_thread.join();

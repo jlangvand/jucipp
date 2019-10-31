@@ -5,10 +5,17 @@
 #include "usages_clang.h"
 #include <cassert>
 #include <fstream>
+#include <gtksourceviewmm.h>
 
-#include <iostream>
+//Requires display server to work
+//However, it is possible to use the Broadway backend if the test is run in a pure terminal environment:
+//broadwayd&
+//make test
 
 int main() {
+  auto app = Gtk::Application::create();
+  Gsv::init();
+
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
   auto project_path = boost::filesystem::canonical(tests_path / "usages_clang_test_files");
   auto build_path = project_path / "build";
@@ -148,6 +155,7 @@ int main() {
     }
 
     Usages::Clang::erase_unused_caches({project_path});
+    Usages::Clang::cache_in_progress();
     Usages::Clang::cache(project_path, build_path, path, time(nullptr), {project_path}, &translation_unit, tokens.get());
     assert(Usages::Clang::caches.size() == 3);
     assert(Usages::Clang::caches.find(project_path / "main.cpp") != Usages::Clang::caches.end());
@@ -155,6 +163,7 @@ int main() {
     assert(Usages::Clang::caches.find(project_path / "test2.hpp") != Usages::Clang::caches.end());
 
     Usages::Clang::erase_unused_caches({});
+    Usages::Clang::cache_in_progress();
     Usages::Clang::cache(project_path, build_path, path, time(nullptr), {}, &translation_unit, tokens.get());
     assert(Usages::Clang::caches.size() == 0);
 

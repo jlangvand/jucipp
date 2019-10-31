@@ -166,7 +166,7 @@ void SelectionDialogBase::show() {
     }
     else if(list_view_text.get_model()->children().begin() != list_view_text.get_selection()->get_selected()) {
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
       if(is_visible())
         list_view_text.scroll_to_row(list_view_text.get_model()->get_path(list_view_text.get_selection()->get_selected()), 0.5);
     }

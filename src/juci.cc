@@ -105,7 +105,7 @@ void Application::on_activate() {
   }
 
   while(Gtk::Main::events_pending())
-    Gtk::Main::iteration(false);
+    Gtk::Main::iteration();
   for(auto view : Notebook::get().get_views())
     view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
 }

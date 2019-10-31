@@ -165,7 +165,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
     message = std::make_unique<Dialog::Message>(message_string);
     while(cache_in_progress_count != 0) {
       while(Gtk::Main::events_pending())
-        Gtk::Main::iteration(false);
+        Gtk::Main::iteration();
     }
   }
 
@@ -359,8 +359,14 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
   if(project_path.empty())
     return;
 
-  if(cache_in_progress_count != 0)
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  if(cache_in_progress_count != 0) {
+    Dialog::Message message("Please wait while clearing project parse cache");
+    while(cache_in_progress_count != 0) {
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+    }
+    message.hide();
+  }
 
   LockGuard lock(caches_mutex);
   boost::system::error_code ec;
@@ -382,6 +388,10 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
 
 void Usages::Clang::cache_in_progress() {
   ++cache_in_progress_count;
+}
+
+void Usages::Clang::cancel_cache_in_progress() {
+  --cache_in_progress_count;
 }
 
 void Usages::Clang::add_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path_,

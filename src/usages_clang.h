@@ -117,6 +117,7 @@ namespace Usages {
     static void erase_cache(const boost::filesystem::path &path);
     static void erase_all_caches_for_project(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path);
     static void cache_in_progress();
+    static void cancel_cache_in_progress();
 
   private:
     static void add_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path_,

@@ -168,7 +168,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
     if(!show_tooltips)
       view->hide_tooltips();
     while(Gtk::Main::events_pending())
-      Gtk::Main::iteration(false);
+      Gtk::Main::iteration();
     if(get_current_view() == view) {
       if(center)
         view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);

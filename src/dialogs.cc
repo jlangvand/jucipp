@@ -23,7 +23,7 @@ Dialog::Message::Message(const std::string &text) : Gtk::Window(Gtk::WindowType:
   show_now();
 
   while(Gtk::Main::events_pending())
-    Gtk::Main::iteration(false);
+    Gtk::Main::iteration();
 }
 
 bool Dialog::Message::on_delete_event(GdkEventAny *event) {
