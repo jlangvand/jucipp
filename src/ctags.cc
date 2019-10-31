@@ -32,64 +32,91 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
   return {run_path, std::move(stdout_stream)};
 }
 
-Ctags::Location Ctags::get_location(const std::string &line, bool markup) {
+Ctags::Location Ctags::get_location(const std::string &line_, bool markup) {
   Location location;
 
 #ifdef _WIN32
-  auto line_fixed = line;
-  if(!line_fixed.empty() && line_fixed.back() == '\r')
-    line_fixed.pop_back();
+  auto line = line_;
+  if(!line.empty() && line.back() == '\r')
+    line.pop_back();
 #else
-  auto &line_fixed = line;
+  auto &line = line_;
 #endif
+  auto symbol_end = line.find('\t');
+  if(symbol_end == std::string::npos) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  location.symbol = line.substr(0, symbol_end);
+  if(9 < location.symbol.size() && location.symbol[8] == ' ' && location.symbol.compare(0, 8, "operator") == 0) {
+    auto &chr = location.symbol[9];
+    if(!((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_'))
+      location.symbol.erase(8, 1);
+  }
 
-  const static std::regex regex(R"(^([^\t]+)\t([^\t]+)\t(?:/\^)?([ \t]*)(.+?)(\$/)?;"\tline:([0-9]+)\t?[a-zA-Z]*:?(.*)$)");
-  std::smatch sm;
-  if(std::regex_match(line_fixed, sm, regex)) {
-    location.symbol = sm[1].str();
-    //fix location.symbol for operators
-    if(9 < location.symbol.size() && location.symbol[8] == ' ' && location.symbol.compare(0, 8, "operator") == 0) {
-      auto &chr = location.symbol[9];
-      if(!((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_'))
-        location.symbol.erase(8, 1);
-    }
+  auto file_start = symbol_end + 1;
+  if(file_start >= line.size()) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  auto file_end = line.find('\t', file_start);
+  if(file_end == std::string::npos) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  location.file_path = line.substr(file_start, file_end - file_start);
 
-    location.file_path = sm[2].str();
-    location.source = sm[4].str();
-    try {
-      location.line = std::stoul(sm[6]) - 1;
-    }
-    catch(const std::exception &) {
-      location.line = 0;
-    }
-    location.scope = sm[7].str();
-    if(!sm[5].str().empty()) {
-      location.index = sm[3].str().size();
+  auto source_start = file_end + 3;
+  if(source_start >= line.size()) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  location.index = 0;
+  while(source_start < line.size() && (line[source_start] == ' ' || line[source_start] == '\t')) {
+    ++source_start;
+    ++location.index;
+  }
+  auto source_end = line.find("/;\"\t", source_start);
+  if(source_end == std::string::npos) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  location.source = line.substr(source_start, source_end - source_start - (line[source_end - 1] == '$' ? 1 : 0));
 
-      size_t pos = location.source.find(location.symbol);
-      if(pos != std::string::npos)
-        location.index += pos;
+  auto line_start = source_end + 9;
+  if(line_start >= line.size()) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  auto line_end = line.find('\t', line_start);
+  size_t line_size = line_end == std::string::npos ? std::string::npos : line_end - line_start;
+  try {
+    location.line = std::stoul(line.substr(line_start, line_size)) - 1;
+  }
+  catch(...) {
+    location.line = 0;
+  }
 
-      if(markup) {
-        location.source = Glib::Markup::escape_text(location.source);
-        auto symbol = Glib::Markup::escape_text(location.symbol);
-        pos = -1;
-        while((pos = location.source.find(symbol, pos + 1)) != std::string::npos) {
-          location.source.insert(pos + symbol.size(), "</b>");
-          location.source.insert(pos, "<b>");
-          pos += 7 + symbol.size();
-        }
-      }
-    }
-    else {
-      location.index = 0;
-      location.source = location.symbol;
-      if(markup)
-        location.source = "<b>" + Glib::Markup::escape_text(location.source) + "</b>";
+  if(line_end != std::string::npos && line_end + 1 < line.size()) {
+    auto scope_start = line.find(':', line_end + 1);
+    if(scope_start != std::string::npos && scope_start + 1 < line.size())
+      location.scope = line.substr(scope_start + 1);
+  }
+
+  auto pos = location.source.find(location.symbol);
+  if(pos != std::string::npos)
+    location.index += pos;
+
+  if(markup) {
+    location.source = Glib::Markup::escape_text(location.source);
+    auto symbol = Glib::Markup::escape_text(location.symbol);
+    pos = -1;
+    while((pos = location.source.find(symbol, pos + 1)) != std::string::npos) {
+      location.source.insert(pos + symbol.size(), "</b>");
+      location.source.insert(pos, "<b>");
+      pos += 7 + symbol.size();
     }
   }
-  else
-    std::cerr << "Warning (ctags): please report to the juCi++ project that the following line was not parsed:\n" << line << std::endl;
 
   return location;
 }
