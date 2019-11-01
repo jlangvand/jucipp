@@ -1329,6 +1329,73 @@ void Window::set_menu_actions() {
         view->toggle_breakpoint(view->get_buffer()->get_insert()->get_iter().get_line());
     }
   });
+  menu.add_action("debug_show_breakpoints", [] {
+    auto current_view = Notebook::get().get_current_view();
+    if(!current_view) {
+      Info::get().print("No breakpoints found");
+      return;
+    }
+
+    auto dialog_iter = current_view->get_iter_for_dialog();
+    SelectionDialog::create(current_view, current_view->get_buffer()->create_mark(dialog_iter), true);
+
+    std::vector<Source::Offset> rows;
+
+    // Place breakpoints in current view first
+    auto views = Notebook::get().get_views();
+    bool insert_current_view = false;
+    for(auto it = views.begin(); it != views.end();) {
+      if(*it == current_view) {
+        it = views.erase(it);
+        insert_current_view = true;
+      }
+      else
+        ++it;
+    }
+    if(insert_current_view)
+      views.insert(views.begin(), current_view);
+
+    auto insert_iter = current_view->get_buffer()->get_insert()->get_iter();
+    for(auto &view : views) {
+      auto iter = view->get_buffer()->begin();
+
+      do {
+        if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size()) {
+          rows.emplace_back(iter.get_line(), 0, view->file_path);
+          std::string row;
+          if(view != current_view)
+            row += view->file_path.filename().string() + ':';
+          auto source = view->get_line(iter);
+          int tabs = 0;
+          for(auto chr : source) {
+            if(chr == ' ' || chr == '\t')
+              ++tabs;
+            else
+              break;
+          }
+          SelectionDialog::get()->add_row(row + std::to_string(iter.get_line() + 1) + ": " + source.substr(tabs));
+          if(view == current_view && insert_iter.get_line() >= iter.get_line())
+            SelectionDialog::get()->set_cursor_at_last_row();
+        }
+      } while(view->get_source_buffer()->forward_iter_to_source_mark(iter, "debug_breakpoint"));
+    }
+
+    if(rows.empty()) {
+      Info::get().print("No breakpoints found");
+      return;
+    }
+
+    SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
+      if(index >= rows.size())
+        return;
+      Notebook::get().open(rows[index].file_path);
+      auto view = Notebook::get().get_current_view();
+      view->place_cursor_at_line_pos(rows[index].line, rows[index].index);
+      view->scroll_to_cursor_delayed(view, true, false);
+    };
+
+    SelectionDialog::get()->show();
+  });
   menu.add_action("debug_goto_stop", []() {
     if(Project::debugging) {
       if(!Project::debug_stop.first.empty()) {

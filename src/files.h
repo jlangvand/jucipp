@@ -140,6 +140,7 @@ const std::string default_config_file = R"RAW({
         "debug_show_variables": "<primary><shift>b",
         "debug_run_command": "<alt><shift>Return",
         "debug_toggle_breakpoint": "<primary>b",
+        "debug_show_breakpoints": "<primary><shift><alt>b",
         "debug_goto_stop": "<primary><shift>l",)RAW"
 #ifdef __linux
                                                     R"RAW(

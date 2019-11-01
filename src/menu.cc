@@ -455,6 +455,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Toggle _Breakpoint</attribute>
           <attribute name='action'>app.debug_toggle_breakpoint</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Show _Breakpoints</attribute>
+          <attribute name='action'>app.debug_show_breakpoints</attribute>
+        </item>
       </section>
       <section>
         <item>

@@ -113,10 +113,13 @@ namespace Source {
     /// Note that smart end goes FIRST to end of line to avoid hiding empty chars after expressions.
     Gtk::TextIter get_smart_end_iter(const Gtk::TextIter &iter);
 
+  public:
     std::string get_line(const Gtk::TextIter &iter);
     std::string get_line(const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark);
     std::string get_line(int line_nr);
     std::string get_line();
+
+  protected:
     std::string get_line_before(const Gtk::TextIter &iter);
     std::string get_line_before(const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark);
     std::string get_line_before();
