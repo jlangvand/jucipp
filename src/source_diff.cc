@@ -48,7 +48,6 @@ Source::DiffView::DiffView(const boost::filesystem::path &file_path, const Glib:
 }
 
 Source::DiffView::~DiffView() {
-  dispatcher.disconnect();
   if(repository) {
     get_gutter(Gtk::TextWindowType::TEXT_WINDOW_LEFT)->remove(renderer.get());
     buffer_insert_connection.disconnect();

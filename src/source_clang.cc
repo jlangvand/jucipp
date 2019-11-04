@@ -209,11 +209,14 @@ void Source::ClangViewParse::parse_initialize() {
 void Source::ClangViewParse::soft_reparse(bool delayed) {
   soft_reparse_needed = false;
   parsed = false;
+  delayed_reparse_connection.disconnect();
+
   if(parse_state != ParseState::PROCESSING)
     return;
+
   parse_process_state = ParseProcessState::IDLE;
-  delayed_reparse_connection.disconnect();
-  delayed_reparse_connection = Glib::signal_timeout().connect([this]() {
+
+  auto reparse = [this] {
     parsed = false;
     auto expected = ParseProcessState::IDLE;
     if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::STARTING)) {
@@ -222,7 +225,11 @@ void Source::ClangViewParse::soft_reparse(bool delayed) {
         update_status_state(this);
     }
     return false;
-  }, delayed ? 1000 : 0);
+  };
+  if(delayed)
+    delayed_reparse_connection = Glib::signal_timeout().connect(reparse, 1000);
+  else
+    reparse();
 }
 
 const std::map<int, std::string> &Source::ClangViewParse::clang_types() {
@@ -1869,39 +1876,43 @@ Source::ClangView::ClangView(const boost::filesystem::path &file_path, const Gli
 }
 
 void Source::ClangView::full_reparse() {
-  auto print_error = [this] {
-    Terminal::get().async_print("Error: failed to reparse " + file_path.string() + ". Please reopen the file manually.\n", true);
-  };
-  full_reparse_needed = false;
+  soft_reparse_needed = false;
+  parsed = false;
+  delayed_reparse_connection.disconnect();
+  delayed_full_reparse_connection.disconnect();
+
+  if(parse_state != ParseState::PROCESSING)
+    return;
+
   if(full_reparse_running) {
-    print_error();
+    delayed_full_reparse_connection = Glib::signal_timeout().connect([this] {
+      full_reparse();
+      return false;
+    }, 100);
     return;
   }
-  else {
-    auto expected = ParseState::PROCESSING;
-    if(!parse_state.compare_exchange_strong(expected, ParseState::RESTARTING)) {
-      expected = ParseState::RESTARTING;
-      if(!parse_state.compare_exchange_strong(expected, ParseState::RESTARTING)) {
-        print_error();
-        return;
-      }
-    }
-    autocomplete.state = Autocomplete::State::IDLE;
-    soft_reparse_needed = false;
-    full_reparse_running = true;
-    if(full_reparse_thread.joinable())
-      full_reparse_thread.join();
-    full_reparse_thread = std::thread([this]() {
-      if(parse_thread.joinable())
-        parse_thread.join();
-      if(autocomplete.thread.joinable())
-        autocomplete.thread.join();
-      dispatcher.post([this] {
-        parse_initialize();
-        full_reparse_running = false;
-      });
+
+  full_reparse_needed = false;
+
+  parse_process_state = ParseProcessState::IDLE;
+  autocomplete.state = Autocomplete::State::IDLE;
+  auto expected = ParseState::PROCESSING;
+  if(!parse_state.compare_exchange_strong(expected, ParseState::RESTARTING))
+    return;
+
+  full_reparse_running = true;
+  if(full_reparse_thread.joinable())
+    full_reparse_thread.join();
+  full_reparse_thread = std::thread([this]() {
+    if(parse_thread.joinable())
+      parse_thread.join();
+    if(autocomplete.thread.joinable())
+      autocomplete.thread.join();
+    dispatcher.post([this] {
+      parse_initialize();
+      full_reparse_running = false;
     });
-  }
+  });
 }
 
 void Source::ClangView::async_delete() {
@@ -1919,21 +1930,17 @@ void Source::ClangView::async_delete() {
   Usages::Clang::erase_unused_caches(project_paths_in_use);
   Usages::Clang::cache_in_progress();
 
-  if(!get_buffer()->get_modified()) {
-    if(full_reparse_needed)
-      full_reparse();
-    else if(soft_reparse_needed)
-      soft_reparse();
-  }
+  delayed_reparse_connection.disconnect();
+  if(full_reparse_needed)
+    full_reparse();
+  else if(soft_reparse_needed || !parsed)
+    soft_reparse();
 
   auto before_parse_time = std::time(nullptr);
   delete_thread = std::thread([this, before_parse_time, project_paths_in_use = std::move(project_paths_in_use), buffer_modified = get_buffer()->get_modified()] {
-    while(!parsed)
+    while(!parsed && parse_state != ParseState::STOP)
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    delayed_reparse_connection.disconnect();
     parse_state = ParseState::STOP;
-    dispatcher.disconnect();
 
     if(buffer_modified) {
       std::ifstream stream(file_path.string(), std::ios::binary);

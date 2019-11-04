@@ -32,6 +32,7 @@ namespace Source {
     std::unique_ptr<clangmm::Tokens> clang_tokens;
     std::vector<std::pair<clangmm::Offset, clangmm::Offset>> clang_tokens_offsets;
     sigc::connection delayed_reparse_connection;
+    sigc::connection delayed_full_reparse_connection;
 
     void show_type_tooltips(const Gdk::Rectangle &rectangle) override;
 

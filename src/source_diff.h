@@ -48,7 +48,6 @@ namespace Source {
     std::unique_ptr<Renderer> renderer;
     Dispatcher dispatcher;
 
-
     Mutex parse_mutex;
 
     std::shared_ptr<Git::Repository> repository;
