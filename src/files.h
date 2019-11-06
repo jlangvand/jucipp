@@ -153,7 +153,8 @@ const std::string default_config_file = R"RAW({
 #endif
                                                     R"RAW(
         "window_close_tab": "<primary>w",
-        "window_toggle_split": "",)RAW"
+        "window_toggle_split": "",
+        "window_split_source_buffer": "",)RAW"
 #ifdef __APPLE__
                                                     R"RAW(
         "window_toggle_full_screen": "<primary><control>f",)RAW"

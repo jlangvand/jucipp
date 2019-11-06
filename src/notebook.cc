@@ -103,7 +103,7 @@ std::vector<Source::View *> &Notebook::get_views() {
   return source_views;
 }
 
-void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_index) {
+void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_index, bool copy) {
   auto file_path = filesystem::get_normal_path(file_path_);
 
   if(notebook_index == 1 && !split)
@@ -114,17 +114,19 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   auto canonical_file_path = boost::filesystem::canonical(file_path, ec);
   if(ec)
     canonical_file_path = file_path;
-  for(size_t c = 0; c < size(); c++) {
-    bool equal;
-    {
-      LockGuard lock(source_views[c]->canonical_file_path_mutex);
-      equal = canonical_file_path == source_views[c]->canonical_file_path;
-    }
-    if(equal) {
-      auto notebook_page = get_notebook_page(c);
-      notebooks[notebook_page.first].set_current_page(notebook_page.second);
-      focus_view(source_views[c]);
-      return;
+  if(!copy) {
+    for(size_t c = 0; c < size(); c++) {
+      bool equal;
+      {
+        LockGuard lock(source_views[c]->canonical_file_path_mutex);
+        equal = canonical_file_path == source_views[c]->canonical_file_path;
+      }
+      if(equal) {
+        auto notebook_page = get_notebook_page(c);
+        notebooks[notebook_page.first].set_current_page(notebook_page.second);
+        focus_view(source_views[c]);
+        return;
+      }
     }
   }
 
@@ -162,6 +164,21 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
     source_views.emplace_back(new Source::GenericView(file_path, language));
 
   auto view = source_views.back();
+
+  if(copy) {
+    auto previous_view = get_current_view();
+    if(previous_view) {
+      view->replace_text(previous_view->get_buffer()->get_text());
+      if(!split)
+        toggle_split();
+      else {
+        auto pair = get_notebook_page(get_index(previous_view));
+        if(pair.second != -1)
+          notebook_index = pair.first == 0 ? 1 : 0;
+      }
+    }
+  }
+
   view->configure();
 
   view->scroll_to_cursor_delayed = [this](Source::BaseView *view, bool center, bool show_tooltips) {

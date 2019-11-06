@@ -1426,6 +1426,20 @@ void Window::set_menu_actions() {
   menu.add_action("window_toggle_split", [] {
     Notebook::get().toggle_split();
   });
+  menu.add_action("window_split_source_buffer", [] {
+    auto view = Notebook::get().get_current_view();
+    if(!view) {
+      Info::get().print("No source buffers found");
+      return;
+    }
+
+    auto iter = view->get_buffer()->get_insert()->get_iter();
+
+    Notebook::get().open(view->file_path, -1, true);
+    auto new_view = Notebook::get().get_current_view();
+    new_view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
+    new_view->scroll_to_cursor_delayed(new_view, true, false);
+  });
   menu.add_action("window_toggle_full_screen", [this] {
     if(this->get_window()->get_state() & Gdk::WindowState::WINDOW_STATE_FULLSCREEN)
       unfullscreen();

@@ -489,6 +489,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Toggle _Split</attribute>
           <attribute name='action'>app.window_toggle_split</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Split _Source _Buffer</attribute>
+          <attribute name='action'>app.window_split_source_buffer</attribute>
+        </item>
       </section>
       <section>
         <item>

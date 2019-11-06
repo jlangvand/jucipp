@@ -34,7 +34,7 @@ public:
   Source::View *get_current_view();
   std::vector<Source::View *> &get_views();
 
-  void open(const boost::filesystem::path &file_path, size_t notebook_index = -1);
+  void open(const boost::filesystem::path &file_path, size_t notebook_index = -1, bool copy = false);
   void open_uri(const std::string &uri);
   void configure(size_t index);
   bool save(size_t index);
