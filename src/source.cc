@@ -641,7 +641,7 @@ void Source::View::setup_signals() {
 void Source::View::setup_format_style(bool is_generic_view) {
   static auto prettier = filesystem::find_executable("prettier");
   if(!prettier.empty() && language &&
-     (language->get_id() == "js" || language->get_id() == "json" || language->get_id() == "css")) {
+     (language->get_id() == "js" || language->get_id() == "json" || language->get_id() == "css" || language->get_id() == "html")) {
     if(is_generic_view) {
       goto_next_diagnostic = [this] {
         place_cursor_at_next_diagnostic();
@@ -721,7 +721,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
       else if(is_generic_view) {
-        static std::regex regex(R"(^\[error\] stdin: (.*) \(([0-9]*):([0-9]*)\)$)");
+        static std::regex regex(R"(^\[error\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)");
         std::string line;
         std::getline(stderr_stream, line);
         std::smatch sm;
