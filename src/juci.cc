@@ -82,7 +82,7 @@ void Application::on_activate() {
   }
 
   for(size_t i = 0; i < files.size(); ++i) {
-    Notebook::get().open(files[i].first, files[i].second);
+    Notebook::get().open(files[i].first, files[i].second == 0 ? Notebook::Position::left : Notebook::Position::right);
     if(i < file_offsets.size()) {
       if(auto view = Notebook::get().get_current_view()) {
         view->place_cursor_at_line_offset(file_offsets[i].first, file_offsets[i].second);
@@ -104,10 +104,11 @@ void Application::on_activate() {
     }
   }
 
-  while(Gtk::Main::events_pending())
-    Gtk::Main::iteration();
-  for(auto view : Notebook::get().get_views())
-    view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
+  Glib::signal_idle().connect([] {
+    for(auto view : Notebook::get().get_views())
+      view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
+    return false;
+  });
 }
 
 void Application::on_startup() {

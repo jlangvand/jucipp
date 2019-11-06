@@ -103,18 +103,18 @@ std::vector<Source::View *> &Notebook::get_views() {
   return source_views;
 }
 
-void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_index, bool copy) {
+void Notebook::open(const boost::filesystem::path &file_path_, Position position) {
   auto file_path = filesystem::get_normal_path(file_path_);
 
-  if(notebook_index == 1 && !split)
+  if((position == Position::right || position == Position::split) && !split)
     toggle_split();
 
   // Use canonical path to follow symbolic links
-  boost::system::error_code ec;
-  auto canonical_file_path = boost::filesystem::canonical(file_path, ec);
-  if(ec)
-    canonical_file_path = file_path;
-  if(!copy) {
+  if(position == Position::infer) {
+    boost::system::error_code ec;
+    auto canonical_file_path = boost::filesystem::canonical(file_path, ec);
+    if(ec)
+      canonical_file_path = file_path;
     for(size_t c = 0; c < size(); c++) {
       bool equal;
       {
@@ -165,17 +165,11 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
 
   auto view = source_views.back();
 
-  if(copy) {
+  if(position == Position::split) {
     auto previous_view = get_current_view();
     if(previous_view) {
       view->replace_text(previous_view->get_buffer()->get_text());
-      if(!split)
-        toggle_split();
-      else {
-        auto pair = get_notebook_page(get_index(previous_view));
-        if(pair.second != -1)
-          notebook_index = pair.first == 0 ? 1 : 0;
-      }
+      position = get_notebook_page(get_index(previous_view)).first == 0 ? Position::right : Position::left;
     }
   }
 
@@ -184,16 +178,15 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
   view->scroll_to_cursor_delayed = [this](Source::BaseView *view, bool center, bool show_tooltips) {
     if(!show_tooltips)
       view->hide_tooltips();
-    while(Gtk::Main::events_pending())
-      Gtk::Main::iteration();
-    if(get_current_view() == view) {
-      if(center)
-        view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
-      else
-        view->scroll_to(view->get_buffer()->get_insert());
-      if(!show_tooltips)
-        view->hide_tooltips();
-    }
+    Glib::signal_idle().connect([this, view, center] {
+      if(get_current_view() == view) {
+        if(center)
+          view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
+        else
+          view->scroll_to(view->get_buffer()->get_insert());
+      }
+      return false;
+    });
   };
   view->update_status_location = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
@@ -434,16 +427,17 @@ void Notebook::open(const boost::filesystem::path &file_path_, size_t notebook_i
     return false;
   });
 
-  if(notebook_index == static_cast<size_t>(-1)) {
+  if(position == Position::infer) {
     if(!split)
-      notebook_index = 0;
+      position = Position::left;
     else if(notebooks[0].get_n_pages() == 0)
-      notebook_index = 0;
+      position = Position::left;
     else if(notebooks[1].get_n_pages() == 0)
-      notebook_index = 1;
+      position = Position::right;
     else if(last_view)
-      notebook_index = get_notebook_page(get_index(last_view)).first;
+      position = get_notebook_page(get_index(last_view)).first == 0 ? Position::left : Position::right;
   }
+  size_t notebook_index = position == Position::right ? 1 : 0;
   auto &notebook = notebooks[notebook_index];
 
   notebook.append_page(*hboxes.back(), *tab_labels.back());

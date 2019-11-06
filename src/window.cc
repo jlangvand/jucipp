@@ -1435,7 +1435,7 @@ void Window::set_menu_actions() {
 
     auto iter = view->get_buffer()->get_insert()->get_iter();
 
-    Notebook::get().open(view->file_path, -1, true);
+    Notebook::get().open(view->file_path, Notebook::Position::split);
     auto new_view = Notebook::get().get_current_view();
     new_view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
     new_view->scroll_to_cursor_delayed(new_view, true, false);
