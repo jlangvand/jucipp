@@ -19,7 +19,7 @@ class Directories : public Gtk::ListViewText {
     std::shared_ptr<sigc::connection> connection;
   };
 
-  enum class PathType { KNOWN, UNKNOWN };
+  enum class PathType { known, unknown };
 
   class TreeStore : public Gtk::TreeStore {
   protected:

@@ -10,7 +10,7 @@ Autocomplete::Autocomplete(Gtk::TextView *view, bool &interactive_completion, gu
     }
     if(!this->view->has_focus())
       return;
-    if(is_continue_key(last_keyval) && (this->interactive_completion || state != State::IDLE))
+    if(is_continue_key(last_keyval) && (this->interactive_completion || state != State::idle))
       run();
     else {
       stop();
@@ -44,13 +44,13 @@ void Autocomplete::run() {
     if(!is_processing())
       return;
 
-    if(state == State::CANCELED)
-      state = State::RESTARTING;
+    if(state == State::canceled)
+      state = State::restarting;
 
-    if(state != State::IDLE)
+    if(state != State::idle)
       return;
 
-    state = State::STARTING;
+    state = State::starting;
 
     before_add_rows();
 
@@ -83,13 +83,13 @@ void Autocomplete::run() {
       if(is_processing()) {
         dispatcher.post([this]() {
           after_add_rows();
-          if(state == State::RESTARTING) {
-            state = State::IDLE;
+          if(state == State::restarting) {
+            state = State::idle;
             reparse();
             run();
           }
-          else if(state == State::CANCELED || rows.empty()) {
-            state = State::IDLE;
+          else if(state == State::canceled || rows.empty()) {
+            state = State::idle;
             reparse();
           }
           else {
@@ -100,7 +100,7 @@ void Autocomplete::run() {
               prefix_size = prefix.size();
             }
             if(prefix_size > 0 && !start_iter.backward_chars(prefix_size)) {
-              state = State::IDLE;
+              state = State::idle;
               reparse();
               return;
             }
@@ -110,7 +110,7 @@ void Autocomplete::run() {
               CompletionDialog::get()->add_row(row);
               row.clear();
             }
-            state = State::IDLE;
+            state = State::idle;
 
             view->get_buffer()->begin_user_action();
             CompletionDialog::get()->show();
@@ -119,20 +119,20 @@ void Autocomplete::run() {
       }
       else {
         dispatcher.post([this] {
-          state = State::CANCELED;
+          state = State::canceled;
           on_add_rows_error();
         });
       }
     });
   }
 
-  if(state != State::IDLE)
+  if(state != State::idle)
     cancel_reparse();
 }
 
 void Autocomplete::stop() {
-  if(state == State::STARTING || state == State::RESTARTING)
-    state = State::CANCELED;
+  if(state == State::starting || state == State::restarting)
+    state = State::canceled;
 }
 
 void Autocomplete::setup_dialog() {

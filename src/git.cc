@@ -141,32 +141,19 @@ Git::Repository::Status Git::Repository::get_status() {
     error.code = git_status_foreach(repository.get(), [](const char *path, unsigned int status_flags, void *payload) {
       auto data = static_cast<Data *>(payload);
 
-      STATUS status;
+      bool new_ = false;
+      bool modified = false;
       if((status_flags & (GIT_STATUS_INDEX_NEW | GIT_STATUS_WT_NEW)) > 0)
-        status = STATUS::NEW;
+        new_ = true;
       else if((status_flags & (GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_WT_MODIFIED)) > 0)
-        status = STATUS::MODIFIED;
-      else if((status_flags & (GIT_STATUS_INDEX_DELETED | GIT_STATUS_WT_DELETED)) > 0)
-        status = STATUS::DELETED;
-      else if((status_flags & (GIT_STATUS_INDEX_RENAMED | GIT_STATUS_WT_RENAMED)) > 0)
-        status = STATUS::RENAMED;
-      else if((status_flags & (GIT_STATUS_INDEX_TYPECHANGE | GIT_STATUS_WT_TYPECHANGE)) > 0)
-        status = STATUS::TYPECHANGE;
-      else if((status_flags & (GIT_STATUS_WT_UNREADABLE)) > 0)
-        status = STATUS::UNREADABLE;
-      else if((status_flags & (GIT_STATUS_IGNORED)) > 0)
-        status = STATUS::IGNORED;
-      else if((status_flags & (GIT_STATUS_CONFLICTED)) > 0)
-        status = STATUS::CONFLICTED;
-      else
-        status = STATUS::CURRENT;
+        modified = true;
 
       boost::filesystem::path rel_path(path);
       do {
-        if(status == STATUS::MODIFIED)
-          data->status.modified.emplace((data->work_path / rel_path).generic_string());
-        if(status == STATUS::NEW)
+        if(new_)
           data->status.added.emplace((data->work_path / rel_path).generic_string());
+        else if(modified)
+          data->status.modified.emplace((data->work_path / rel_path).generic_string());
         rel_path = rel_path.parent_path();
       } while(!rel_path.empty());
 

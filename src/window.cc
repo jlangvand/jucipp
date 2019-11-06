@@ -1108,14 +1108,14 @@ void Window::set_menu_actions() {
         size_t c = 0;
         buffer->begin_user_action();
         for(auto &fix_it : fix_its) {
-          if(fix_it.type == Source::FixIt::Type::INSERT) {
+          if(fix_it.type == Source::FixIt::Type::insert) {
             buffer->insert(fix_it_marks[c].first->get_iter(), fix_it.source);
           }
-          if(fix_it.type == Source::FixIt::Type::REPLACE) {
+          if(fix_it.type == Source::FixIt::Type::replace) {
             buffer->erase(fix_it_marks[c].first->get_iter(), fix_it_marks[c].second->get_iter());
             buffer->insert(fix_it_marks[c].first->get_iter(), fix_it.source);
           }
-          if(fix_it.type == Source::FixIt::Type::ERASE) {
+          if(fix_it.type == Source::FixIt::Type::erase) {
             buffer->erase(fix_it_marks[c].first->get_iter(), fix_it_marks[c].second->get_iter());
           }
           c++;

@@ -15,14 +15,14 @@ class Autocomplete {
   Dispatcher dispatcher;
 
 public:
-  enum class State { IDLE, STARTING, RESTARTING, CANCELED };
+  enum class State { idle, starting, restarting, canceled };
 
   Mutex prefix_mutex;
   Glib::ustring prefix GUARDED_BY(prefix_mutex);
   std::vector<std::string> rows;
   Tooltips tooltips;
 
-  std::atomic<State> state = {State::IDLE};
+  std::atomic<State> state = {State::idle};
 
   std::thread thread;
 

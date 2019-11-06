@@ -41,7 +41,7 @@ namespace Source {
 
   class FixIt {
   public:
-    enum class Type { INSERT, REPLACE, ERASE };
+    enum class Type { insert, replace, erase };
 
     FixIt(std::string source_, std::pair<Offset, Offset> offsets_);
 

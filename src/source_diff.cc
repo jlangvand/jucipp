@@ -95,7 +95,7 @@ void Source::DiffView::configure() {
   }
 
   get_gutter(Gtk::TextWindowType::TEXT_WINDOW_LEFT)->insert(renderer.get(), -40);
-  parse_state = ParseState::STARTING;
+  parse_state = ParseState::starting;
   parse_stop = false;
   monitor_changed = false;
 
@@ -120,10 +120,10 @@ void Source::DiffView::configure() {
       get_buffer()->remove_tag(renderer->tag_removed_above, start_iter, end_iter);
       get_buffer()->remove_tag(renderer->tag_removed_below, start_iter, end_iter);
     }
-    parse_state = ParseState::IDLE;
+    parse_state = ParseState::idle;
     delayed_buffer_changed_connection.disconnect();
     delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
-      parse_state = ParseState::STARTING;
+      parse_state = ParseState::starting;
       return false;
     }, 250);
   }, false);
@@ -133,10 +133,10 @@ void Source::DiffView::configure() {
     if(start_iter.get_line() == end_iter.get_line() && start_iter.has_tag(renderer->tag_added))
       return;
 
-    parse_state = ParseState::IDLE;
+    parse_state = ParseState::idle;
     delayed_buffer_changed_connection.disconnect();
     delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
-      parse_state = ParseState::STARTING;
+      parse_state = ParseState::starting;
       return false;
     }, 250);
   }, false);
@@ -148,7 +148,7 @@ void Source::DiffView::configure() {
       delayed_monitor_changed_connection.disconnect();
       delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
         monitor_changed = true;
-        parse_state = ParseState::STARTING;
+        parse_state = ParseState::starting;
         LockGuard lock(parse_mutex);
         diff = nullptr;
         return false;
@@ -176,24 +176,24 @@ void Source::DiffView::configure() {
 
     try {
       while(true) {
-        while(!parse_stop && parse_state != ParseState::STARTING && parse_state != ParseState::PROCESSING)
+        while(!parse_stop && parse_state != ParseState::starting && parse_state != ParseState::processing)
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if(parse_stop)
           break;
-        auto expected = ParseState::STARTING;
-        if(parse_state.compare_exchange_strong(expected, ParseState::PREPROCESSING)) {
+        auto expected = ParseState::starting;
+        if(parse_state.compare_exchange_strong(expected, ParseState::preprocessing)) {
           dispatcher.post([this] {
-            auto expected = ParseState::PREPROCESSING;
+            auto expected = ParseState::preprocessing;
             if(parse_mutex.try_lock()) {
-              if(parse_state.compare_exchange_strong(expected, ParseState::PROCESSING))
+              if(parse_state.compare_exchange_strong(expected, ParseState::processing))
                 parse_buffer = get_buffer()->get_text();
               parse_mutex.unlock();
             }
             else
-              parse_state.compare_exchange_strong(expected, ParseState::STARTING);
+              parse_state.compare_exchange_strong(expected, ParseState::starting);
           });
         }
-        else if(parse_state == ParseState::PROCESSING && parse_mutex.try_lock()) {
+        else if(parse_state == ParseState::processing && parse_mutex.try_lock()) {
           bool expected_monitor_changed = true;
           if(monitor_changed.compare_exchange_strong(expected_monitor_changed, false)) {
             try {
@@ -225,13 +225,13 @@ void Source::DiffView::configure() {
             lines.modified.clear();
             lines.removed.clear();
           }
-          auto expected = ParseState::PROCESSING;
-          if(parse_state.compare_exchange_strong(expected, ParseState::POSTPROCESSING)) {
+          auto expected = ParseState::processing;
+          if(parse_state.compare_exchange_strong(expected, ParseState::postprocessing)) {
             parse_mutex.unlock();
             dispatcher.post([this] {
               if(parse_mutex.try_lock()) {
-                auto expected = ParseState::POSTPROCESSING;
-                if(parse_state.compare_exchange_strong(expected, ParseState::IDLE))
+                auto expected = ParseState::postprocessing;
+                if(parse_state.compare_exchange_strong(expected, ParseState::idle))
                   update_lines();
                 parse_mutex.unlock();
               }

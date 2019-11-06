@@ -718,12 +718,12 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
         grandchild->set_value(column_record.is_directory, false);
         grandchild->set_value(column_record.name, std::string("(empty)"));
         grandchild->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
-        grandchild->set_value(column_record.type, PathType::UNKNOWN);
+        grandchild->set_value(column_record.type, PathType::unknown);
       }
       else {
         auto language = Source::guess_language(it->path().filename());
         if(!language)
-          child->set_value(column_record.type, PathType::UNKNOWN);
+          child->set_value(column_record.type, PathType::unknown);
       }
     }
   }
@@ -741,7 +741,7 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
     child->set_value(column_record.is_directory, false);
     child->set_value(column_record.name, std::string("(empty)"));
     child->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
-    child->set_value(column_record.type, PathType::UNKNOWN);
+    child->set_value(column_record.type, PathType::unknown);
   }
 
   colorize_path(dir_path, include_parent_paths);
@@ -768,7 +768,7 @@ void Directories::remove_path(const boost::filesystem::path &dir_path) {
     child->set_value(column_record.is_directory, false);
     child->set_value(column_record.name, std::string("(empty)"));
     child->set_value(column_record.markup, Glib::Markup::escape_text("(empty)"));
-    child->set_value(column_record.type, PathType::UNKNOWN);
+    child->set_value(column_record.type, PathType::unknown);
   }
 }
 
@@ -840,7 +840,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
             child.set_value(column_record.markup, "<span foreground=\"" + ss.str() + "\">" + name + "</span>");
 
             auto type = child.get_value(column_record.type);
-            if(type == PathType::UNKNOWN)
+            if(type == PathType::unknown)
               child.set_value(column_record.markup, "<i>" + child.get_value(column_record.markup) + "</i>");
           }
 

@@ -76,12 +76,12 @@ Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path
 
 Source::FixIt::FixIt(std::string source_, std::pair<Offset, Offset> offsets_) : source(std::move(source_)), offsets(std::move(offsets_)) {
   if(this->source.size() == 0)
-    type = Type::ERASE;
+    type = Type::erase;
   else {
     if(this->offsets.first == this->offsets.second)
-      type = Type::INSERT;
+      type = Type::insert;
     else
-      type = Type::REPLACE;
+      type = Type::replace;
   }
 }
 
@@ -92,11 +92,11 @@ std::string Source::FixIt::string(const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
   unsigned second_line_offset = iter.get_line_offset() + 1;
 
   std::string text;
-  if(type == Type::INSERT) {
+  if(type == Type::insert) {
     text += "Insert " + source + " at ";
     text += std::to_string(offsets.first.line + 1) + ":" + std::to_string(first_line_offset);
   }
-  else if(type == Type::REPLACE) {
+  else if(type == Type::replace) {
     text += "Replace ";
     text += std::to_string(offsets.first.line + 1) + ":" + std::to_string(first_line_offset) + " - ";
     text += std::to_string(offsets.second.line + 1) + ":" + std::to_string(second_line_offset);

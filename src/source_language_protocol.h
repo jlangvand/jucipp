@@ -80,10 +80,10 @@ namespace LanguageProtocol {
 
   class Capabilities {
   public:
-    enum class TextDocumentSync { NONE = 0,
-                                  FULL,
-                                  INCREMENTAL };
-    TextDocumentSync text_document_sync = TextDocumentSync::NONE;
+    enum class TextDocumentSync { none = 0,
+                                  full,
+                                  incremental };
+    TextDocumentSync text_document_sync = TextDocumentSync::none;
     bool hover = false;
     bool completion = false;
     bool signature_help = false;

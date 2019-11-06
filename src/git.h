@@ -52,7 +52,6 @@ public:
       std::string get_details(const std::string &buffer, int line_nr);
     };
 
-    enum class STATUS { CURRENT, NEW, MODIFIED, DELETED, RENAMED, TYPECHANGE, UNREADABLE, IGNORED, CONFLICTED };
     class Status {
     public:
       std::unordered_set<std::string> added;

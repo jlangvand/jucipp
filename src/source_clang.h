@@ -13,8 +13,8 @@
 namespace Source {
   class ClangViewParse : public View {
   protected:
-    enum class ParseState { PROCESSING, RESTARTING, STOP };
-    enum class ParseProcessState { IDLE, STARTING, PREPROCESSING, PROCESSING, POSTPROCESSING };
+    enum class ParseState { processing, restarting, stop };
+    enum class ParseProcessState { idle, starting, preprocessing, processing, postprocessing };
 
   public:
     ClangViewParse(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);

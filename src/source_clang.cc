@@ -93,8 +93,8 @@ void Source::ClangViewParse::parse_initialize() {
   parsed = false;
   if(parse_thread.joinable())
     parse_thread.join();
-  parse_state = ParseState::PROCESSING;
-  parse_process_state = ParseProcessState::STARTING;
+  parse_state = ParseState::processing;
+  parse_process_state = ParseProcessState::starting;
 
   auto buffer_ = get_buffer()->get_text();
   auto &buffer_raw = const_cast<std::string &>(buffer_.raw());
@@ -138,31 +138,31 @@ void Source::ClangViewParse::parse_initialize() {
     update_status_state(this);
   parse_thread = std::thread([this]() {
     while(true) {
-      while(parse_state == ParseState::PROCESSING && parse_process_state != ParseProcessState::STARTING && parse_process_state != ParseProcessState::PROCESSING)
+      while(parse_state == ParseState::processing && parse_process_state != ParseProcessState::starting && parse_process_state != ParseProcessState::processing)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      if(parse_state != ParseState::PROCESSING)
+      if(parse_state != ParseState::processing)
         break;
-      auto expected = ParseProcessState::STARTING;
-      if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::PREPROCESSING)) {
+      auto expected = ParseProcessState::starting;
+      if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::preprocessing)) {
         dispatcher.post([this] {
-          auto expected = ParseProcessState::PREPROCESSING;
+          auto expected = ParseProcessState::preprocessing;
           if(parse_mutex.try_lock()) {
-            if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::PROCESSING))
+            if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::processing))
               parse_thread_buffer = get_buffer()->get_text();
             parse_mutex.unlock();
           }
           else
-            parse_process_state.compare_exchange_strong(expected, ParseProcessState::STARTING);
+            parse_process_state.compare_exchange_strong(expected, ParseProcessState::starting);
         });
       }
-      else if(parse_process_state == ParseProcessState::PROCESSING && parse_mutex.try_lock()) {
+      else if(parse_process_state == ParseProcessState::processing && parse_mutex.try_lock()) {
         auto &parse_thread_buffer_raw = const_cast<std::string &>(parse_thread_buffer.raw());
         if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
           clangmm::remove_include_guard(parse_thread_buffer_raw);
         auto status = clang_tu->reparse(parse_thread_buffer_raw);
         if(status == 0) {
-          auto expected = ParseProcessState::PROCESSING;
-          if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::POSTPROCESSING)) {
+          auto expected = ParseProcessState::processing;
+          if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::postprocessing)) {
             clang_tokens = clang_tu->get_tokens();
             clang_tokens_offsets.clear();
             clang_tokens_offsets.reserve(clang_tokens->size());
@@ -172,8 +172,8 @@ void Source::ClangViewParse::parse_initialize() {
             parse_mutex.unlock();
             dispatcher.post([this] {
               if(parse_mutex.try_lock()) {
-                auto expected = ParseProcessState::POSTPROCESSING;
-                if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::IDLE)) {
+                auto expected = ParseProcessState::postprocessing;
+                if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::idle)) {
                   update_syntax();
                   update_diagnostics();
                   parsed = true;
@@ -189,7 +189,7 @@ void Source::ClangViewParse::parse_initialize() {
             parse_mutex.unlock();
         }
         else {
-          parse_state = ParseState::STOP;
+          parse_state = ParseState::stop;
           parse_mutex.unlock();
           dispatcher.post([this] {
             Terminal::get().print("Error: failed to reparse " + this->file_path.string() + ".\n", true);
@@ -211,15 +211,15 @@ void Source::ClangViewParse::soft_reparse(bool delayed) {
   parsed = false;
   delayed_reparse_connection.disconnect();
 
-  if(parse_state != ParseState::PROCESSING)
+  if(parse_state != ParseState::processing)
     return;
 
-  parse_process_state = ParseProcessState::IDLE;
+  parse_process_state = ParseProcessState::idle;
 
   auto reparse = [this] {
     parsed = false;
-    auto expected = ParseProcessState::IDLE;
-    if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::STARTING)) {
+    auto expected = ParseProcessState::idle;
+    if(parse_process_state.compare_exchange_strong(expected, ParseProcessState::starting)) {
       status_state = "parsing...";
       if(update_status_state)
         update_status_state(this);
@@ -556,7 +556,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.is_processing = [this] {
-    return parse_state == ParseState::PROCESSING;
+    return parse_state == ParseState::processing;
   };
 
   autocomplete.reparse = [this] {
@@ -574,7 +574,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.stop_parse = [this]() {
-    parse_process_state = ParseProcessState::IDLE;
+    parse_process_state = ParseProcessState::idle;
   };
 
   // Activate argument completions
@@ -712,12 +712,12 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
       clangmm::remove_include_guard(buffer);
     code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line_number, column));
     if(code_complete_results->cx_results == nullptr) {
-      auto expected = ParseState::PROCESSING;
-      parse_state.compare_exchange_strong(expected, ParseState::RESTARTING);
+      auto expected = ParseState::processing;
+      parse_state.compare_exchange_strong(expected, ParseState::restarting);
       return;
     }
 
-    if(autocomplete.state == Autocomplete::State::STARTING) {
+    if(autocomplete.state == Autocomplete::State::starting) {
       std::string prefix;
       {
         LockGuard lock(autocomplete.prefix_mutex);
@@ -1881,7 +1881,7 @@ void Source::ClangView::full_reparse() {
   delayed_reparse_connection.disconnect();
   delayed_full_reparse_connection.disconnect();
 
-  if(parse_state != ParseState::PROCESSING)
+  if(parse_state != ParseState::processing)
     return;
 
   if(full_reparse_running) {
@@ -1894,10 +1894,10 @@ void Source::ClangView::full_reparse() {
 
   full_reparse_needed = false;
 
-  parse_process_state = ParseProcessState::IDLE;
-  autocomplete.state = Autocomplete::State::IDLE;
-  auto expected = ParseState::PROCESSING;
-  if(!parse_state.compare_exchange_strong(expected, ParseState::RESTARTING))
+  parse_process_state = ParseProcessState::idle;
+  autocomplete.state = Autocomplete::State::idle;
+  auto expected = ParseState::processing;
+  if(!parse_state.compare_exchange_strong(expected, ParseState::restarting))
     return;
 
   full_reparse_running = true;
@@ -1938,9 +1938,9 @@ void Source::ClangView::async_delete() {
 
   auto before_parse_time = std::time(nullptr);
   delete_thread = std::thread([this, before_parse_time, project_paths_in_use = std::move(project_paths_in_use), buffer_modified = get_buffer()->get_modified()] {
-    while(!parsed && parse_state != ParseState::STOP)
+    while(!parsed && parse_state != ParseState::stop)
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    parse_state = ParseState::STOP;
+    parse_state = ParseState::stop;
 
     if(buffer_modified) {
       std::ifstream stream(file_path.string(), std::ios::binary);

@@ -42,7 +42,7 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
 }
 
 Source::GenericView::~GenericView() {
-  autocomplete.state = Autocomplete::State::IDLE;
+  autocomplete.state = Autocomplete::State::idle;
   if(autocomplete.thread.joinable())
     autocomplete.thread.join();
 }
@@ -254,7 +254,7 @@ void Source::GenericView::setup_autocomplete() {
   };
 
   autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
-    if(autocomplete.state == Autocomplete::State::STARTING) {
+    if(autocomplete.state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
       autocomplete_insert.clear();
 

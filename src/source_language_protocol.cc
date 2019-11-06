@@ -373,9 +373,9 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
 
   get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
     std::string content_changes;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::NONE)
+    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::none)
       return;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::INCREMENTAL) {
+    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
       std::string text = text_;
       escape_text(text);
       content_changes = R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}";
@@ -390,9 +390,9 @@ Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path
 
   get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start, const Gtk::TextBuffer::iterator &end) {
     std::string content_changes;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::NONE)
+    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::none)
       return;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::INCREMENTAL)
+    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental)
       content_changes = R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})";
     else {
       std::string text = get_buffer()->get_text();
@@ -450,7 +450,7 @@ void Source::LanguageProtocolView::close() {
   if(initialize_thread.joinable())
     initialize_thread.join();
 
-  autocomplete.state = Autocomplete::State::IDLE;
+  autocomplete.state = Autocomplete::State::idle;
   if(autocomplete.thread.joinable())
     autocomplete.thread.join();
 
@@ -1346,7 +1346,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
-    if(autocomplete.state == Autocomplete::State::STARTING) {
+    if(autocomplete.state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
       autocomplete_insert.clear();
       std::promise<void> result_processed;
