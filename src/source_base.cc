@@ -740,7 +740,7 @@ void Source::BaseView::paste() {
   if(only_whitespaces) {
     Gtk::Clipboard::get()->set_text(text);
     get_buffer()->paste_clipboard(Gtk::Clipboard::get());
-    scroll_to_cursor_delayed(this, false, false);
+    scroll_to_cursor_delayed(false, false);
     return;
   }
 
@@ -852,7 +852,7 @@ void Source::BaseView::paste() {
   if(text.size() > 0 && text.back() == '\n')
     get_buffer()->insert_at_cursor('\n' + prefix_tabs);
   get_buffer()->end_user_action();
-  scroll_to_cursor_delayed(this, false, false);
+  scroll_to_cursor_delayed(false, false);
 }
 
 std::string Source::BaseView::get_selected_text() {

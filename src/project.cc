@@ -246,7 +246,7 @@ void Project::Base::show_symbols() {
     Notebook::get().open(full_path);
     auto view = Notebook::get().get_current_view();
     view->place_cursor_at_line_index(offset.line, offset.index);
-    view->scroll_to_cursor_delayed(view, true, false);
+    view->scroll_to_cursor_delayed(true, false);
   };
   if(view)
     view->hide_tooltips();
@@ -452,7 +452,7 @@ void Project::LLDB::debug_start() {
               Notebook::get().open(stop_path);
               auto view = Notebook::get().get_current_view();
               view->place_cursor_at_line_index(stop_line, stop_column);
-              view->scroll_to_cursor_delayed(view, true, false);
+              view->scroll_to_cursor_delayed(true, false);
             }
             else if(auto view = Notebook::get().get_current_view())
               view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
@@ -556,7 +556,7 @@ void Project::LLDB::debug_backtrace() {
           Debug::LLDB::get().select_frame(frame.index);
 
           view->place_cursor_at_line_index(frame.line_nr - 1, frame.line_index - 1);
-          view->scroll_to_cursor_delayed(view, true, true);
+          view->scroll_to_cursor_delayed(true, true);
         }
       }
     };
@@ -600,7 +600,7 @@ void Project::LLDB::debug_show_variables() {
         Notebook::get().open(variable.file_path);
         if(auto view = Notebook::get().get_current_view()) {
           view->place_cursor_at_line_index(variable.line_nr - 1, variable.line_index - 1);
-          view->scroll_to_cursor_delayed(view, true, true);
+          view->scroll_to_cursor_delayed(true, true);
         }
       }
       if(!variable.declaration_found)
@@ -792,7 +792,7 @@ void Project::LanguageProtocol::show_symbols() {
     Notebook::get().open(offset.file);
     auto view = Notebook::get().get_current_view();
     view->place_cursor_at_line_offset(offset.range.start.line, offset.range.start.character);
-    view->scroll_to_cursor_delayed(view, true, false);
+    view->scroll_to_cursor_delayed(true, false);
   };
 
   if(view)

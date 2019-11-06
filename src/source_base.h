@@ -52,8 +52,7 @@ namespace Source {
     /// Safely places cursor at line index
     void place_cursor_at_line_index(int line, int index);
 
-    /// Use with care, view could be destroyed while this functions is running!
-    std::function<void(BaseView *view, bool center, bool show_tooltips)> scroll_to_cursor_delayed = [](BaseView *view, bool center, bool show_tooltips) {};
+    std::function<void(bool center, bool show_tooltips)> scroll_to_cursor_delayed = [](bool center, bool show_tooltips) {};
 
     std::function<void(BaseView *view)> update_tab_label;
     std::function<void(BaseView *view)> update_status_location;

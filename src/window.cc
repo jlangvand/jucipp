@@ -685,7 +685,7 @@ void Window::set_menu_actions() {
   });
   menu.add_action("source_center_cursor", []() {
     if(auto view = Notebook::get().get_current_view())
-      view->scroll_to_cursor_delayed(view, true, false);
+      view->scroll_to_cursor_delayed(true, false);
   });
   menu.add_action("source_cursor_history_back", []() {
     if(Notebook::get().cursor_locations.size() == 0)
@@ -711,7 +711,7 @@ void Window::set_menu_actions() {
     }
     Notebook::get().disable_next_update_cursor_locations = true;
     cursor_location->view->get_buffer()->place_cursor(cursor_location->mark->get_iter());
-    cursor_location->view->scroll_to_cursor_delayed(cursor_location->view, true, false);
+    cursor_location->view->scroll_to_cursor_delayed(true, false);
   });
   menu.add_action("source_cursor_history_forward", []() {
     if(Notebook::get().cursor_locations.size() <= 1)
@@ -727,7 +727,7 @@ void Window::set_menu_actions() {
       Notebook::get().open(cursor_location.view->file_path);
     Notebook::get().disable_next_update_cursor_locations = true;
     cursor_location.view->get_buffer()->place_cursor(cursor_location.mark->get_iter());
-    cursor_location.view->scroll_to_cursor_delayed(cursor_location.view, true, false);
+    cursor_location.view->scroll_to_cursor_delayed(true, false);
   });
 
   menu.add_action("source_show_completion", [] {
@@ -839,7 +839,7 @@ void Window::set_menu_actions() {
           iter = view->get_iter_at_line_pos(offset.line, offset.index);
           iter.forward_chars(std::get<2>(documentation_template));
           view->get_buffer()->place_cursor(iter);
-          view->scroll_to_cursor_delayed(view, true, false);
+          view->scroll_to_cursor_delayed(true, false);
         }
       }
     }
@@ -895,7 +895,7 @@ void Window::set_menu_actions() {
           auto line = static_cast<int>(location.line);
           auto index = static_cast<int>(location.index);
           view->place_cursor_at_line_pos(line, index);
-          view->scroll_to_cursor_delayed(view, true, false);
+          view->scroll_to_cursor_delayed(true, false);
         }
       }
     }
@@ -912,7 +912,7 @@ void Window::set_menu_actions() {
           auto line = static_cast<int>(location.line);
           auto index = static_cast<int>(location.index);
           view->place_cursor_at_line_pos(line, index);
-          view->scroll_to_cursor_delayed(view, true, false);
+          view->scroll_to_cursor_delayed(true, false);
         }
       }
     }
@@ -947,7 +947,7 @@ void Window::set_menu_actions() {
         auto line = static_cast<int>(location.line);
         auto index = static_cast<int>(location.index);
         view->place_cursor_at_line_pos(line, index);
-        view->scroll_to_cursor_delayed(view, true, false);
+        view->scroll_to_cursor_delayed(true, false);
         return;
       }
       SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
@@ -959,7 +959,7 @@ void Window::set_menu_actions() {
         Notebook::get().open(location.file_path);
         auto view = Notebook::get().get_current_view();
         view->place_cursor_at_line_pos(location.line, location.index);
-        view->scroll_to_cursor_delayed(view, true, false);
+        view->scroll_to_cursor_delayed(true, false);
       };
       view->hide_tooltips();
       SelectionDialog::get()->show();
@@ -1018,7 +1018,7 @@ void Window::set_menu_actions() {
             Notebook::get().open(offset.file_path);
             auto view = Notebook::get().get_current_view();
             view->place_cursor_at_line_pos(offset.line, offset.index);
-            view->scroll_to_cursor_delayed(view, true, false);
+            view->scroll_to_cursor_delayed(true, false);
           };
           view->hide_tooltips();
           SelectionDialog::get()->show();
@@ -1391,7 +1391,7 @@ void Window::set_menu_actions() {
       Notebook::get().open(rows[index].file_path);
       auto view = Notebook::get().get_current_view();
       view->place_cursor_at_line_pos(rows[index].line, rows[index].index);
-      view->scroll_to_cursor_delayed(view, true, false);
+      view->scroll_to_cursor_delayed(true, false);
     };
 
     SelectionDialog::get()->show();
@@ -1404,7 +1404,7 @@ void Window::set_menu_actions() {
           int line = Project::debug_stop.second.first;
           int index = Project::debug_stop.second.second;
           view->place_cursor_at_line_index(line, index);
-          view->scroll_to_cursor_delayed(view, true, true);
+          view->scroll_to_cursor_delayed(true, true);
         }
       }
     }
@@ -1438,7 +1438,7 @@ void Window::set_menu_actions() {
     Notebook::get().open(view->file_path, Notebook::Position::split);
     auto new_view = Notebook::get().get_current_view();
     new_view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
-    new_view->scroll_to_cursor_delayed(new_view, true, false);
+    new_view->scroll_to_cursor_delayed(true, false);
   });
   menu.add_action("window_toggle_full_screen", [this] {
     if(this->get_window()->get_state() & Gdk::WindowState::WINDOW_STATE_FULLSCREEN)
@@ -1811,7 +1811,7 @@ void Window::goto_line_entry() {
       if(auto view = Notebook::get().get_current_view()) {
         try {
           view->place_cursor_at_line_index(stoi(content) - 1, 0);
-          view->scroll_to_cursor_delayed(view, true, false);
+          view->scroll_to_cursor_delayed(true, false);
         }
         catch(const std::exception &e) {
         }

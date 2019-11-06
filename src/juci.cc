@@ -86,7 +86,7 @@ void Application::on_activate() {
     if(i < file_offsets.size()) {
       if(auto view = Notebook::get().get_current_view()) {
         view->place_cursor_at_line_offset(file_offsets[i].first, file_offsets[i].second);
-        view->hide_tooltips();
+        view->scroll_to_cursor_delayed(true, false);
       }
     }
   }
@@ -100,15 +100,9 @@ void Application::on_activate() {
       auto iter = view->get_buffer()->get_insert()->get_iter();
       // To update cursor history
       view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
-      view->hide_tooltips();
+      view->scroll_to_cursor_delayed(true, false);
     }
   }
-
-  Glib::signal_idle().connect([] {
-    for(auto view : Notebook::get().get_views())
-      view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
-    return false;
-  });
 }
 
 void Application::on_startup() {

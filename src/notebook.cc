@@ -175,11 +175,11 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   view->configure();
 
-  view->scroll_to_cursor_delayed = [this](Source::BaseView *view, bool center, bool show_tooltips) {
+  view->scroll_to_cursor_delayed = [this, view](bool center, bool show_tooltips) {
     if(!show_tooltips)
       view->hide_tooltips();
     Glib::signal_idle().connect([this, view, center] {
-      if(get_current_view() == view) {
+      if(get_index(view) != static_cast<size_t>(-1)) {
         if(center)
           view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
         else

@@ -136,7 +136,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
                   auto line = atoi(sm[2].str().c_str()) - 1;
                   auto offset = atoi(sm[3].str().c_str()) - 1;
                   view->place_cursor_at_line_offset(line, offset);
-                  view->scroll_to_cursor_delayed(view, true, false);
+                  view->scroll_to_cursor_delayed(true, false);
                 }
                 catch(...) {
                 }
