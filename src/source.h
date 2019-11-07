@@ -84,6 +84,8 @@ namespace Source {
     void hide_tooltips() override;
     void hide_dialogs() override;
 
+    void scroll_to_cursor_delayed(bool center, bool show_tooltips) override;
+
     void extend_selection();
     void shrink_selection();
 

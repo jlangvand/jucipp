@@ -1035,6 +1035,20 @@ void Source::View::hide_dialogs() {
     CompletionDialog::get()->hide();
 }
 
+void Source::View::scroll_to_cursor_delayed(bool center, bool show_tooltips) {
+  if(!show_tooltips)
+    hide_tooltips();
+  Glib::signal_idle().connect([this, center] {
+    if(views.find(this) != views.end()) {
+      if(center)
+        scroll_to(get_buffer()->get_insert(), 0.0, 1.0, 0.5);
+      else
+        scroll_to(get_buffer()->get_insert());
+    }
+    return false;
+  });
+}
+
 void Source::View::extend_selection() {
   // Have tried to generalize this function as much as possible due to the complexity of this task,
   // but some further workarounds for edge cases might be needed
