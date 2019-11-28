@@ -1222,9 +1222,9 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         return;
       if(!has_focus())
         return;
-      if(autocomplete_show_parameters)
+      if(autocomplete_show_arguments)
         autocomplete.stop();
-      autocomplete_show_parameters = false;
+      autocomplete_show_arguments = false;
       autocomplete_delayed_show_arguments_connection.disconnect();
       autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect([this]() {
         if(get_buffer()->get_has_selection())
@@ -1244,7 +1244,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     // Remove argument completions
     if(!has_named_parameters()) { // Do not remove named parameters in for instance Python
       signal_key_press_event().connect([this](GdkEventKey *key) {
-        if(autocomplete_show_parameters && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
+        if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
            key->keyval != GDK_KEY_Down && key->keyval != GDK_KEY_Up &&
            key->keyval != GDK_KEY_Return && key->keyval != GDK_KEY_KP_Enter &&
            key->keyval != GDK_KEY_ISO_Left_Tab && key->keyval != GDK_KEY_Tab &&
@@ -1279,7 +1279,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       return false;
 
     autocomplete_enable_snippets = false;
-    autocomplete_show_parameters = false;
+    autocomplete_show_arguments = false;
 
     auto line = ' ' + get_line_before();
     const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>\"']|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*)(\\.)([a-zA-Z0-9_]*)$|" // .
@@ -1296,7 +1296,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       return true;
     }
     else if(is_possible_argument()) {
-      autocomplete_show_parameters = true;
+      autocomplete_show_arguments = true;
       LockGuard lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
@@ -1350,7 +1350,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       autocomplete_comment.clear();
       autocomplete_insert.clear();
       std::promise<void> result_processed;
-      if(autocomplete_show_parameters) {
+      if(autocomplete_show_arguments) {
         if(!capabilities.signature_help)
           return;
         client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
@@ -1483,7 +1483,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
 
     if(hide_window) {
-      if(autocomplete_show_parameters) {
+      if(autocomplete_show_arguments) {
         if(has_named_parameters()) // Do not select named parameters in for instance Python
           get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
         else {
@@ -1496,6 +1496,11 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }
 
       insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
+      auto iter = get_buffer()->get_insert()->get_iter();
+      if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
+        last_keyval = '(';
+        autocomplete.run();
+      }
     }
     else
       get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);

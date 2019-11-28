@@ -193,7 +193,7 @@ namespace Source {
     std::vector<std::string> autocomplete_comment;
     std::vector<std::string> autocomplete_insert;
     std::atomic<bool> autocomplete_enable_snippets = {false};
-    bool autocomplete_show_parameters = false;
+    bool autocomplete_show_arguments = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
 
     bool has_named_parameters();
