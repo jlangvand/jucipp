@@ -185,20 +185,25 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
   int root_x = 0, root_y = 0;
   if(text_view) {
-    //Adjust if tooltip is left of text_view
     Gdk::Rectangle visible_rect;
     text_view->get_visible_rect(visible_rect);
-    int visible_x, visible_y;
-    text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, visible_rect.get_x(), visible_rect.get_y(), visible_x, visible_y);
-    auto activation_rectangle_x = std::max(activation_rectangle.get_x(), visible_x);
+    int visible_window_x, visible_window_y;
+    text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, visible_rect.get_x(), visible_rect.get_y(), visible_window_x, visible_window_y);
 
-    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(activation_rectangle_x, activation_rectangle.get_y(), root_x, root_y);
+    auto window_x = std::max(activation_rectangle.get_x(), visible_window_x); // Adjust tooltip right if it is left of text_view
+    auto window_y = activation_rectangle.get_y();
+    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(window_x, window_y, root_x, root_y);
     root_x -= 3; // -1xpadding
+
     if(root_y < size.second)
-      root_x += visible_rect.get_width() * 0.1;
+      root_x += visible_rect.get_width() * 0.1;         // Adjust tooltip right if it might be above cursor
+    rectangle.set_y(std::max(0, root_y - size.second)); // Move tooptip down if it is above screen
+
+    // Move tooltip left if it is right of screen
+    auto screen_width = Gdk::Screen::get_default()->get_width();
+    rectangle.set_x(root_x + size.first > screen_width ? screen_width - size.first : root_x);
   }
-  rectangle.set_x(root_x);
-  rectangle.set_y(std::max(0, root_y - size.second));
+
   rectangle.set_width(size.first);
   rectangle.set_height(size.second);
 

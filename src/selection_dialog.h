@@ -75,8 +75,8 @@ class SelectionDialog : public SelectionDialogBase {
 public:
   bool on_key_press(GdkEventKey *key);
 
-  static void create(Gtk::TextView *text_view, const Glib::RefPtr<Gtk::TextBuffer::Mark> &start_mark, bool show_search_entry = true, bool use_markup = false) {
-    instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(text_view, start_mark, show_search_entry, use_markup));
+  static void create(Gtk::TextView *text_view, bool show_search_entry = true, bool use_markup = false) {
+    instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(text_view, text_view->get_buffer()->create_mark(text_view->get_buffer()->get_insert()->get_iter()), show_search_entry, use_markup));
   }
   static void create(bool show_search_entry = true, bool use_markup = false) {
     instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(nullptr, Glib::RefPtr<Gtk::TextBuffer::Mark>(), show_search_entry, use_markup));

@@ -43,7 +43,6 @@ namespace Source {
     Gtk::TextIter get_iter_at_line_index(int line, int index);
 
     Gtk::TextIter get_iter_at_line_end(int line_nr);
-    Gtk::TextIter get_iter_for_dialog();
 
     /// Safely places cursor at line using get_iter_at_line_pos.
     void place_cursor_at_line_pos(int line, int pos);

@@ -154,7 +154,7 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
       delayed_spellcheck_suggestions_connection.disconnect();
       delayed_spellcheck_suggestions_connection = Glib::signal_timeout().connect([this]() {
         if(get_buffer()->get_insert()->get_iter().has_tag(spellcheck_error_tag)) {
-          SelectionDialog::create(this, get_buffer()->create_mark(get_buffer()->get_insert()->get_iter()), false);
+          SelectionDialog::create(this, false);
           auto word = get_word(get_buffer()->get_insert()->get_iter());
           if(*word.first == '\'' && word.second.get_offset() - word.first.get_offset() >= 3) {
             auto before_end = word.second;

@@ -511,22 +511,6 @@ Gtk::TextIter Source::BaseView::get_iter_at_line_end(int line_nr) {
   }
 }
 
-Gtk::TextIter Source::BaseView::get_iter_for_dialog() {
-  auto iter = get_buffer()->get_insert()->get_iter();
-  Gdk::Rectangle visible_rect;
-  get_visible_rect(visible_rect);
-  Gdk::Rectangle iter_rect;
-  get_iter_location(iter, iter_rect);
-  iter_rect.set_width(1);
-  if(iter.get_line_offset() >= 80) {
-    get_iter_at_location(iter, visible_rect.get_x(), iter_rect.get_y());
-    get_iter_location(iter, iter_rect);
-  }
-  if(!visible_rect.intersects(iter_rect))
-    get_iter_at_location(iter, visible_rect.get_x(), visible_rect.get_y() + visible_rect.get_height() / 3);
-  return iter;
-}
-
 void Source::BaseView::place_cursor_at_line_pos(int line, int pos) {
   get_buffer()->place_cursor(get_iter_at_line_pos(line, pos));
 }

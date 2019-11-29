@@ -97,26 +97,44 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const Glib::R
     int window_width = row_width + 1;
     window.resize(window_width, window_height);
 
-    if(this->text_view) {
-      Gdk::Rectangle iter_rect;
-      this->text_view->get_iter_location(this->start_mark->get_iter(), iter_rect);
-      Gdk::Rectangle visible_rect;
-      this->text_view->get_visible_rect(visible_rect);
-      int buffer_x = std::max(iter_rect.get_x(), visible_rect.get_x());
-      int buffer_y = iter_rect.get_y() + iter_rect.get_height();
-      int window_x, window_y;
-      this->text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, buffer_x, buffer_y, window_x, window_y);
-      int root_x, root_y;
-      this->text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(window_x, window_y, root_x, root_y);
-      window.move(root_x, root_y + 1); //TODO: replace 1 with some margin
-    }
-    else {
+    auto move_window_to_center = [this, application_window, window_width, window_height] {
       int root_x, root_y;
       application_window->get_position(root_x, root_y);
       root_x += application_window->get_width() / 2 - window_width / 2;
       root_y += application_window->get_height() / 2 - window_height / 2;
       window.move(root_x, root_y);
+    };
+
+    if(this->text_view) {
+      Gdk::Rectangle visible_rect;
+      this->text_view->get_visible_rect(visible_rect);
+      int visible_window_x, visible_window_max_y;
+      this->text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, visible_rect.get_x(), visible_rect.get_y() + visible_rect.get_height(), visible_window_x, visible_window_max_y);
+
+      Gdk::Rectangle iter_rect;
+      this->text_view->get_iter_location(this->start_mark->get_iter(), iter_rect);
+      int buffer_x = iter_rect.get_x();
+      int buffer_y = iter_rect.get_y() + iter_rect.get_height();
+      int window_x, window_y;
+      this->text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, buffer_x, buffer_y, window_x, window_y);
+
+      if(window_y < 0 || window_y > visible_window_max_y) // Move dialog to center if it is above or below visible parts of text_view
+        move_window_to_center();
+      else {
+        window_x = std::max(window_x, visible_window_x); // Adjust right if dialog is left of text_view
+
+        int root_x, root_y;
+        this->text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(window_x, window_y, root_x, root_y);
+
+        // Adjust left if dialog is right of screen
+        auto screen_width = Gdk::Screen::get_default()->get_width();
+        root_x = root_x + window_width > screen_width ? screen_width - window_width : root_x;
+
+        window.move(root_x, root_y + 1); //TODO: replace 1 with some margin
+      }
     }
+    else
+      move_window_to_center();
   });
 
   list_view_text.signal_cursor_changed().connect([this] {

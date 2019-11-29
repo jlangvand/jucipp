@@ -769,10 +769,8 @@ void Window::set_menu_actions() {
       debug_path = build->get_debug_path();
     }
 
-    if(view) {
-      auto dialog_iter = view->get_iter_for_dialog();
-      SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
-    }
+    if(view)
+      SelectionDialog::create(view, true, true);
     else
       SelectionDialog::create(true, true);
 
@@ -919,8 +917,7 @@ void Window::set_menu_actions() {
   });
   auto goto_selected_location = [](Source::View *view, const std::vector<Source::Offset> &locations) {
     if(!locations.empty()) {
-      auto dialog_iter = view->get_iter_for_dialog();
-      SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
+      SelectionDialog::create(view, true, true);
       std::vector<Source::Offset> rows;
       auto project_path = Project::Build::create(view->file_path)->project_path;
       if(project_path.empty()) {
@@ -983,8 +980,7 @@ void Window::set_menu_actions() {
       if(view->get_usages) {
         auto usages = view->get_usages();
         if(!usages.empty()) {
-          auto dialog_iter = view->get_iter_for_dialog();
-          SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
+          SelectionDialog::create(view, true, true);
           std::vector<Source::Offset> rows;
 
           auto iter = view->get_buffer()->get_insert()->get_iter();
@@ -1031,8 +1027,7 @@ void Window::set_menu_actions() {
       if(view->get_methods) {
         auto methods = Notebook::get().get_current_view()->get_methods();
         if(!methods.empty()) {
-          auto dialog_iter = view->get_iter_for_dialog();
-          SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
+          SelectionDialog::create(view, true, true);
           std::vector<Source::Offset> rows;
           auto iter = view->get_buffer()->get_insert()->get_iter();
           for(auto &method : methods) {
@@ -1336,8 +1331,7 @@ void Window::set_menu_actions() {
       return;
     }
 
-    auto dialog_iter = current_view->get_iter_for_dialog();
-    SelectionDialog::create(current_view, current_view->get_buffer()->create_mark(dialog_iter), true);
+    SelectionDialog::create(current_view, true);
 
     std::vector<Source::Offset> rows;
 

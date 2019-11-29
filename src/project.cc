@@ -216,10 +216,8 @@ void Project::Base::show_symbols() {
   }
   stream->seekg(0, std::ios::beg);
 
-  if(view) {
-    auto dialog_iter = view->get_iter_for_dialog();
-    SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
-  }
+  if(view)
+    SelectionDialog::create(view, true, true);
   else
     SelectionDialog::create(true, true);
 
@@ -512,10 +510,8 @@ void Project::LLDB::debug_backtrace() {
     auto view = Notebook::get().get_current_view();
     auto backtrace = Debug::LLDB::get().get_backtrace();
 
-    if(view) {
-      auto iter = view->get_iter_for_dialog();
-      SelectionDialog::create(view, view->get_buffer()->create_mark(iter), true, true);
-    }
+    if(view)
+      SelectionDialog::create(view, true, true);
     else
       SelectionDialog::create(true, true);
     std::vector<Debug::LLDB::Frame> rows;
@@ -571,11 +567,8 @@ void Project::LLDB::debug_show_variables() {
     auto view = Notebook::get().get_current_view();
     auto variables = Debug::LLDB::get().get_variables();
 
-    Gtk::TextIter iter;
-    if(view) {
-      iter = view->get_iter_for_dialog();
-      SelectionDialog::create(view, view->get_buffer()->create_mark(iter), true, true);
-    }
+    if(view)
+      SelectionDialog::create(view, true, true);
     else
       SelectionDialog::create(true, true);
     auto rows = std::make_shared<std::vector<Debug::LLDB::Variable>>();
@@ -612,7 +605,7 @@ void Project::LLDB::debug_show_variables() {
       self->debug_variable_tooltips.clear();
     };
 
-    SelectionDialog::get()->on_changed = [self = this->shared_from_this(), rows, view, iter](unsigned int index, const std::string &text) {
+    SelectionDialog::get()->on_changed = [self = this->shared_from_this(), rows, view](unsigned int index, const std::string &text) {
       if(index >= rows->size()) {
         self->debug_variable_tooltips.hide();
         return;
@@ -633,8 +626,10 @@ void Project::LLDB::debug_show_variables() {
           buffer->insert(buffer->get_insert()->get_iter(), value.substr(0, value.size() - 1));
         }
       };
-      if(view)
+      if(view) {
+        auto iter = view->get_buffer()->get_insert()->get_iter();
         self->debug_variable_tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), std::move(set_tooltip_buffer));
+      }
       else
         self->debug_variable_tooltips.emplace_back(std::move(set_tooltip_buffer));
 
@@ -697,10 +692,8 @@ void Project::LanguageProtocol::show_symbols() {
   if(!capabilities.workspace_symbol && !(capabilities.document_symbol && language_protocol_view))
     return Base::show_symbols();
 
-  if(view) {
-    auto dialog_iter = view->get_iter_for_dialog();
-    SelectionDialog::create(view, view->get_buffer()->create_mark(dialog_iter), true, true);
-  }
+  if(view)
+    SelectionDialog::create(view, true, true);
   else
     SelectionDialog::create(true, true);
 
