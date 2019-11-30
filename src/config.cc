@@ -173,6 +173,7 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   source.show_line_numbers = source_json.get<bool>("show_line_numbers");
   source.enable_multiple_cursors = source_json.get<bool>("enable_multiple_cursors");
   source.auto_reload_changed_files = source_json.get<bool>("auto_reload_changed_files");
+  source.search_for_selection = source_json.get<bool>("search_for_selection");
   source.clang_format_style = source_json.get<std::string>("clang_format_style");
   source.clang_usages_threads = static_cast<unsigned>(source_json.get<int>("clang_usages_threads"));
   source.debug_place_cursor_at_stop = source_json.get<bool>("debug_place_cursor_at_stop");

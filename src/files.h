@@ -62,6 +62,7 @@ const std::string default_config_file = R"RAW({
         "show_line_numbers": true,
         "enable_multiple_cursors": false,
         "auto_reload_changed_files": true,
+        "search_for_selection": true,
         "clang_format_style_comment": "IndentWidth, AccessModifierOffset and UseTab are set automatically. See http://clang.llvm.org/docs/ClangFormatStyleOptions.html",
         "clang_format_style": "ColumnLimit: 0, NamespaceIndentation: All",
         "clang_usages_threads_comment": "The number of threads used in finding usages in unparsed files. -1 corresponds to the number of cores available, and 0 disables the search",

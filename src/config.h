@@ -88,6 +88,7 @@ public:
     bool show_line_numbers;
     bool enable_multiple_cursors;
     bool auto_reload_changed_files;
+    bool search_for_selection;
 
     std::string clang_format_style;
     unsigned clang_usages_threads;

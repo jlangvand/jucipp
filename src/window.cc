@@ -1641,9 +1641,10 @@ void Window::search_and_replace_entry() {
   };
 
   if(auto view = Notebook::get().get_current_view()) {
-    auto const selected = view->get_selected_text();
-    if(!selected.empty()) {
-      last_search = selected;
+    if(Config::get().source.search_for_selection) {
+      auto const selected = view->get_selected_text();
+      if(!selected.empty())
+        last_search = selected;
     }
   }
   EntryBox::get().entries.emplace_back(last_search, [](const std::string &content) {
