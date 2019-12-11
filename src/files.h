@@ -192,7 +192,8 @@ const std::string default_config_file = R"RAW({
         "save_on_compile_or_run": true,
         "clear_terminal_on_compile": true,
         "ctags_command": "ctags",
-        "python_command": "PYTHONUNBUFFERED=1 python"
+        "python_command": "PYTHONUNBUFFERED=1 python",
+        "markdown_command": "grip -b"
     },
     "documentation_searches": {
         "clang": {

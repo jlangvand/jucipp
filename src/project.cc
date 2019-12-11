@@ -928,28 +928,13 @@ void Project::Clang::recreate_build() {
   }
 }
 
-Project::Markdown::~Markdown() {
-  if(!last_temp_path.empty()) {
-    boost::filesystem::remove(last_temp_path);
-    last_temp_path = boost::filesystem::path();
-  }
-}
 
 void Project::Markdown::compile_and_run() {
-  if(!last_temp_path.empty()) {
-    boost::filesystem::remove(last_temp_path);
-    last_temp_path = boost::filesystem::path();
-  }
-
-  std::stringstream stdin_stream, stdout_stream;
-  auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, "command -v grip");
-  if(exit_status == 0) {
-    auto command = "grip -b " + filesystem::escape_argument(filesystem::get_short_path(Notebook::get().get_current_view()->file_path).string());
-    Terminal::get().print("Running: " + command + " in a quiet background process\n");
-    Terminal::get().async_process(command, "", nullptr, true);
-  }
-  else
-    Terminal::get().print("Warning: install grip to preview Markdown files\n");
+  auto command = Config::get().project.markdown_command + ' ' + filesystem::escape_argument(filesystem::get_short_path(Notebook::get().get_current_view()->file_path).string());
+  Terminal::get().async_process(command, "", [command](int exit_status) {
+    if(exit_status == 127)
+      Terminal::get().async_print("Error: executable not found: " + command + "\n", true);
+  }, true);
 }
 
 void Project::Python::compile_and_run() {

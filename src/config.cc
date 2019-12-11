@@ -203,6 +203,7 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   project.clear_terminal_on_compile = cfg.get<bool>("project.clear_terminal_on_compile");
   project.ctags_command = cfg.get<std::string>("project.ctags_command");
   project.python_command = cfg.get<std::string>("project.python_command");
+  project.markdown_command = cfg.get<std::string>("project.markdown_command");
 
   terminal.history_size = cfg.get<int>("terminal.history_size");
   terminal.font = cfg.get<std::string>("terminal.font");

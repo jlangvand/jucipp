@@ -119,9 +119,7 @@ namespace Project {
   class Markdown : public Base {
   public:
     Markdown(std::unique_ptr<Build> &&build) : Base(std::move(build)) {}
-    ~Markdown() override;
 
-    boost::filesystem::path last_temp_path;
     void compile_and_run() override;
   };
 

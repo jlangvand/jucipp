@@ -49,6 +49,7 @@ public:
     bool clear_terminal_on_compile;
     std::string ctags_command;
     std::string python_command;
+    std::string markdown_command;
   };
 
   class Source {
