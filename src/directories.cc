@@ -687,32 +687,37 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
   }
 
   Gtk::TreeNodeChildren children(row ? row.children() : tree_store->children());
-  if(children) {
+  if(!children.empty()) {
     if(children.begin()->get_value(column_record.path) == "")
       tree_store->erase(children.begin());
   }
-  std::unordered_set<std::string> not_deleted;
+
+  std::unordered_map<std::string, boost::filesystem::path> filenames;
   boost::filesystem::directory_iterator end_it;
   for(boost::filesystem::directory_iterator it(dir_path); it != end_it; it++) {
-    auto filename = it->path().filename().string();
-    bool already_added = false;
-    if(children) {
-      for(auto &child : children) {
-        if(child->get_value(column_record.name) == filename) {
-          not_deleted.emplace(filename);
-          already_added = true;
-          break;
-        }
-      }
+    auto path = it->path();
+    filenames.emplace(path.filename().string(), path);
+  }
+
+  std::unordered_set<std::string> already_added;
+  for(auto it = children.begin(); it != children.end();) {
+    auto filename = it->get_value(column_record.name);
+    if(filenames.find(filename) != filenames.end()) {
+      already_added.emplace(filename);
+      ++it;
     }
-    if(!already_added) {
+    else
+      it = tree_store->erase(it);
+  }
+
+  for(auto &filename : filenames) {
+    if(already_added.find(filename.first) == already_added.end()) {
       auto child = tree_store->append(children);
-      not_deleted.emplace(filename);
-      auto is_directory = boost::filesystem::is_directory(it->path());
+      auto is_directory = boost::filesystem::is_directory(filename.second);
       child->set_value(column_record.is_directory, is_directory);
-      child->set_value(column_record.name, filename);
-      child->set_value(column_record.markup, Glib::Markup::escape_text(filename));
-      child->set_value(column_record.path, it->path());
+      child->set_value(column_record.name, filename.first);
+      child->set_value(column_record.markup, Glib::Markup::escape_text(filename.first));
+      child->set_value(column_record.path, filename.second);
       if(is_directory) {
         auto grandchild = tree_store->append(child->children());
         grandchild->set_value(column_record.is_directory, false);
@@ -721,22 +726,13 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
         grandchild->set_value(column_record.type, PathType::unknown);
       }
       else {
-        auto language = Source::guess_language(it->path().filename());
+        auto language = Source::guess_language(filename.first);
         if(!language)
           child->set_value(column_record.type, PathType::unknown);
       }
     }
   }
-  if(children) {
-    for(auto it = children.begin(); it != children.end();) {
-      if(not_deleted.count(it->get_value(column_record.name)) == 0) {
-        it = tree_store->erase(it);
-      }
-      else
-        it++;
-    }
-  }
-  if(!children) {
+  if(children.empty()) {
     auto child = tree_store->append(children);
     child->set_value(column_record.is_directory, false);
     child->set_value(column_record.name, std::string("(empty)"));
