@@ -483,7 +483,7 @@ bool Source::LanguageProtocolView::save() {
 }
 
 void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
-  if(capabilities.document_formatting) {
+  if(capabilities.document_formatting && !(format_style && language && language->get_id() == "js" /* Use Prettier instead */)) {
     format_style = [this](bool continue_without_style_file) {
       if(!continue_without_style_file) {
         bool has_style_file = false;
