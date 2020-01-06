@@ -102,7 +102,7 @@ sudo make install
 ## OpenSUSE Tumbleweed
 Install dependencies:
 ```sh
-sudo zypper install git-core cmake gcc-c++ boost-devel clang-devel lldb-devel lldb gtksourceviewmm-devel aspell-devel aspell-en libgit2-devel ctags
+sudo zypper install git-core cmake gcc-c++ boost-devel libboost_filesystem-devel libboost_serialization-devel clang-devel lldb-devel lldb gtksourceviewmm3_0-devel aspell-devel aspell-en libgit2-devel ctags
 ```
 
 Get juCi++ source, compile and install:
