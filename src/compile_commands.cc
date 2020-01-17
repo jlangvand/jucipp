@@ -143,16 +143,13 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
     arguments.emplace_back("-I/usr/lib/clang/" + clang_version + "/include");
     arguments.emplace_back("-I/usr/lib64/clang/" + clang_version + "/include"); // For Fedora
 #if defined(__APPLE__)
-#if CINDEX_VERSION_MAJOR == 0 && CINDEX_VERSION_MINOR < 32 // TODO: remove during 2018 if llvm3.7 is no longer in homebrew (CINDEX_VERSION_MINOR=32 equals clang-3.8 I think)
+    // Missing include and framework folders for MacOS:
+    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/include/c++/v1");
+    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "_1/include/c++/v1"); // Missing include folder in llvm 9.0.0_1
     arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/lib/clang/" + clang_version + "/include");
-    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");
-    arguments.emplace_back("-I/Library/Developer/CommandLineTools/usr/bin/../include/c++/v1"); //Added for OS X 10.11
-#else
-    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");          // Missing include folder in llvm 8.0.0
-    arguments.emplace_back("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"); // Missing include folder in newer MacOS versions
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/lib/clang/" + clang_version + "/include");                       // Missing include folder in llvm 9.0.0
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "_1/lib/clang/" + clang_version + "/include");                     // Missing include folder in llvm 9.0.0_1
-#endif
+    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "_1/lib/clang/" + clang_version + "/include"); // Missing include folder in llvm 9.0.0_1
+    arguments.emplace_back("-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
+    arguments.emplace_back("-F/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks");
 #endif
 #ifdef _WIN32
     auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
