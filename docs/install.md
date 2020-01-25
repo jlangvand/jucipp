@@ -32,12 +32,11 @@ sudo make install
 ```
 
 ## Arch Linux/Manjaro Linux
-Package available in the Arch User Repository:
-https://aur.archlinux.org/packages/jucipp-git/
-
-If you have the arch package [yaourt](https://archlinux.fr/yaourt-en) installed:
+Package is available in the Arch User Repository (https://aur.archlinux.org/packages/jucipp-git):
 ```sh
-yaourt -S jucipp-git
+git clone https://aur.archlinux.org/jucipp-git
+cd jucipp-git
+makepkg -si
 ```
 
 Alternatively, follow the instructions below.
