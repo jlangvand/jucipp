@@ -16,7 +16,6 @@ SelectionDialogBase::ListViewText::ListViewText(bool use_markup) : Gtk::TreeView
   set_hscroll_policy(Gtk::ScrollablePolicy::SCROLL_NATURAL);
   set_activate_on_single_click(true);
   set_hover_selection(false);
-  set_rules_hint(true);
 }
 
 void SelectionDialogBase::ListViewText::append(const std::string &value) {
