@@ -74,7 +74,7 @@ public:
     bool smart_inserts;
 
     bool show_map;
-    std::string map_font_size;
+    unsigned map_font_size;
     bool show_git_diff;
     bool show_background_pattern;
     bool show_right_margin;

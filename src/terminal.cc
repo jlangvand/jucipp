@@ -9,6 +9,8 @@
 #include <thread>
 
 Terminal::Terminal() {
+  get_style_context()->add_class("juci_terminal");
+
   set_editable(false);
 
   bold_tag = get_buffer()->create_tag();
@@ -319,21 +321,6 @@ void Terminal::async_print(size_t line_nr, const std::string &message) {
 
 void Terminal::configure() {
   link_tag->property_foreground_rgba() = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
-
-  if(Config::get().terminal.font.size() > 0) {
-    override_font(Pango::FontDescription(Config::get().terminal.font));
-  }
-  else if(Config::get().source.font.size() > 0) {
-    Pango::FontDescription font_description(Config::get().source.font);
-    auto font_description_size = font_description.get_size();
-    if(font_description_size == 0) {
-      Pango::FontDescription default_font_description(Gtk::Settings::get_default()->property_gtk_font_name());
-      font_description_size = default_font_description.get_size();
-    }
-    if(font_description_size > 0)
-      font_description.set_size(font_description_size * 0.95);
-    override_font(font_description);
-  }
 }
 
 void Terminal::clear() {

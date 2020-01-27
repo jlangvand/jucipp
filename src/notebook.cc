@@ -289,6 +289,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   source_maps.emplace_back(Glib::wrap(gtk_source_map_new()));
   gtk_source_map_set_view(GTK_SOURCE_MAP(source_maps.back()->gobj()), view->gobj());
+  source_maps.back()->get_style_context()->add_class("juci_source_map");
 
   configure(source_views.size() - 1);
 
@@ -462,9 +463,6 @@ void Notebook::open_uri(const std::string &uri) {
 
 
 void Notebook::configure(size_t index) {
-  auto source_font_description = Pango::FontDescription(Config::get().source.font);
-  auto source_map_font_desc = Pango::FontDescription(source_font_description.get_family() + " " + Config::get().source.map_font_size);
-  source_maps.at(index)->override_font(source_map_font_desc);
   if(Config::get().source.show_map) {
     if(hboxes.at(index)->get_children().size() == 1)
       hboxes.at(index)->pack_end(*source_maps.at(index), Gtk::PACK_SHRINK);

@@ -10,6 +10,8 @@
 #include <regex>
 
 Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), file_path(file_path), language(language), status_diagnostics(0, 0, 0) {
+  get_style_context()->add_class("juci_source_view");
+
   load(true);
   get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(0));
 

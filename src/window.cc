@@ -147,6 +147,8 @@ Window::Window() {
 void Window::configure() {
   Config::get().load();
   auto screen = get_screen();
+
+  static Glib::RefPtr<Gtk::CssProvider> css_provider_theme;
   if(css_provider_theme)
     Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_theme);
   if(Config::get().theme.name.empty()) {
@@ -158,36 +160,73 @@ void Window::configure() {
   //TODO: add check if theme exists, or else write error to terminal
   Gtk::StyleContext::add_provider_for_screen(screen, css_provider_theme, GTK_STYLE_PROVIDER_PRIORITY_SETTINGS);
 
-  if(css_provider_theme_font)
-    Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_theme_font);
-  if(!Config::get().theme.font.empty()) {
-    Pango::FontDescription font_description(Config::get().theme.font);
-    try {
-      css_provider_theme_font = Gtk::CssProvider::create();
+  static Glib::RefPtr<Gtk::CssProvider> css_provider_fonts;
+  if(css_provider_fonts)
+    Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_fonts);
+  else
+    css_provider_fonts = Gtk::CssProvider::create();
+
+  auto font_description_to_style = [](const Pango::FontDescription &font_description) {
+    auto family = font_description.get_family();
+    auto size = std::to_string(font_description.get_size() / 1024);
+    if(size == "0")
+      size.clear();
+    if(!family.empty())
+      family = "font-family: " + family + ';';
+    if(!size.empty())
+      size = "font-size: " + size + "px;";
+    return family + size;
+  };
+  auto font_description_string_to_style = [&font_description_to_style](const std::string font_description_string) {
+    return font_description_to_style(Pango::FontDescription(font_description_string));
+  };
+
+  std::string fonts_style;
+  if(!Config::get().theme.font.empty())
+    fonts_style += "* {" + font_description_string_to_style(Config::get().theme.font) + "}";
+  if(!Config::get().source.font.empty()) {
+    auto font_description = Pango::FontDescription(Config::get().source.font);
+    fonts_style += ".juci_source_view {" + font_description_to_style(font_description) + "}";
+    font_description.set_size(Config::get().source.map_font_size * 1024);
+    fonts_style += ".juci_source_map {" + font_description_to_style(font_description) + "}";
+  }
+  else
+    fonts_style += ".juci_source_map {" + font_description_string_to_style(std::to_string(Config::get().source.map_font_size)) + "}";
+  if(!Config::get().terminal.font.empty())
+    fonts_style += ".juci_terminal {" + font_description_string_to_style(Config::get().terminal.font) + "}";
+  else {
+    Pango::FontDescription font_description(Config::get().source.font);
+    auto font_description_size = font_description.get_size();
+    if(font_description_size > 0) {
+      font_description.set_size(font_description_size * 0.95);
+      fonts_style += ".juci_terminal {" + font_description_to_style(font_description) + "}";
+    }
+    else {
       auto family = font_description.get_family();
-      auto size = std::to_string(font_description.get_size() / 1024);
-      if(size == "0")
-        size.clear();
       if(!family.empty())
         family = "font-family: " + family + ';';
-      if(!size.empty())
-        size = "font-size: " + size + "px;";
-      css_provider_theme_font->load_from_data("* {" + family + size + "}");
-      get_style_context()->add_provider_for_screen(screen, css_provider_theme_font, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    }
-    catch(const Gtk::CssProviderError &e) {
-      Terminal::get().print("Error: could not override theme font: " + e.what() + '\n', true);
+      fonts_style += ".juci_terminal {" + family + "font-size: 95%;}";
     }
   }
 
-  auto style_scheme_manager = Source::StyleSchemeManager::get_default();
+  if(!fonts_style.empty()) {
+    try {
+      css_provider_fonts->load_from_data(fonts_style);
+      get_style_context()->add_provider_for_screen(screen, css_provider_fonts, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
+    catch(const Gtk::CssProviderError &e) {
+      Terminal::get().print("Error: could not override fonts: " + e.what() + '\n', true);
+    }
+  }
+
+  static Glib::RefPtr<Gtk::CssProvider> css_provider_tooltips;
   if(css_provider_tooltips)
     Gtk::StyleContext::remove_provider_for_screen(screen, css_provider_tooltips);
   else
     css_provider_tooltips = Gtk::CssProvider::create();
   Glib::RefPtr<Gsv::Style> style;
   if(Config::get().source.style.size() > 0) {
-    auto scheme = style_scheme_manager->get_scheme(Config::get().source.style);
+    auto scheme = Source::StyleSchemeManager::get_default()->get_scheme(Config::get().source.style);
     if(scheme)
       style = scheme->get_style("def:note");
     else {

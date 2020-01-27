@@ -22,10 +22,6 @@ protected:
 private:
   Gtk::AboutDialog about;
 
-  Glib::RefPtr<Gtk::CssProvider> css_provider_theme;
-  Glib::RefPtr<Gtk::CssProvider> css_provider_theme_font;
-  Glib::RefPtr<Gtk::CssProvider> css_provider_tooltips;
-
   void configure();
   void set_menu_actions();
   void search_and_replace_entry();

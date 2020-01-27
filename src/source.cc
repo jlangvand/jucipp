@@ -380,8 +380,6 @@ void Source::View::configure() {
     set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
   property_highlight_current_line() = Config::get().source.highlight_current_line;
   line_renderer->set_visible(Config::get().source.show_line_numbers);
-  if(Config::get().source.font.size() > 0)
-    override_font(Pango::FontDescription(Config::get().source.font));
 
 #if GTKMM_MAJOR_VERSION > 3 || (GTKMM_MAJOR_VERSION == 3 && GTKMM_MINOR_VERSION >= 20)
   Gdk::Rectangle rectangle;
