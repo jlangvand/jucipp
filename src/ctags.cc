@@ -109,7 +109,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool markup) {
 
   if(markup) {
     location.source = Glib::Markup::escape_text(location.source);
-    auto symbol = Glib::Markup::escape_text(location.symbol);
+    std::string symbol = Glib::Markup::escape_text(location.symbol);
     pos = -1;
     while((pos = location.source.find(symbol, pos + 1)) != std::string::npos) {
       location.source.insert(pos + symbol.size(), "</b>");
