@@ -32,15 +32,6 @@ sudo make install
 ```
 
 ## Arch Linux/Manjaro Linux
-Package is available in the Arch User Repository (https://aur.archlinux.org/packages/jucipp-git):
-```sh
-git clone https://aur.archlinux.org/jucipp-git
-cd jucipp-git
-makepkg -si
-```
-
-Alternatively, follow the instructions below.
-
 Install dependencies:
 ```sh
 sudo pacman -S git cmake pkg-config make clang lldb gtksourceviewmm boost aspell aspell-en libgit2 ctags
