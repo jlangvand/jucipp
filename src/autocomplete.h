@@ -22,6 +22,7 @@ public:
   std::vector<std::string> rows;
   Tooltips tooltips;
 
+  /// Never changed outside main thread
   std::atomic<State> state = {State::idle};
 
   std::thread thread;

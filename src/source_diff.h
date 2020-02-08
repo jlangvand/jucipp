@@ -37,8 +37,8 @@ namespace Source {
 
     void rename(const boost::filesystem::path &path) override;
 
-    void git_goto_next_diff();
-    std::string git_get_diff_details();
+    void goto_next_diff();
+    std::string get_diff_details();
 
     Mutex canonical_file_path_mutex;
     /// Use canonical path to follow symbolic links
@@ -65,7 +65,6 @@ namespace Source {
     sigc::connection delayed_monitor_changed_connection;
     std::atomic<bool> monitor_changed;
 
-    Git::Repository::Diff::Lines lines GUARDED_BY(parse_mutex);
-    void update_lines() REQUIRES(parse_mutex);
+    void update_tags(const Git::Repository::Diff::Lines &diff_lines);
   };
 } // namespace Source

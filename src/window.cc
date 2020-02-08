@@ -681,11 +681,11 @@ void Window::set_menu_actions() {
 
   menu.add_action("source_git_next_diff", []() {
     if(auto view = Notebook::get().get_current_view())
-      view->git_goto_next_diff();
+      view->goto_next_diff();
   });
   menu.add_action("source_git_show_diff", []() {
     if(auto view = Notebook::get().get_current_view()) {
-      auto diff_details = view->git_get_diff_details();
+      auto diff_details = view->get_diff_details();
       if(diff_details.empty())
         return;
       std::string postfix;

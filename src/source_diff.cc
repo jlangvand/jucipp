@@ -218,23 +218,17 @@ void Source::DiffView::configure() {
               });
             }
           }
+
+          Git::Repository::Diff::Lines diff_lines;
           if(diff)
-            lines = diff->get_lines(parse_buffer.raw());
-          else {
-            lines.added.clear();
-            lines.modified.clear();
-            lines.removed.clear();
-          }
+            diff_lines = diff->get_lines(parse_buffer.raw());
           auto expected = ParseState::processing;
           if(parse_state.compare_exchange_strong(expected, ParseState::postprocessing)) {
             parse_mutex.unlock();
-            dispatcher.post([this] {
-              if(parse_mutex.try_lock()) {
-                auto expected = ParseState::postprocessing;
-                if(parse_state.compare_exchange_strong(expected, ParseState::idle))
-                  update_lines();
-                parse_mutex.unlock();
-              }
+            dispatcher.post([this, diff_lines = std::move(diff_lines)] {
+              auto expected = ParseState::postprocessing;
+              if(parse_state.compare_exchange_strong(expected, ParseState::idle))
+                update_tags(diff_lines);
             });
           }
           else
@@ -266,7 +260,7 @@ void Source::DiffView::rename(const boost::filesystem::path &path) {
     canonical_file_path = path;
 }
 
-void Source::DiffView::git_goto_next_diff() {
+void Source::DiffView::goto_next_diff() {
   auto iter = get_buffer()->get_insert()->get_iter();
   auto insert_iter = iter;
   bool wrapped = false;
@@ -294,7 +288,7 @@ void Source::DiffView::git_goto_next_diff() {
   Info::get().print("No changes found in current buffer");
 }
 
-std::string Source::DiffView::git_get_diff_details() {
+std::string Source::DiffView::get_diff_details() {
   std::string details;
   {
     LockGuard lock(parse_mutex);
@@ -325,26 +319,26 @@ std::unique_ptr<Git::Repository::Diff> Source::DiffView::get_diff() {
   return std::make_unique<Git::Repository::Diff>(repository->get_diff(relative_path));
 }
 
-void Source::DiffView::update_lines() {
+void Source::DiffView::update_tags(const Git::Repository::Diff::Lines &diff_lines) {
   get_buffer()->remove_tag(renderer->tag_added, get_buffer()->begin(), get_buffer()->end());
   get_buffer()->remove_tag(renderer->tag_modified, get_buffer()->begin(), get_buffer()->end());
   get_buffer()->remove_tag(renderer->tag_removed, get_buffer()->begin(), get_buffer()->end());
   get_buffer()->remove_tag(renderer->tag_removed_below, get_buffer()->begin(), get_buffer()->end());
   get_buffer()->remove_tag(renderer->tag_removed_above, get_buffer()->begin(), get_buffer()->end());
 
-  for(auto &added : lines.added) {
+  for(auto &added : diff_lines.added) {
     auto start_iter = get_buffer()->get_iter_at_line(added.first);
     auto end_iter = get_iter_at_line_end(added.second - 1);
     end_iter.forward_char();
     get_buffer()->apply_tag(renderer->tag_added, start_iter, end_iter);
   }
-  for(auto &modified : lines.modified) {
+  for(auto &modified : diff_lines.modified) {
     auto start_iter = get_buffer()->get_iter_at_line(modified.first);
     auto end_iter = get_iter_at_line_end(modified.second - 1);
     end_iter.forward_char();
     get_buffer()->apply_tag(renderer->tag_modified, start_iter, end_iter);
   }
-  for(auto &line_nr : lines.removed) {
+  for(auto &line_nr : diff_lines.removed) {
     Gtk::TextIter removed_start, removed_end;
     if(line_nr >= 0) {
       auto start_iter = get_buffer()->get_iter_at_line(line_nr);
