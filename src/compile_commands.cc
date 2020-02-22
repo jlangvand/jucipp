@@ -144,10 +144,8 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
     arguments.emplace_back("-I/usr/lib64/clang/" + clang_version + "/include"); // For Fedora
 #if defined(__APPLE__)
     // Missing include and framework folders for MacOS:
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/include/c++/v1");
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "_1/include/c++/v1"); // Missing include folder in llvm 9.0.0_1
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "/lib/clang/" + clang_version + "/include");
-    arguments.emplace_back("-I/usr/local/Cellar/llvm/" + clang_version + "_1/lib/clang/" + clang_version + "/include"); // Missing include folder in llvm 9.0.0_1
+    arguments.emplace_back("-I/usr/local/opt/llvm/include/c++/v1");
+    arguments.emplace_back("-I/usr/local/opt/llvm/lib/clang/" + clang_version + "/include");
     arguments.emplace_back("-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
     arguments.emplace_back("-F/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks");
 #endif
