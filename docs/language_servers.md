@@ -19,6 +19,27 @@ chmod 755 /usr/local/bin/javascript-language-server
 * Additional setup within a JavaScript project:
     * Add a `.prettierrc` file to enable style format on save
 
+## TypeScript or JavaScript without Flow
+* Prerequisites:
+    * Node.js
+* Recommended:
+    * [Prettier](https://github.com/prettier/prettier)
+
+Install language server, and create executable to enable server in juCi++:
+```sh
+npm install -g typescript-language-server typescript
+
+echo '#!/bin/bash
+`npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
+
+chmod 755 /usr/local/bin/javascript-language-server
+cp /usr/local/bin/javascript-language-server /usr/local/bin/typescript-language-server
+cp /usr/local/bin/javascript-language-server /usr/local/bin/typescriptreact-language-server
+```
+
+* Additional setup within a JavaScript project:
+    * Add a `.prettierrc` file to enable style format on save
+
 ## Python3
 * Prerequisites:
     * Python3
