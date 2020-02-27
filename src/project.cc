@@ -976,7 +976,7 @@ void Project::JavaScript::compile_and_run() {
       Info::get().print("No executable found");
       return;
     }
-    command = "node --harmony " + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
+    command = "node " + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
     path = view->file_path.parent_path();
   }
 
