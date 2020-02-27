@@ -33,6 +33,7 @@ echo '#!/bin/bash
 `npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
 
 chmod 755 /usr/local/bin/javascript-language-server
+rm -f /usr/local/bin/typescript-language-server
 cp /usr/local/bin/javascript-language-server /usr/local/bin/typescript-language-server
 cp /usr/local/bin/javascript-language-server /usr/local/bin/typescriptreact-language-server
 ```
