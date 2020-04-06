@@ -9,25 +9,29 @@
 #include <vector>
 
 std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path) {
-  auto build = Project::Build::create(path);
-  auto run_path = build->project_path;
-  std::string exclude = " --exclude=node_modules";
-  if(!run_path.empty()) {
-    exclude += " --exclude=" + filesystem::get_relative_path(build->get_default_path(), run_path).string();
-    exclude += " --exclude=" + filesystem::get_relative_path(build->get_debug_path(), run_path).string();
+  boost::filesystem::path run_path;
+  std::string command;
+  boost::system::error_code ec;
+  if(boost::filesystem::is_directory(path, ec)) {
+    auto build = Project::Build::create(path);
+    std::string exclude = " --exclude=node_modules";
+    if(!build->project_path.empty()) {
+      run_path = build->project_path;
+      exclude += " --exclude=" + filesystem::get_relative_path(build->get_default_path(), run_path).string();
+      exclude += " --exclude=" + filesystem::get_relative_path(build->get_debug_path(), run_path).string();
+    }
+    else
+      run_path = path;
+    command = Config::get().project.ctags_command + exclude + " --fields=ns --sort=foldcase -I \"override noexcept\" -f - -R *";
   }
   else {
-    boost::system::error_code ec;
-    if(boost::filesystem::is_directory(path, ec) || ec)
-      run_path = path;
-    else
-      run_path = path.parent_path();
+    run_path = path.parent_path();
+    command = Config::get().project.ctags_command + " --fields=ns --sort=foldcase -I \"override noexcept\" -f - " + path.string();
   }
 
   std::stringstream stdin_stream;
   //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
   auto stdout_stream = std::make_unique<std::stringstream>();
-  auto command = Config::get().project.ctags_command + exclude + " --fields=ns --sort=foldcase -I \"override noexcept\" -f - -R *";
   Terminal::get().process(stdin_stream, *stdout_stream, command, run_path);
   return {run_path, std::move(stdout_stream)};
 }

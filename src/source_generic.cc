@@ -1,7 +1,10 @@
 #include "source_generic.h"
+#include "ctags.h"
+#include "info.h"
 #include "selection_dialog.h"
 #include "snippets.h"
 #include "terminal.h"
+#include <algorithm>
 
 Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
   configure();
@@ -39,6 +42,36 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
   setup_buffer_words();
 
   setup_autocomplete();
+
+  if(language && (language->get_id() == "markdown" || language->get_id() == "json")) {
+    get_methods = [this]() {
+      auto pair = Ctags::get_result(this->file_path);
+      auto path = std::move(pair.first);
+      auto stream = std::move(pair.second);
+      stream->seekg(0, std::ios::end);
+
+      std::vector<std::pair<Offset, std::string>> methods;
+      if(stream->tellg() == 0) {
+        Info::get().print("No methods found in current buffer");
+        return methods;
+      }
+      stream->seekg(0, std::ios::beg);
+
+      std::string line;
+      auto filename = this->file_path.filename();
+      while(std::getline(*stream, line)) {
+        auto location = Ctags::get_location(line, true);
+        methods.emplace_back(Offset(location.line, location.index), location.source);
+      }
+      std::sort(methods.begin(), methods.end(), [](const std::pair<Offset, std::string> &e1, const std::pair<Offset, std::string> &e2) {
+        return e1.first < e2.first;
+      });
+
+      if(methods.empty())
+        Info::get().print("No methods found in current buffer");
+      return methods;
+    };
+  }
 }
 
 Source::GenericView::~GenericView() {
