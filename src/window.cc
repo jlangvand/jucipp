@@ -146,6 +146,7 @@ Window::Window() {
 
 void Window::configure() {
   Config::get().load();
+  Snippets::get().load();
   auto screen = get_screen();
 
   static Glib::RefPtr<Gtk::CssProvider> css_provider_theme;

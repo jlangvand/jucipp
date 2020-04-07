@@ -4,10 +4,6 @@
 #include "terminal.h"
 #include <boost/property_tree/json_parser.hpp>
 
-Snippets::Snippets() {
-  load();
-}
-
 void Snippets::load() {
   auto snippets_file = Config::get().home_juci_path / "snippets.json";
 

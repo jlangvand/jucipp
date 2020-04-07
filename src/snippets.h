@@ -6,8 +6,6 @@
 #include <vector>
 
 class Snippets {
-  Snippets();
-
 public:
   class Snippet {
   public:
