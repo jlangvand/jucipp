@@ -38,6 +38,7 @@ if(APPLE)
 endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES FreeBSD)
   link_directories(/usr/local/lib)
+  link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
 option(BUILD_TESTING "Build tests")
