@@ -11,12 +11,12 @@
 
 #ifdef _WIN32
 #include <windows.h>
-DWORD get_current_process_id() {
+inline DWORD get_current_process_id() {
   return GetCurrentProcessId();
 }
 #else
 #include <unistd.h>
-pid_t get_current_process_id() {
+inline pid_t get_current_process_id() {
   return getpid();
 }
 #endif

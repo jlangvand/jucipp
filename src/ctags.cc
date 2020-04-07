@@ -22,11 +22,11 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
     }
     else
       run_path = path;
-    command = Config::get().project.ctags_command + exclude + " --fields=ns --sort=foldcase -I \"override noexcept\" -f - -R *";
+    command = Config::get().project.ctags_command + exclude + " --fields=nsk --sort=foldcase -I \"override noexcept\" -f - -R *";
   }
   else {
     run_path = path.parent_path();
-    command = Config::get().project.ctags_command + " --fields=ns --sort=foldcase -I \"override noexcept\" -f - " + path.string();
+    command = Config::get().project.ctags_command + " --fields=nsk --sort=foldcase -I \"override noexcept\" -f - " + path.string();
   }
 
   std::stringstream stdin_stream;
@@ -87,7 +87,14 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool markup) {
   }
   location.source = line.substr(source_start, source_end - source_start - (line[source_end - 1] == '$' ? 1 : 0));
 
-  auto line_start = source_end + 9;
+  auto kind_start = source_end + 4;
+  if(kind_start >= line.size()) {
+    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    return location;
+  }
+  location.kind = line[kind_start];
+
+  auto line_start = kind_start + 7;
   if(line_start >= line.size()) {
     std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
     return location;

@@ -14,6 +14,7 @@ public:
     std::string symbol;
     std::string scope;
     std::string source;
+    char kind;
     operator bool() const { return !file_path.empty(); }
   };
 
