@@ -111,7 +111,7 @@ On FreeBSD, latest release of juCi++ is available through the port: jucipp.
 ## MacOS with Homebrew (http://brew.sh/)
 Install dependencies:
 ```sh
-brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 ctags
+brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 ctags zlib libxml2
 ```
 
 Mojave users might need to install headers:
