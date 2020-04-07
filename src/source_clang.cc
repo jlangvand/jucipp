@@ -393,12 +393,10 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
 
             type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
               auto cursor = token.get_cursor();
-              if(cursor.is_valid_kind()) {
-                buffer->insert(buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
-                auto brief_comment = cursor.get_brief_comments();
-                if(brief_comment != "")
-                  insert_with_links_tagged(buffer, "\n\n" + brief_comment);
-              }
+              buffer->insert(buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
+              auto brief_comment = cursor.get_brief_comments();
+              if(brief_comment != "")
+                insert_with_links_tagged(buffer, "\n\n" + brief_comment);
 
 #ifdef JUCI_ENABLE_DEBUG
               if(Debug::LLDB::get().is_stopped()) {
