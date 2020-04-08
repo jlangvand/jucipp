@@ -48,6 +48,7 @@ public:
     bool save_on_compile_or_run;
     bool clear_terminal_on_compile;
     std::string ctags_command;
+    std::string grep_command;
     std::string python_command;
     std::string markdown_command;
   };

@@ -304,6 +304,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Find _Symbol</attribute>
           <attribute name='action'>app.source_find_symbol</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Find _Pattern</attribute>
+          <attribute name='action'>app.source_find_pattern</attribute>
+        </item>
       </section>
       <section>
         <submenu>

@@ -30,9 +30,12 @@ private:
   void rename_token_entry();
   std::string last_search;
   std::string last_replace;
+  std::string last_find_pattern;
   std::string last_run_command;
   std::string last_run_debug_command;
   bool case_sensitive_search = true;
   bool regex_search = false;
   bool search_entry_shown = false;
+  bool find_pattern_case_sensitive = true;
+  bool find_pattern_extended_regex = false;
 };

@@ -784,6 +784,151 @@ void Window::set_menu_actions() {
     project->show_symbols();
   });
 
+  menu.add_action("source_find_pattern", [this]() {
+    auto view = Notebook::get().get_current_view();
+
+    std::string excludes = "--exclude-dir=node_modules";
+
+    boost::filesystem::path search_path;
+    if(view)
+      search_path = view->file_path.parent_path();
+    else if(!Directories::get().path.empty())
+      search_path = Directories::get().path;
+    else {
+      boost::system::error_code ec;
+      search_path = boost::filesystem::current_path(ec);
+      if(ec) {
+        Terminal::get().print("Error: could not find current path\n", true);
+        return;
+      }
+    }
+    auto build = Project::Build::create(search_path);
+    auto project_path = build->project_path;
+    boost::filesystem::path default_path, debug_path;
+    if(!project_path.empty()) {
+      search_path = project_path;
+      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), project_path).string());
+      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), project_path).string());
+    }
+
+    EntryBox::get().clear();
+
+    EntryBox::get().entries.emplace_back(last_find_pattern, [this, search_path = std::move(search_path), excludes = std::move(excludes)](const std::string &pattern) {
+      if(!pattern.empty()) {
+        std::stringstream stdin_stream;
+        std::string flags;
+        if(!find_pattern_case_sensitive)
+          flags += " -i";
+        if(find_pattern_extended_regex)
+          flags += " -E";
+        auto escaped_pattern = '\'' + pattern + '\'';
+        for(size_t i = 1; i < escaped_pattern.size() - 1; ++i) {
+          if(escaped_pattern[i] == '\'') {
+            escaped_pattern.insert(i, "\\");
+            ++i;
+          }
+        }
+        std::string command = Config::get().project.grep_command + " -R " + flags + " --color=always --binary-files=without-match " + excludes + " -n " + escaped_pattern + " *";
+        //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
+        auto stdout_stream = std::make_unique<std::stringstream>();
+        Terminal::get().process(stdin_stream, *stdout_stream, command, search_path);
+        stdout_stream->seekg(0, std::ios::end);
+        if(stdout_stream->tellg() == 0) {
+          Info::get().print("Pattern not found");
+          EntryBox::get().hide();
+          return;
+        }
+        stdout_stream->seekg(0, std::ios::beg);
+
+        if(auto view = Notebook::get().get_current_view())
+          SelectionDialog::create(view, true, true);
+        else
+          SelectionDialog::create(true, true);
+        std::string line;
+        while(std::getline(*stdout_stream, line)) {
+          auto line_markup = Glib::Markup::escape_text(line);
+          size_t start = 0;
+          while((start = line_markup.find("&#x1b;[", start)) != std::string::npos) {
+            auto start_end = line_markup.find("&#x1b;[K", start + 7);
+            if(start_end == std::string::npos)
+              break;
+            auto start_size = start_end - start + 8;
+            auto end = line_markup.find("&#x1b;[m&#x1b;[K", start + start_size);
+            if(end == std::string::npos)
+              break;
+            line_markup.replace(end, 16, "</b>");
+            line_markup.replace(start, start_size, "<b>");
+            start = end - start_size + 3 + 4;
+          }
+          SelectionDialog::get()->add_row(line_markup);
+        }
+        SelectionDialog::get()->on_select = [search_path = std::move(search_path)](unsigned int index, const std::string &text, bool hide_window) {
+          auto remove_markup = [](std::string &markup) {
+            auto start = markup.end();
+            for(auto it = markup.begin(); it != markup.end();) {
+              if(*it == '<') {
+                start = it;
+                it++;
+              }
+              else if(*it == '>' && start != markup.end()) {
+                it = markup.erase(start, ++it);
+                start = markup.end();
+              }
+              else
+                it++;
+            }
+          };
+          auto file_end = text.find(':');
+          if(file_end != std::string::npos) {
+            auto file = text.substr(0, file_end);
+            remove_markup(file);
+            auto line_end = text.find(':', file_end + 1);
+            if(line_end != std::string::npos) {
+              try {
+                auto line_str = text.substr(file_end + 1, line_end - file_end);
+                remove_markup(line_str);
+                auto line = std::stoi(line_str);
+                Notebook::get().open(search_path / file);
+                auto view = Notebook::get().get_current_view();
+                view->place_cursor_at_line_pos(line - 1, 0);
+                view->scroll_to_cursor_delayed(true, false);
+              }
+              catch(...) {
+              }
+            }
+          }
+        };
+        SelectionDialog::get()->show();
+      }
+      EntryBox::get().hide();
+    });
+    auto entry_it = EntryBox::get().entries.begin();
+    entry_it->set_placeholder_text("Pattern");
+    entry_it->signal_changed().connect([this, entry_it]() {
+      last_find_pattern = entry_it->get_text();
+    });
+
+    EntryBox::get().buttons.emplace_back("Find Pattern", [entry_it]() {
+      entry_it->activate();
+    });
+
+    EntryBox::get().toggle_buttons.emplace_back("Aa");
+    EntryBox::get().toggle_buttons.back().set_tooltip_text("Match Case");
+    EntryBox::get().toggle_buttons.back().set_active(find_pattern_case_sensitive);
+    EntryBox::get().toggle_buttons.back().on_activate = [this]() {
+      find_pattern_case_sensitive = !find_pattern_case_sensitive;
+    };
+
+    EntryBox::get().toggle_buttons.emplace_back(".*");
+    EntryBox::get().toggle_buttons.back().set_tooltip_text("Use Extended Regex");
+    EntryBox::get().toggle_buttons.back().set_active(find_pattern_extended_regex);
+    EntryBox::get().toggle_buttons.back().on_activate = [this]() {
+      find_pattern_extended_regex = !find_pattern_extended_regex;
+    };
+
+    EntryBox::get().show();
+  });
+
   menu.add_action("source_find_file", []() {
     auto view = Notebook::get().get_current_view();
 
@@ -1182,8 +1327,8 @@ void Window::set_menu_actions() {
       EntryBox::get().hide();
     }, 50);
     auto entry_it = EntryBox::get().entries.begin();
-    entry_it->set_placeholder_text("Project: Set Run Arguments");
-    EntryBox::get().buttons.emplace_back("Project: set run arguments", [entry_it]() {
+    entry_it->set_placeholder_text("Run Arguments");
+    EntryBox::get().buttons.emplace_back("Set Run Arguments", [entry_it]() {
       entry_it->activate();
     });
     EntryBox::get().show();
@@ -1247,7 +1392,7 @@ void Window::set_menu_actions() {
     }, 30);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Command");
-    EntryBox::get().buttons.emplace_back("Run command", [entry_it]() {
+    EntryBox::get().buttons.emplace_back("Run Command", [entry_it]() {
       entry_it->activate();
     });
     EntryBox::get().show();
@@ -1279,7 +1424,7 @@ void Window::set_menu_actions() {
       EntryBox::get().hide();
     }, 50);
     auto entry_it = EntryBox::get().entries.begin();
-    entry_it->set_placeholder_text("Debug: Set Run Arguments");
+    entry_it->set_placeholder_text("Debug Run Arguments");
 
     if(auto options = project->debug_get_options()) {
       EntryBox::get().buttons.emplace_back("", [options]() {
@@ -1291,7 +1436,7 @@ void Window::set_menu_actions() {
       options->set_relative_to(EntryBox::get().buttons.back());
     }
 
-    EntryBox::get().buttons.emplace_back("Debug: set run arguments", [entry_it]() {
+    EntryBox::get().buttons.emplace_back("Set Debug Run Arguments", [entry_it]() {
       entry_it->activate();
     });
     EntryBox::get().show();
@@ -1353,7 +1498,7 @@ void Window::set_menu_actions() {
     }, 30);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Debug Command");
-    EntryBox::get().buttons.emplace_back("Run debug command", [entry_it]() {
+    EntryBox::get().buttons.emplace_back("Run Debug Command", [entry_it]() {
       entry_it->activate();
     });
     EntryBox::get().show();
@@ -1789,7 +1934,7 @@ void Window::set_tab_entry() {
 
     EntryBox::get().entries.emplace_back(std::to_string(tab_char_and_size.second));
     auto entry_tab_size_it = EntryBox::get().entries.begin();
-    entry_tab_size_it->set_placeholder_text("Tab size");
+    entry_tab_size_it->set_placeholder_text("Tab Size");
 
     char tab_char = tab_char_and_size.first;
     std::string tab_char_string;
@@ -1800,7 +1945,7 @@ void Window::set_tab_entry() {
 
     EntryBox::get().entries.emplace_back(tab_char_string);
     auto entry_tab_char_it = EntryBox::get().entries.rbegin();
-    entry_tab_char_it->set_placeholder_text("Tab char");
+    entry_tab_char_it->set_placeholder_text("Tab Char");
 
     const auto activate_function = [entry_tab_char_it, entry_tab_size_it, label_it](const std::string &content) {
       if(auto view = Notebook::get().get_current_view()) {
@@ -1831,7 +1976,7 @@ void Window::set_tab_entry() {
     entry_tab_char_it->on_activate = activate_function;
     entry_tab_size_it->on_activate = activate_function;
 
-    EntryBox::get().buttons.emplace_back("Set tab in current buffer", [entry_tab_char_it]() {
+    EntryBox::get().buttons.emplace_back("Set Tab", [entry_tab_char_it]() {
       entry_tab_char_it->activate();
     });
 
@@ -1854,8 +1999,8 @@ void Window::goto_line_entry() {
       }
     });
     auto entry_it = EntryBox::get().entries.begin();
-    entry_it->set_placeholder_text("Line number");
-    EntryBox::get().buttons.emplace_back("Go to line", [entry_it]() {
+    entry_it->set_placeholder_text("Line Number");
+    EntryBox::get().buttons.emplace_back("Go to Line", [entry_it]() {
       entry_it->activate();
     });
     EntryBox::get().show();
@@ -1878,7 +2023,7 @@ void Window::rename_token_entry() {
           EntryBox::get().hide();
         });
         auto entry_it = EntryBox::get().entries.begin();
-        entry_it->set_placeholder_text("New name");
+        entry_it->set_placeholder_text("New Name");
         EntryBox::get().buttons.emplace_back("Rename", [entry_it]() {
           entry_it->activate();
         });

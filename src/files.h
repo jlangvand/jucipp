@@ -112,6 +112,7 @@ const std::string default_config_file = R"RAW({
         "source_show_completion" : "",
         "source_find_file": "<primary>p",
         "source_find_symbol": "<primary><shift>f",
+        "source_find_pattern": "<alt><shift>f",
         "source_comments_toggle": "<primary>slash",
         "source_comments_add_documentation": "<primary><alt>slash",
         "source_find_documentation": "<primary><shift>d",
@@ -192,6 +193,7 @@ const std::string default_config_file = R"RAW({
         "save_on_compile_or_run": true,
         "clear_terminal_on_compile": true,
         "ctags_command": "ctags",
+        "grep_command": "grep",
         "python_command": "PYTHONUNBUFFERED=1 python",
         "markdown_command": "grip -b"
     },

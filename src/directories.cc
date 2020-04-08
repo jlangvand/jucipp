@@ -341,7 +341,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
       EntryBox::get().hide();
     });
     auto entry_it = EntryBox::get().entries.begin();
-    entry_it->set_placeholder_text("Folder name");
+    entry_it->set_placeholder_text("Folder Name");
     EntryBox::get().buttons.emplace_back("Create New Folder", [entry_it]() {
       entry_it->activate();
     });
@@ -420,7 +420,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Filename");
 
-    EntryBox::get().buttons.emplace_back("Rename file", [entry_it]() {
+    EntryBox::get().buttons.emplace_back("Rename File", [entry_it]() {
       entry_it->activate();
     });
 
