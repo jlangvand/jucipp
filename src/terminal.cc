@@ -347,11 +347,12 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
 
         if(path.is_relative()) {
           if(Project::current) {
-            if(boost::filesystem::exists(Project::current->build->get_default_path() / path))
+            boost::system::error_code ec;
+            if(boost::filesystem::exists(Project::current->build->get_default_path() / path, ec))
               path = Project::current->build->get_default_path() / path;
-            else if(boost::filesystem::exists(Project::current->build->get_debug_path() / path))
+            else if(boost::filesystem::exists(Project::current->build->get_debug_path() / path, ec))
               path = Project::current->build->get_debug_path() / path;
-            else if(boost::filesystem::exists(Project::current->build->project_path / path))
+            else if(boost::filesystem::exists(Project::current->build->project_path / path, ec))
               path = Project::current->build->project_path / path;
             else
               return Gtk::TextView::on_button_press_event(button_event);
@@ -359,7 +360,8 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
           else
             return Gtk::TextView::on_button_press_event(button_event);
         }
-        if(boost::filesystem::is_regular_file(path)) {
+        boost::system::error_code ec;
+        if(boost::filesystem::is_regular_file(path, ec)) {
           Notebook::get().open(path);
           if(auto view = Notebook::get().get_current_view()) {
             try {

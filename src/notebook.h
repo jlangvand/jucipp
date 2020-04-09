@@ -47,7 +47,6 @@ public:
   void toggle_split();
   /// Hide/Show tabs.
   void toggle_tabs();
-  boost::filesystem::path get_current_folder();
   std::vector<std::pair<size_t, Source::View *>> get_notebook_views();
 
   Gtk::Label status_location;

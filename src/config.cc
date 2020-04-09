@@ -14,48 +14,44 @@ Config::Config() {
 }
 
 void Config::load() {
-  auto config_json = (home_juci_path / "config" / "config.json").string(); // This causes some redundant copies, but assures windows support
-  boost::property_tree::ptree cfg;
+  auto config_dir = home_juci_path / "config";
+  auto config_json = config_dir / "config.json";
   try {
-    find_or_create_config_files();
-    boost::property_tree::json_parser::read_json(config_json, cfg);
+    boost::filesystem::create_directories(config_dir);
+
+    if(!boost::filesystem::exists(config_json))
+      filesystem::write(config_json, default_config_file);
+
+    auto juci_style_path = home_juci_path / "styles";
+    boost::filesystem::create_directories(juci_style_path);
+
+    juci_style_path /= "juci-light.xml";
+    if(!boost::filesystem::exists(juci_style_path))
+      filesystem::write(juci_style_path, juci_light_style);
+    juci_style_path = juci_style_path.parent_path();
+    juci_style_path /= "juci-dark.xml";
+    if(!boost::filesystem::exists(juci_style_path))
+      filesystem::write(juci_style_path, juci_dark_style);
+    juci_style_path = juci_style_path.parent_path();
+    juci_style_path /= "juci-dark-blue.xml";
+    if(!boost::filesystem::exists(juci_style_path))
+      filesystem::write(juci_style_path, juci_dark_blue_style);
+
+    boost::property_tree::ptree cfg;
+    boost::property_tree::json_parser::read_json(config_json.string(), cfg);
     update(cfg);
     read(cfg);
   }
   catch(const std::exception &e) {
-    dispatcher.post([config_json, e_what = std::string(e.what())] {
-      ::Terminal::get().print("Error: could not parse " + config_json + ": " + e_what + "\n", true);
+    dispatcher.post([config_json = std::move(config_json), e_what = std::string(e.what())] {
+      ::Terminal::get().print("Error: could not parse " + config_json.string() + ": " + e_what + "\n", true);
     });
     std::stringstream ss;
     ss << default_config_file;
+    boost::property_tree::ptree cfg;
     boost::property_tree::read_json(ss, cfg);
     read(cfg);
   }
-}
-
-void Config::find_or_create_config_files() {
-  auto config_dir = home_juci_path / "config";
-  auto config_json = config_dir / "config.json";
-
-  boost::filesystem::create_directories(config_dir); // io exp captured by calling method
-
-  if(!boost::filesystem::exists(config_json))
-    filesystem::write(config_json, default_config_file);
-
-  auto juci_style_path = home_juci_path / "styles";
-  boost::filesystem::create_directories(juci_style_path); // io exp captured by calling method
-
-  juci_style_path /= "juci-light.xml";
-  if(!boost::filesystem::exists(juci_style_path))
-    filesystem::write(juci_style_path, juci_light_style);
-  juci_style_path = juci_style_path.parent_path();
-  juci_style_path /= "juci-dark.xml";
-  if(!boost::filesystem::exists(juci_style_path))
-    filesystem::write(juci_style_path, juci_dark_style);
-  juci_style_path = juci_style_path.parent_path();
-  juci_style_path /= "juci-dark-blue.xml";
-  if(!boost::filesystem::exists(juci_style_path))
-    filesystem::write(juci_style_path, juci_dark_blue_style);
 }
 
 void Config::update(boost::property_tree::ptree &cfg) {

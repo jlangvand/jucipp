@@ -54,17 +54,16 @@ bool Directories::TreeStore::drag_data_received_vfunc(const TreeModel::Path &pat
     if(source_path == target_path)
       return false;
 
-    if(boost::filesystem::exists(target_path)) {
+    boost::system::error_code ec;
+    if(boost::filesystem::exists(target_path, ec)) {
       Terminal::get().print("Error: could not move file: " + target_path.string() + " already exists\n", true);
       return false;
     }
 
-    bool is_directory = boost::filesystem::is_directory(source_path);
-
+    bool is_directory = boost::filesystem::is_directory(source_path, ec);
     if(is_directory)
       Directories::get().remove_path(source_path);
 
-    boost::system::error_code ec;
     boost::filesystem::rename(source_path, target_path, ec);
     if(ec) {
       Terminal::get().print("Error: could not move file: " + ec.message() + '\n', true);
@@ -251,7 +250,8 @@ Directories::Directories() : Gtk::ListViewText(1) {
     if(iter) {
       auto filesystem_path = iter->get_value(column_record.path);
       if(filesystem_path != "") {
-        if(boost::filesystem::is_directory(boost::filesystem::path(filesystem_path)))
+        boost::system::error_code ec;
+        if(boost::filesystem::is_directory(boost::filesystem::path(filesystem_path), ec))
           row_expanded(path) ? collapse_row(path) : expand_row(path, false);
         else
           Notebook::get().open(filesystem_path);
@@ -277,9 +277,10 @@ Directories::Directories() : Gtk::ListViewText(1) {
       return;
     EntryBox::get().clear();
     EntryBox::get().entries.emplace_back("", [this, source_path = menu_popup_row_path](const std::string &content) {
-      bool is_directory = boost::filesystem::is_directory(source_path);
+      boost::system::error_code ec;
+      bool is_directory = boost::filesystem::is_directory(source_path, ec);
       auto target_path = (is_directory ? source_path : source_path.parent_path()) / content;
-      if(!boost::filesystem::exists(target_path)) {
+      if(!boost::filesystem::exists(target_path, ec)) {
         if(filesystem::write(target_path, "")) {
           update();
           Notebook::get().open(target_path);
@@ -319,9 +320,10 @@ Directories::Directories() : Gtk::ListViewText(1) {
       return;
     EntryBox::get().clear();
     EntryBox::get().entries.emplace_back("", [this, source_path = menu_popup_row_path](const std::string &content) {
-      bool is_directory = boost::filesystem::is_directory(source_path);
+      boost::system::error_code ec;
+      bool is_directory = boost::filesystem::is_directory(source_path, ec);
       auto target_path = (is_directory ? source_path : source_path.parent_path()) / content;
-      if(!boost::filesystem::exists(target_path)) {
+      if(!boost::filesystem::exists(target_path, ec)) {
         boost::system::error_code ec;
         boost::filesystem::create_directory(target_path, ec);
         if(!ec) {
@@ -364,11 +366,12 @@ Directories::Directories() : Gtk::ListViewText(1) {
       return;
     EntryBox::get().clear();
     EntryBox::get().entries.emplace_back(menu_popup_row_path.filename().string(), [this, source_path = menu_popup_row_path](const std::string &content) {
-      bool is_directory = boost::filesystem::is_directory(source_path);
+      boost::system::error_code ec;
+      bool is_directory = boost::filesystem::is_directory(source_path, ec);
 
       auto target_path = source_path.parent_path() / content;
 
-      if(boost::filesystem::exists(target_path)) {
+      if(boost::filesystem::exists(target_path, ec)) {
         Terminal::get().print("Error: could not rename to " + target_path.string() + ": already exists\n", true);
         return;
       }
@@ -376,7 +379,6 @@ Directories::Directories() : Gtk::ListViewText(1) {
       if(is_directory)
         this->remove_path(source_path);
 
-      boost::system::error_code ec;
       boost::filesystem::rename(source_path, target_path, ec);
       if(ec) {
         Terminal::get().print("Error: could not rename " + source_path.string() + ": " + ec.message() + '\n', true);
@@ -441,25 +443,26 @@ Directories::Directories() : Gtk::ListViewText(1) {
     dialog.set_secondary_text("Are you sure you want to delete " + menu_popup_row_path.string() + "?");
     int result = dialog.run();
     if(result == Gtk::RESPONSE_YES) {
-      bool is_directory = boost::filesystem::is_directory(menu_popup_row_path);
-
       boost::system::error_code ec;
+      bool is_directory = boost::filesystem::is_directory(menu_popup_row_path, ec);
+
       boost::filesystem::remove_all(menu_popup_row_path, ec);
-      if(ec)
+      if(ec) {
         Terminal::get().print("Error: could not delete " + menu_popup_row_path.string() + ": " + ec.message() + "\n", true);
-      else {
-        update();
+        return;
+      }
 
-        for(size_t c = 0; c < Notebook::get().size(); c++) {
-          auto view = Notebook::get().get_view(c);
+      update();
 
-          if(is_directory) {
-            if(filesystem::file_in_path(view->file_path, menu_popup_row_path))
-              view->get_buffer()->set_modified();
-          }
-          else if(view->file_path == menu_popup_row_path)
+      for(size_t c = 0; c < Notebook::get().size(); c++) {
+        auto view = Notebook::get().get_view(c);
+
+        if(is_directory) {
+          if(filesystem::file_in_path(view->file_path, menu_popup_row_path))
             view->get_buffer()->set_modified();
         }
+        else if(view->file_path == menu_popup_row_path)
+          view->get_buffer()->set_modified();
       }
     }
   });
@@ -491,8 +494,10 @@ Directories::~Directories() {
 
 void Directories::open(const boost::filesystem::path &dir_path) {
   boost::system::error_code ec;
-  if(dir_path.empty() || !boost::filesystem::exists(dir_path, ec) || ec)
+  if(dir_path.empty() || !boost::filesystem::is_directory(dir_path, ec)) {
+    Terminal::get().print("Error: could not open " + dir_path.string() + '\n', true);
     return;
+  }
 
   tree_store->clear();
 
@@ -549,7 +554,8 @@ void Directories::select(const boost::filesystem::path &select_path) {
 
   std::list<boost::filesystem::path> paths;
   boost::filesystem::path parent_path;
-  if(boost::filesystem::is_directory(select_path))
+  boost::system::error_code ec;
+  if(boost::filesystem::is_directory(select_path, ec))
     parent_path = select_path;
   else
     parent_path = select_path.parent_path();
@@ -629,7 +635,8 @@ bool Directories::on_button_press_event(GdkEventButton *event) {
 
 void Directories::add_or_update_path(const boost::filesystem::path &dir_path, const Gtk::TreeModel::Row &row, bool include_parent_paths) {
   auto path_it = directories.find(dir_path.string());
-  if(!boost::filesystem::exists(dir_path)) {
+  boost::system::error_code ec;
+  if(!boost::filesystem::exists(dir_path, ec)) {
     if(path_it != directories.end())
       directories.erase(path_it);
     return;
@@ -693,8 +700,7 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
   }
 
   std::unordered_map<std::string, boost::filesystem::path> filenames;
-  boost::filesystem::directory_iterator end_it;
-  for(boost::filesystem::directory_iterator it(dir_path); it != end_it; it++) {
+  for(boost::filesystem::directory_iterator it(dir_path, ec), end; it != end; it++) {
     auto path = it->path();
     filenames.emplace(path.filename().string(), path);
   }
@@ -713,7 +719,8 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
   for(auto &filename : filenames) {
     if(already_added.find(filename.first) == already_added.end()) {
       auto child = tree_store->append(children);
-      auto is_directory = boost::filesystem::is_directory(filename.second);
+      boost::system::error_code ec;
+      auto is_directory = boost::filesystem::is_directory(filename.second, ec);
       child->set_value(column_record.is_directory, is_directory);
       child->set_value(column_record.name, filename.first);
       child->set_value(column_record.markup, Glib::Markup::escape_text(filename.first));
@@ -806,6 +813,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
         green.set_green(normal_color.get_green() + factor * (green.get_green() - normal_color.get_green()));
         green.set_blue(normal_color.get_blue() + factor * (green.get_blue() - normal_color.get_blue()));
 
+        boost::system::error_code ec;
         do {
           Gtk::TreeNodeChildren children(it->second.row ? it->second.row.children() : tree_store->children());
           if(!children)
@@ -815,7 +823,6 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
             auto name = Glib::Markup::escape_text(child.get_value(column_record.name));
             auto path = child.get_value(column_record.path);
             // Use canonical path to follow symbolic links
-            boost::system::error_code ec;
             auto canonical_path = boost::filesystem::canonical(path, ec);
             if(ec)
               canonical_path = path;
@@ -844,7 +851,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
             break;
 
           auto path = boost::filesystem::path(it->first);
-          if(boost::filesystem::exists(path / ".git"))
+          if(boost::filesystem::exists(path / ".git", ec))
             break;
           if(path == path.root_directory())
             break;

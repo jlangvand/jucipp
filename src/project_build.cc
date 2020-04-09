@@ -4,10 +4,14 @@
 #include <boost/algorithm/string.hpp>
 
 std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::path &path) {
-  auto search_path = boost::filesystem::is_directory(path) ? path : path.parent_path();
+  if(path.empty())
+    return std::make_unique<Project::Build>();
+
+  boost::system::error_code ec;
+  auto search_path = boost::filesystem::is_directory(path, ec) ? path : path.parent_path();
 
   while(true) {
-    if(boost::filesystem::exists(search_path / "CMakeLists.txt")) {
+    if(boost::filesystem::exists(search_path / "CMakeLists.txt", ec)) {
       std::unique_ptr<Project::Build> build(new CMakeBuild(path));
       if(!build->project_path.empty())
         return build;
@@ -15,30 +19,30 @@ std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::
         return std::make_unique<Project::Build>();
     }
 
-    if(boost::filesystem::exists(search_path / "meson.build")) {
+    if(boost::filesystem::exists(search_path / "meson.build"), ec) {
       std::unique_ptr<Project::Build> build(new MesonBuild(path));
       if(!build->project_path.empty())
         return build;
     }
 
-    if(boost::filesystem::exists(search_path / Config::get().project.default_build_path / "compile_commands.json")) {
+    if(boost::filesystem::exists(search_path / Config::get().project.default_build_path / "compile_commands.json", ec)) {
       std::unique_ptr<Project::Build> build(new CompileCommandsBuild(search_path));
       return build;
     }
 
-    if(boost::filesystem::exists(search_path / "Cargo.toml")) {
+    if(boost::filesystem::exists(search_path / "Cargo.toml", ec)) {
       std::unique_ptr<Project::Build> build(new CargoBuild());
       build->project_path = search_path;
       return build;
     }
 
-    if(boost::filesystem::exists(search_path / "package.json")) {
+    if(boost::filesystem::exists(search_path / "package.json", ec)) {
       std::unique_ptr<Project::Build> build(new NpmBuild());
       build->project_path = search_path;
       return build;
     }
 
-    if(boost::filesystem::exists(search_path / "__main__.py")) {
+    if(boost::filesystem::exists(search_path / "__main__.py", ec)) {
       std::unique_ptr<Project::Build> build(new PythonMain());
       build->project_path = search_path;
       return build;
@@ -107,7 +111,8 @@ boost::filesystem::path Project::CMakeBuild::get_executable(const boost::filesys
   auto executable = cmake.get_executable(default_path, path);
   if(executable.empty()) {
     auto src_path = project_path / "src";
-    if(boost::filesystem::is_directory(src_path)) {
+    boost::system::error_code ec;
+    if(boost::filesystem::is_directory(src_path, ec)) {
       auto cmake = CMake(src_path); // ignore cache in this->cmake
       executable = cmake.get_executable(default_path, src_path);
     }
@@ -136,7 +141,8 @@ boost::filesystem::path Project::MesonBuild::get_executable(const boost::filesys
   auto executable = meson.get_executable(default_path, path);
   if(executable.empty()) {
     auto src_path = project_path / "src";
-    if(boost::filesystem::is_directory(src_path))
+    boost::system::error_code ec;
+    if(boost::filesystem::is_directory(src_path, ec))
       executable = meson.get_executable(default_path, src_path);
   }
   return executable;

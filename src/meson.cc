@@ -17,10 +17,11 @@ Meson::Meson(const boost::filesystem::path &path) {
     return false;
   };
 
-  auto search_path = boost::filesystem::is_directory(path) ? path : path.parent_path();
+  boost::system::error_code ec;
+  auto search_path = boost::filesystem::is_directory(path, ec) ? path : path.parent_path();
   while(true) {
     auto search_file = search_path / "meson.build";
-    if(boost::filesystem::exists(search_file)) {
+    if(boost::filesystem::exists(search_file, ec)) {
       if(find_project(search_file)) {
         project_path = search_path;
         break;
@@ -33,10 +34,11 @@ Meson::Meson(const boost::filesystem::path &path) {
 }
 
 bool Meson::update_default_build(const boost::filesystem::path &default_build_path, bool force) {
-  if(project_path.empty() || !boost::filesystem::exists(project_path / "meson.build") || default_build_path.empty())
+  boost::system::error_code ec;
+  if(project_path.empty() || !boost::filesystem::exists(project_path / "meson.build", ec) || default_build_path.empty())
     return false;
 
-  if(!boost::filesystem::exists(default_build_path)) {
+  if(!boost::filesystem::exists(default_build_path, ec)) {
     boost::system::error_code ec;
     boost::filesystem::create_directories(default_build_path, ec);
     if(ec) {
@@ -46,7 +48,7 @@ bool Meson::update_default_build(const boost::filesystem::path &default_build_pa
   }
 
   auto compile_commands_path = default_build_path / "compile_commands.json";
-  bool compile_commands_exists = boost::filesystem::exists(compile_commands_path);
+  bool compile_commands_exists = boost::filesystem::exists(compile_commands_path, ec);
   if(!force && compile_commands_exists)
     return true;
 
@@ -61,10 +63,11 @@ bool Meson::update_default_build(const boost::filesystem::path &default_build_pa
 }
 
 bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, bool force) {
-  if(project_path.empty() || !boost::filesystem::exists(project_path / "meson.build") || debug_build_path.empty())
+  boost::system::error_code ec;
+  if(project_path.empty() || !boost::filesystem::exists(project_path / "meson.build", ec) || debug_build_path.empty())
     return false;
 
-  if(!boost::filesystem::exists(debug_build_path)) {
+  if(!boost::filesystem::exists(debug_build_path, ec)) {
     boost::system::error_code ec;
     boost::filesystem::create_directories(debug_build_path, ec);
     if(ec) {
@@ -73,7 +76,7 @@ bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, 
     }
   }
 
-  bool compile_commands_exists = boost::filesystem::exists(debug_build_path / "compile_commands.json");
+  bool compile_commands_exists = boost::filesystem::exists(debug_build_path / "compile_commands.json", ec);
   if(!force && compile_commands_exists)
     return true;
 

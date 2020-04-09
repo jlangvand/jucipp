@@ -270,17 +270,18 @@ void Window::set_menu_actions() {
   });
 
   menu.add_action("file_new_file", []() {
-    boost::filesystem::path path = Dialog::new_file(Notebook::get().get_current_folder());
-    if(path != "") {
-      if(boost::filesystem::exists(path)) {
+    boost::filesystem::path path = Dialog::new_file(Project::get_preferably_view_folder());
+    if(!path.empty()) {
+      boost::system::error_code ec;
+      if(boost::filesystem::exists(path, ec)) {
         Terminal::get().print("Error: " + path.string() + " already exists.\n", true);
       }
       else {
         if(filesystem::write(path)) {
-          if(Directories::get().path != "")
+          if(!Directories::get().path.empty())
             Directories::get().update();
           Notebook::get().open(path);
-          if(Directories::get().path != "")
+          if(!Directories::get().path.empty())
             Directories::get().on_save_file(path);
           Terminal::get().print("New file " + path.string() + " created.\n");
         }
@@ -291,12 +292,12 @@ void Window::set_menu_actions() {
   });
   menu.add_action("file_new_folder", []() {
     auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    boost::filesystem::path path = Dialog::new_folder(Notebook::get().get_current_folder());
-    if(path != "" && boost::filesystem::exists(path)) {
-      boost::system::error_code ec;
+    boost::filesystem::path path = Dialog::new_folder(Project::get_preferably_directory_folder());
+    boost::system::error_code ec;
+    if(!path.empty() && boost::filesystem::exists(path, ec)) {
       auto last_write_time = boost::filesystem::last_write_time(path, ec);
       if(!ec && last_write_time >= time_now) {
-        if(Directories::get().path != "")
+        if(!Directories::get().path.empty())
           Directories::get().update();
         Terminal::get().print("New folder " + path.string() + " created.\n");
       }
@@ -306,8 +307,8 @@ void Window::set_menu_actions() {
     }
   });
   menu.add_action("file_new_project_c", []() {
-    boost::filesystem::path project_path = Dialog::new_folder(Notebook::get().get_current_folder());
-    if(project_path != "") {
+    boost::filesystem::path project_path = Dialog::new_folder(Project::get_preferably_directory_folder());
+    if(!project_path.empty()) {
       auto project_name = project_path.filename().string();
       for(auto &chr : project_name) {
         if(chr == ' ')
@@ -330,15 +331,16 @@ void Window::set_menu_actions() {
       }
       auto c_main_path = project_path / "main.c";
       auto clang_format_path = project_path / ".clang-format";
-      if(boost::filesystem::exists(build_config_path)) {
+      boost::system::error_code ec;
+      if(boost::filesystem::exists(build_config_path, ec)) {
         Terminal::get().print("Error: " + build_config_path.string() + " already exists.\n", true);
         return;
       }
-      if(boost::filesystem::exists(c_main_path)) {
+      if(boost::filesystem::exists(c_main_path, ec)) {
         Terminal::get().print("Error: " + c_main_path.string() + " already exists.\n", true);
         return;
       }
-      if(boost::filesystem::exists(clang_format_path)) {
+      if(boost::filesystem::exists(clang_format_path, ec)) {
         Terminal::get().print("Error: " + clang_format_path.string() + " already exists.\n", true);
         return;
       }
@@ -355,8 +357,8 @@ void Window::set_menu_actions() {
     }
   });
   menu.add_action("file_new_project_cpp", []() {
-    boost::filesystem::path project_path = Dialog::new_folder(Notebook::get().get_current_folder());
-    if(project_path != "") {
+    boost::filesystem::path project_path = Dialog::new_folder(Project::get_preferably_directory_folder());
+    if(!project_path.empty()) {
       auto project_name = project_path.filename().string();
       for(auto &chr : project_name) {
         if(chr == ' ')
@@ -379,15 +381,16 @@ void Window::set_menu_actions() {
       }
       auto cpp_main_path = project_path / "main.cpp";
       auto clang_format_path = project_path / ".clang-format";
-      if(boost::filesystem::exists(build_config_path)) {
+      boost::system::error_code ec;
+      if(boost::filesystem::exists(build_config_path, ec)) {
         Terminal::get().print("Error: " + build_config_path.string() + " already exists.\n", true);
         return;
       }
-      if(boost::filesystem::exists(cpp_main_path)) {
+      if(boost::filesystem::exists(cpp_main_path, ec)) {
         Terminal::get().print("Error: " + cpp_main_path.string() + " already exists.\n", true);
         return;
       }
-      if(boost::filesystem::exists(clang_format_path)) {
+      if(boost::filesystem::exists(clang_format_path, ec)) {
         Terminal::get().print("Error: " + clang_format_path.string() + " already exists.\n", true);
         return;
       }
@@ -405,24 +408,20 @@ void Window::set_menu_actions() {
   });
 
   menu.add_action("file_open_file", []() {
-    auto folder_path = Notebook::get().get_current_folder();
-    if(auto view = Notebook::get().get_current_view()) {
-      if(!Directories::get().path.empty() && !filesystem::file_in_path(view->file_path, Directories::get().path))
-        folder_path = view->file_path.parent_path();
-    }
-    auto path = Dialog::open_file(folder_path);
-    if(path != "")
+    auto path = Dialog::open_file(Project::get_preferably_view_folder());
+    if(!path.empty())
       Notebook::get().open(path);
   });
   menu.add_action("file_open_folder", []() {
-    auto path = Dialog::open_folder(Notebook::get().get_current_folder());
-    if(path != "" && boost::filesystem::exists(path))
+    auto path = Dialog::open_folder(Project::get_preferably_directory_folder());
+    if(!path.empty())
       Directories::get().open(path);
   });
 
   menu.add_action("file_reload_file", []() {
     if(auto view = Notebook::get().get_current_view()) {
-      if(boost::filesystem::exists(view->file_path)) {
+      boost::system::error_code ec;
+      if(boost::filesystem::exists(view->file_path, ec)) {
         std::ifstream can_read(view->file_path.string());
         if(!can_read) {
           Terminal::get().print("Error: could not read " + view->file_path.string() + "\n", true);
@@ -456,12 +455,12 @@ void Window::set_menu_actions() {
   menu.add_action("file_save_as", []() {
     if(auto view = Notebook::get().get_current_view()) {
       auto path = Dialog::save_file_as(view->file_path);
-      if(path != "") {
+      if(!path.empty()) {
         std::ofstream file(path, std::ofstream::binary);
         if(file) {
           file << view->get_buffer()->get_text().raw();
           file.close();
-          if(Directories::get().path != "")
+          if(!Directories::get().path.empty())
             Directories::get().update();
           Notebook::get().open(path);
           Terminal::get().print("File saved to: " + Notebook::get().get_current_view()->file_path.string() + "\n");
@@ -785,35 +784,20 @@ void Window::set_menu_actions() {
   });
 
   menu.add_action("source_find_pattern", [this]() {
-    auto view = Notebook::get().get_current_view();
-
     std::string excludes = "--exclude-dir=node_modules";
 
-    boost::filesystem::path search_path;
-    if(view)
-      search_path = view->file_path.parent_path();
-    else if(!Directories::get().path.empty())
-      search_path = Directories::get().path;
-    else {
-      boost::system::error_code ec;
-      search_path = boost::filesystem::current_path(ec);
-      if(ec) {
-        Terminal::get().print("Error: could not find current path\n", true);
-        return;
-      }
-    }
-    auto build = Project::Build::create(search_path);
-    auto project_path = build->project_path;
+    auto view_folder = Project::get_preferably_view_folder();
+    auto build = Project::Build::create(view_folder);
     boost::filesystem::path default_path, debug_path;
-    if(!project_path.empty()) {
-      search_path = project_path;
-      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), project_path).string());
-      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), project_path).string());
+    if(!build->project_path.empty()) {
+      view_folder = build->project_path;
+      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), build->project_path).string());
+      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), build->project_path).string());
     }
 
     EntryBox::get().clear();
 
-    EntryBox::get().entries.emplace_back(last_find_pattern, [this, search_path = std::move(search_path), excludes = std::move(excludes)](const std::string &pattern) {
+    EntryBox::get().entries.emplace_back(last_find_pattern, [this, view_folder = std::move(view_folder), excludes = std::move(excludes)](const std::string &pattern) {
       if(!pattern.empty()) {
         std::stringstream stdin_stream;
         std::string flags;
@@ -831,7 +815,7 @@ void Window::set_menu_actions() {
         std::string command = Config::get().project.grep_command + " -R " + flags + " --color=always --binary-files=without-match " + excludes + " -n " + escaped_pattern + " *";
         //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
         auto stdout_stream = std::make_unique<std::stringstream>();
-        Terminal::get().process(stdin_stream, *stdout_stream, command, search_path);
+        Terminal::get().process(stdin_stream, *stdout_stream, command, view_folder);
         stdout_stream->seekg(0, std::ios::end);
         if(stdout_stream->tellg() == 0) {
           Info::get().print("Pattern not found");
@@ -862,7 +846,7 @@ void Window::set_menu_actions() {
           }
           SelectionDialog::get()->add_row(line_markup);
         }
-        SelectionDialog::get()->on_select = [search_path = std::move(search_path)](unsigned int index, const std::string &text, bool hide_window) {
+        SelectionDialog::get()->on_select = [view_folder = std::move(view_folder)](unsigned int index, const std::string &text, bool hide_window) {
           auto remove_markup = [](std::string &markup) {
             auto start = markup.end();
             for(auto it = markup.begin(); it != markup.end();) {
@@ -888,7 +872,7 @@ void Window::set_menu_actions() {
                 auto line_str = text.substr(file_end + 1, line_end - file_end);
                 remove_markup(line_str);
                 auto line = std::stoi(line_str);
-                Notebook::get().open(search_path / file);
+                Notebook::get().open(view_folder / file);
                 auto view = Notebook::get().get_current_view();
                 view->place_cursor_at_line_pos(line - 1, 0);
                 view->scroll_to_cursor_delayed(true, false);
@@ -930,30 +914,16 @@ void Window::set_menu_actions() {
   });
 
   menu.add_action("source_find_file", []() {
-    auto view = Notebook::get().get_current_view();
-
-    boost::filesystem::path search_path;
-    if(view)
-      search_path = view->file_path.parent_path();
-    else if(!Directories::get().path.empty())
-      search_path = Directories::get().path;
-    else {
-      boost::system::error_code ec;
-      search_path = boost::filesystem::current_path(ec);
-      if(ec) {
-        Terminal::get().print("Error: could not find current path\n", true);
-        return;
-      }
-    }
-    auto build = Project::Build::create(search_path);
-    auto project_path = build->project_path;
+    auto view_folder = Project::get_preferably_view_folder();
+    auto build = Project::Build::create(view_folder);
     boost::filesystem::path default_path, debug_path;
-    if(!project_path.empty()) {
-      search_path = project_path;
+    if(!build->project_path.empty()) {
+      view_folder = build->project_path;
       default_path = build->get_default_path();
       debug_path = build->get_debug_path();
     }
 
+    auto view = Notebook::get().get_current_view();
     if(view)
       SelectionDialog::create(view, true, true);
     else
@@ -965,17 +935,18 @@ void Window::set_menu_actions() {
 
     std::vector<boost::filesystem::path> paths;
     // populate with all files in search_path
-    for(boost::filesystem::recursive_directory_iterator iter(search_path), end; iter != end; iter++) {
+    boost::system::error_code ec;
+    for(boost::filesystem::recursive_directory_iterator iter(view_folder, ec), end; iter != end; iter++) {
       auto path = iter->path();
       // ignore folders
-      if(!boost::filesystem::is_regular_file(path)) {
+      if(!boost::filesystem::is_regular_file(path, ec)) {
         if(path == default_path || path == debug_path || path.filename() == ".git")
           iter.no_push();
         continue;
       }
 
       // remove project base path
-      auto row_str = filesystem::get_relative_path(path, search_path).string();
+      auto row_str = filesystem::get_relative_path(path, view_folder).string();
       if(buffer_paths.count(path.string()))
         row_str = "<b>" + row_str + "</b>";
       paths.emplace_back(path);
@@ -1013,7 +984,8 @@ void Window::set_menu_actions() {
         auto documentation_template = view->get_documentation_template();
         auto offset = std::get<0>(documentation_template);
         if(offset) {
-          if(!boost::filesystem::is_regular_file(offset.file_path))
+          boost::system::error_code ec;
+          if(!boost::filesystem::is_regular_file(offset.file_path, ec))
             return;
           Notebook::get().open(offset.file_path);
           auto view = Notebook::get().get_current_view();
@@ -1071,7 +1043,8 @@ void Window::set_menu_actions() {
       if(view->get_declaration_location) {
         auto location = view->get_declaration_location();
         if(location) {
-          if(!boost::filesystem::is_regular_file(location.file_path))
+          boost::system::error_code ec;
+          if(!boost::filesystem::is_regular_file(location.file_path, ec))
             return;
           Notebook::get().open(location.file_path);
           auto view = Notebook::get().get_current_view();
@@ -1088,7 +1061,8 @@ void Window::set_menu_actions() {
       if(view->get_type_declaration_location) {
         auto location = view->get_type_declaration_location();
         if(location) {
-          if(!boost::filesystem::is_regular_file(location.file_path))
+          boost::system::error_code ec;
+          if(!boost::filesystem::is_regular_file(location.file_path, ec))
             return;
           Notebook::get().open(location.file_path);
           auto view = Notebook::get().get_current_view();
@@ -1122,7 +1096,8 @@ void Window::set_menu_actions() {
         return;
       else if(rows.size() == 1) {
         auto location = *rows.begin();
-        if(!boost::filesystem::is_regular_file(location.file_path))
+        boost::system::error_code ec;
+        if(!boost::filesystem::is_regular_file(location.file_path, ec))
           return;
         Notebook::get().open(location.file_path);
         auto view = Notebook::get().get_current_view();
@@ -1136,7 +1111,8 @@ void Window::set_menu_actions() {
         if(index >= rows.size())
           return;
         auto location = rows[index];
-        if(!boost::filesystem::is_regular_file(location.file_path))
+        boost::system::error_code ec;
+        if(!boost::filesystem::is_regular_file(location.file_path, ec))
           return;
         Notebook::get().open(location.file_path);
         auto view = Notebook::get().get_current_view();
@@ -1194,7 +1170,8 @@ void Window::set_menu_actions() {
             if(index >= rows.size())
               return;
             auto offset = rows[index];
-            if(!boost::filesystem::is_regular_file(offset.file_path))
+            boost::system::error_code ec;
+            if(!boost::filesystem::is_regular_file(offset.file_path, ec))
               return;
             Notebook::get().open(offset.file_path);
             auto view = Notebook::get().get_current_view();
@@ -1379,12 +1356,12 @@ void Window::set_menu_actions() {
     };
     label_it->update(0, "");
     EntryBox::get().entries.emplace_back(last_run_command, [this](const std::string &content) {
-      if(content != "") {
+      if(!content.empty()) {
         last_run_command = content;
-        auto run_path = Notebook::get().get_current_folder();
+        auto directory_folder = Project::get_preferably_directory_folder();
         Terminal::get().async_print("Running: " + content + '\n');
 
-        Terminal::get().async_process(content, run_path, [content](int exit_status) {
+        Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
           Terminal::get().async_print(content + " returned: " + std::to_string(exit_status) + '\n');
         });
       }
@@ -1489,7 +1466,7 @@ void Window::set_menu_actions() {
   menu.add_action("debug_run_command", [this]() {
     EntryBox::get().clear();
     EntryBox::get().entries.emplace_back(last_run_debug_command, [this](const std::string &content) {
-      if(content != "") {
+      if(!content.empty()) {
         if(Project::current)
           Project::current->debug_run_command(content);
         last_run_debug_command = content;
@@ -2066,8 +2043,7 @@ void Window::save_session() {
     for(auto &run_argument : Project::run_arguments) {
       if(run_argument.second.empty())
         continue;
-      boost::system::error_code ec;
-      if(boost::filesystem::exists(run_argument.first, ec) && boost::filesystem::is_directory(run_argument.first, ec)) {
+      if(boost::filesystem::exists(run_argument.first) && boost::filesystem::is_directory(run_argument.first)) {
         boost::property_tree::ptree run_argument_pt;
         run_argument_pt.put("path", run_argument.first);
         run_argument_pt.put("arguments", run_argument.second);
@@ -2080,8 +2056,7 @@ void Window::save_session() {
     for(auto &debug_run_argument : Project::debug_run_arguments) {
       if(debug_run_argument.second.arguments.empty() && !debug_run_argument.second.remote_enabled && debug_run_argument.second.remote_host_port.empty())
         continue;
-      boost::system::error_code ec;
-      if(boost::filesystem::exists(debug_run_argument.first, ec) && boost::filesystem::is_directory(debug_run_argument.first, ec)) {
+      if(boost::filesystem::exists(debug_run_argument.first) && boost::filesystem::is_directory(debug_run_argument.first)) {
         boost::property_tree::ptree debug_run_argument_pt;
         debug_run_argument_pt.put("path", debug_run_argument.first);
         debug_run_argument_pt.put("arguments", debug_run_argument.second.arguments);

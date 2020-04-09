@@ -17,10 +17,11 @@ CMake::CMake(const boost::filesystem::path &path) {
     return false;
   };
 
-  auto search_path = boost::filesystem::is_directory(path) ? path : path.parent_path();
+  boost::system::error_code ec;
+  auto search_path = boost::filesystem::is_directory(path, ec) ? path : path.parent_path();
   while(true) {
     auto search_cmake_path = search_path / "CMakeLists.txt";
-    if(boost::filesystem::exists(search_cmake_path)) {
+    if(boost::filesystem::exists(search_cmake_path, ec)) {
       paths.emplace(paths.begin(), search_cmake_path);
       if(find_cmake_project(search_cmake_path)) {
         project_path = search_path;
@@ -34,10 +35,11 @@ CMake::CMake(const boost::filesystem::path &path) {
 }
 
 bool CMake::update_default_build(const boost::filesystem::path &default_build_path, bool force) {
-  if(project_path.empty() || !boost::filesystem::exists(project_path / "CMakeLists.txt") || default_build_path.empty())
+  boost::system::error_code ec;
+  if(project_path.empty() || !boost::filesystem::exists(project_path / "CMakeLists.txt", ec) || default_build_path.empty())
     return false;
 
-  if(!boost::filesystem::exists(default_build_path)) {
+  if(!boost::filesystem::exists(default_build_path, ec)) {
     boost::system::error_code ec;
     boost::filesystem::create_directories(default_build_path, ec);
     if(ec) {
@@ -46,7 +48,7 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
     }
   }
 
-  if(!force && boost::filesystem::exists(default_build_path / "compile_commands.json"))
+  if(!force && boost::filesystem::exists(default_build_path / "compile_commands.json", ec))
     return true;
 
   auto compile_commands_path = default_build_path / "compile_commands.json";
@@ -77,10 +79,11 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
 }
 
 bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, bool force) {
-  if(project_path.empty() || !boost::filesystem::exists(project_path / "CMakeLists.txt") || debug_build_path.empty())
+  boost::system::error_code ec;
+  if(project_path.empty() || !boost::filesystem::exists(project_path / "CMakeLists.txt", ec) || debug_build_path.empty())
     return false;
 
-  if(!boost::filesystem::exists(debug_build_path)) {
+  if(!boost::filesystem::exists(debug_build_path, ec)) {
     boost::system::error_code ec;
     boost::filesystem::create_directories(debug_build_path, ec);
     if(ec) {
@@ -89,7 +92,7 @@ bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, 
     }
   }
 
-  if(!force && boost::filesystem::exists(debug_build_path / "CMakeCache.txt"))
+  if(!force && boost::filesystem::exists(debug_build_path / "CMakeCache.txt", ec))
     return true;
 
   Dialog::Message message("Creating/updating debug build");

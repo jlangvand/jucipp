@@ -9,6 +9,13 @@
 #include <unordered_map>
 
 namespace Project {
+  /// Returns folder of current view if any. Otherwise returns directory folder if any, or if not, working directory.
+  boost::filesystem::path get_preferably_view_folder();
+  /// Returns directory folder if any. Otherwise returns folder of current view if any, or if not, working directory.
+  boost::filesystem::path get_preferably_directory_folder();
+  void save_files(const boost::filesystem::path &path);
+  void on_save(size_t index);
+
   class DebugRunArguments {
   public:
     std::string arguments;
@@ -22,10 +29,6 @@ namespace Project {
     Gtk::Box vbox;
   };
 
-  Gtk::Label &debug_status_label();
-  void save_files(const boost::filesystem::path &path);
-  void on_save(size_t index);
-
   extern boost::filesystem::path debug_last_stop_file_path;
   extern std::unordered_map<std::string, std::string> run_arguments;
   extern std::unordered_map<std::string, DebugRunArguments> debug_run_arguments;
@@ -33,6 +36,7 @@ namespace Project {
   extern std::atomic<bool> debugging;
   extern std::pair<boost::filesystem::path, std::pair<int, int>> debug_stop;
   extern std::string debug_status;
+  Gtk::Label &debug_status_label();
   void debug_update_status(const std::string &new_debug_status);
   void debug_activate_menu_items();
   void debug_update_stop();

@@ -372,7 +372,7 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
   boost::system::error_code ec;
   auto usages_clang_path = build_path / cache_folder;
   if(boost::filesystem::exists(usages_clang_path, ec) && boost::filesystem::is_directory(usages_clang_path, ec)) {
-    for(boost::filesystem::directory_iterator it(usages_clang_path), end; it != end; ++it) {
+    for(boost::filesystem::directory_iterator it(usages_clang_path, ec), end; it != end; ++it) {
       if(it->path().extension() == ".usages")
         boost::filesystem::remove(it->path(), ec);
     }
@@ -515,9 +515,11 @@ Usages::Clang::PathSet Usages::Clang::find_paths(const boost::filesystem::path &
 
   CompileCommands compile_commands(build_path);
 
-  for(boost::filesystem::recursive_directory_iterator it(project_path), end; it != end; ++it) {
+  boost::system::error_code ec;
+  for(boost::filesystem::recursive_directory_iterator it(project_path, ec), end; it != end; ++it) {
     auto &path = it->path();
-    if(!boost::filesystem::is_regular_file(path)) {
+    boost::system::error_code ec;
+    if(!boost::filesystem::is_regular_file(path, ec)) {
       if(path == build_path || path == debug_path || path.filename() == ".git")
         it.no_push();
       continue;
@@ -677,7 +679,7 @@ void Usages::Clang::write_cache(const boost::filesystem::path &path, const Clang
     if(ec)
       return;
   }
-  else if(!boost::filesystem::is_directory(cache_path, ec) || ec)
+  else if(!boost::filesystem::is_directory(cache_path, ec))
     return;
 
   auto path_str = filesystem::get_relative_path(path, cache.project_path).string();

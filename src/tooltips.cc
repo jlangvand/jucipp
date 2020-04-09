@@ -129,7 +129,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
             if(auto view = dynamic_cast<Source::View *>(text_view))
               path = filesystem::get_normal_path(view->file_path.parent_path() / path);
 
-            if(boost::filesystem::is_regular_file(path)) {
+            boost::system::error_code ec;
+            if(boost::filesystem::is_regular_file(path, ec)) {
               Notebook::get().open(path);
               if(auto view = Notebook::get().get_current_view()) {
                 try {

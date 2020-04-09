@@ -490,8 +490,9 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         auto style_file_search_path = file_path.parent_path();
         auto style_file = '.' + language_id + "-format";
 
+        boost::system::error_code ec;
         while(true) {
-          if(boost::filesystem::exists(style_file_search_path / style_file)) {
+          if(boost::filesystem::exists(style_file_search_path / style_file, ec)) {
             has_style_file = true;
             break;
           }

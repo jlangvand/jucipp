@@ -27,15 +27,16 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
       boost::filesystem::path path(argv[c]);
       if(path.is_relative() && !current_path_ec)
         path = current_path / path;
-      if(boost::filesystem::exists(path)) {
-        if(boost::filesystem::is_regular_file(path))
+      boost::system::error_code ec;
+      if(boost::filesystem::exists(path, ec)) {
+        if(boost::filesystem::is_regular_file(path, ec))
           files.emplace_back(path, 0);
-        else if(boost::filesystem::is_directory(path))
+        else if(boost::filesystem::is_directory(path, ec))
           directories.emplace_back(path);
       }
       //Open new file if parent path exists
       else {
-        if(path.is_absolute() && boost::filesystem::is_directory(path.parent_path()))
+        if(path.is_absolute() && boost::filesystem::is_directory(path.parent_path(), ec))
           files.emplace_back(path, 0);
         else
           errors.emplace_back("Error: could not create " + path.string() + ".\n");

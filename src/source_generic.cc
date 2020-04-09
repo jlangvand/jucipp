@@ -28,9 +28,10 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
     auto search_paths = language_manager->get_search_path();
     bool found_language_file = false;
     boost::filesystem::path language_file;
+    boost::system::error_code ec;
     for(auto &search_path : search_paths) {
       boost::filesystem::path p(static_cast<std::string>(search_path) + '/' + static_cast<std::string>(language->get_id()) + ".lang");
-      if(boost::filesystem::exists(p) && boost::filesystem::is_regular_file(p)) {
+      if(boost::filesystem::exists(p, ec) && boost::filesystem::is_regular_file(p, ec)) {
         language_file = p;
         found_language_file = true;
         break;

@@ -29,9 +29,33 @@ std::string Project::debug_status;
 std::shared_ptr<Project::Base> Project::current;
 std::unique_ptr<Project::DebugOptions> Project::Base::debug_options;
 
-Gtk::Label &Project::debug_status_label() {
-  static Gtk::Label label;
-  return label;
+boost::filesystem::path Project::get_preferably_view_folder() {
+  boost::filesystem::path view_folder;
+  if(auto view = Notebook::get().get_current_view())
+    return view->file_path.parent_path();
+  else if(!Directories::get().path.empty())
+    return Directories::get().path;
+  else {
+    boost::system::error_code ec;
+    auto current_path = boost::filesystem::current_path(ec);
+    if(ec)
+      return boost::filesystem::path();
+    return current_path;
+  }
+}
+
+boost::filesystem::path Project::get_preferably_directory_folder() {
+  if(!Directories::get().path.empty())
+    return Directories::get().path;
+  else if(auto view = Notebook::get().get_current_view())
+    return view->file_path.parent_path();
+  else {
+    boost::system::error_code ec;
+    auto current_path = boost::filesystem::current_path(ec);
+    if(ec)
+      return boost::filesystem::path();
+    return current_path;
+  }
 }
 
 void Project::save_files(const boost::filesystem::path &path) {
@@ -87,6 +111,11 @@ void Project::on_save(size_t index) {
       }
     }
   }
+}
+
+Gtk::Label &Project::debug_status_label() {
+  static Gtk::Label label;
+  return label;
 }
 
 void Project::debug_update_status(const std::string &new_debug_status) {
@@ -190,22 +219,8 @@ void Project::Base::recreate_build() {
 }
 
 void Project::Base::show_symbols() {
-  auto view = Notebook::get().get_current_view();
-
-  boost::filesystem::path search_path;
-  if(view)
-    search_path = view->file_path.parent_path();
-  else if(!Directories::get().path.empty())
-    search_path = Directories::get().path;
-  else {
-    boost::system::error_code ec;
-    search_path = boost::filesystem::current_path(ec);
-    if(ec) {
-      Terminal::get().print("Error: could not find current path\n", true);
-      return;
-    }
-  }
-  auto pair = Ctags::get_result(search_path);
+  auto view_folder = get_preferably_view_folder();
+  auto pair = Ctags::get_result(view_folder);
 
   auto path = std::move(pair.first);
   auto stream = std::move(pair.second);
@@ -216,6 +231,7 @@ void Project::Base::show_symbols() {
   }
   stream->seekg(0, std::ios::beg);
 
+  auto view = Notebook::get().get_current_view();
   if(view)
     SelectionDialog::create(view, true, true);
   else
@@ -239,7 +255,8 @@ void Project::Base::show_symbols() {
       return;
     auto offset = rows[index];
     auto full_path = path / offset.file_path;
-    if(!boost::filesystem::is_regular_file(full_path))
+    boost::system::error_code ec;
+    if(!boost::filesystem::is_regular_file(full_path, ec))
       return;
     Notebook::get().open(full_path);
     auto view = Notebook::get().get_current_view();
@@ -780,7 +797,8 @@ void Project::LanguageProtocol::show_symbols() {
 
   SelectionDialog::get()->on_select = [locations](unsigned int index, const std::string &text, bool hide_window) {
     auto &offset = (*locations)[index];
-    if(!boost::filesystem::is_regular_file(offset.file))
+    boost::system::error_code ec;
+    if(!boost::filesystem::is_regular_file(offset.file, ec))
       return;
     Notebook::get().open(offset.file);
     auto view = Notebook::get().get_current_view();
@@ -880,8 +898,9 @@ void Project::Clang::recreate_build() {
     return;
 
   auto debug_build_path = build->get_debug_path();
-  bool has_default_build = boost::filesystem::exists(default_build_path);
-  bool has_debug_build = !debug_build_path.empty() && boost::filesystem::exists(debug_build_path);
+  boost::system::error_code ec;
+  bool has_default_build = boost::filesystem::exists(default_build_path, ec);
+  bool has_debug_build = !debug_build_path.empty() && boost::filesystem::exists(debug_build_path, ec);
 
   if(has_default_build || has_debug_build) {
     Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(Notebook::get().get_toplevel()), "Recreate Build", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
@@ -899,10 +918,20 @@ void Project::Clang::recreate_build() {
       return;
     Usages::Clang::erase_all_caches_for_project(build->project_path, default_build_path);
     try {
-      if(has_default_build)
-        boost::filesystem::remove_all(default_build_path);
-      if(has_debug_build)
-        boost::filesystem::remove_all(debug_build_path);
+      if(has_default_build) {
+        std::vector<boost::filesystem::path> paths;
+        for(boost::filesystem::directory_iterator it(default_build_path), end; it != end; ++it)
+          paths.emplace_back(*it);
+        for(auto &path : paths)
+          boost::filesystem::remove_all(path);
+      }
+      if(has_debug_build && boost::filesystem::exists(debug_build_path)) {
+        std::vector<boost::filesystem::path> paths;
+        for(boost::filesystem::directory_iterator it(debug_build_path), end; it != end; ++it)
+          paths.emplace_back(*it);
+        for(auto &path : paths)
+          boost::filesystem::remove_all(path);
+      }
     }
     catch(const std::exception &e) {
       Terminal::get().print(std::string("Error: could not remove build: ") + e.what() + "\n", true);

@@ -132,7 +132,6 @@ private:
   /// Used to dispatch Terminal outputs after juCi++ GUI setup and configuration
   Dispatcher dispatcher;
 
-  void find_or_create_config_files();
   void update(boost::property_tree::ptree &cfg);
   void make_version_dependent_corrections(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, const std::string &version);
   bool add_missing_nodes(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, std::string parent_path = "");

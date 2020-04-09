@@ -1,6 +1,5 @@
 #include "notebook.h"
 #include "config.h"
-#include "directories.h"
 #include "filesystem.h"
 #include "gtksourceview-3.0/gtksourceview/gtksourcemap.h"
 #include "project.h"
@@ -104,6 +103,12 @@ std::vector<Source::View *> &Notebook::get_views() {
 }
 
 void Notebook::open(const boost::filesystem::path &file_path_, Position position) {
+  boost::system::error_code ec;
+  if(file_path_.empty() || (boost::filesystem::exists(file_path_, ec) && !boost::filesystem::is_regular_file(file_path_, ec))) {
+    Terminal::get().print("Error: could not open " + file_path_.string() + "\n", true);
+    return;
+  }
+
   auto file_path = filesystem::get_normal_path(file_path_);
 
   if((position == Position::right || position == Position::split) && !split)
@@ -130,7 +135,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
     }
   }
 
-  if(boost::filesystem::exists(file_path)) {
+  if(boost::filesystem::exists(file_path, ec)) {
     std::ifstream can_read(file_path.string());
     if(!can_read) {
       Terminal::get().print("Error: could not open " + file_path.string() + "\n", true);
@@ -613,15 +618,6 @@ void Notebook::toggle_tabs() {
   //Show / Hide tabs for each notebook.
   for(auto &notebook : Notebook::notebooks)
     notebook.set_show_tabs(!notebook.get_show_tabs());
-}
-
-boost::filesystem::path Notebook::get_current_folder() {
-  if(!Directories::get().path.empty())
-    return Directories::get().path;
-  else if(auto view = get_current_view())
-    return view->file_path.parent_path();
-  else
-    return boost::filesystem::path();
 }
 
 std::vector<std::pair<size_t, Source::View *>> Notebook::get_notebook_views() {
