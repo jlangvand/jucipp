@@ -8,6 +8,7 @@ set(JUCI_SHARED_FILES
   documentation_cppreference.cc
   filesystem.cc
   git.cc
+  grep.cc
   menu.cc
   meson.cc
   project_build.cc

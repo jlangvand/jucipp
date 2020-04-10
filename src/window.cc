@@ -7,6 +7,7 @@
 #include "directories.h"
 #include "entrybox.h"
 #include "filesystem.h"
+#include "grep.h"
 #include "info.h"
 #include "menu.h"
 #include "notebook.h"
@@ -786,105 +787,60 @@ void Window::set_menu_actions() {
   menu.add_action("source_find_pattern", [this]() {
     std::string excludes = "--exclude-dir=node_modules";
 
-    auto view_folder = Project::get_preferably_view_folder();
-    auto build = Project::Build::create(view_folder);
-    boost::filesystem::path default_path, debug_path;
-    if(!build->project_path.empty()) {
-      view_folder = build->project_path;
-      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), build->project_path).string());
-      excludes += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), build->project_path).string());
-    }
-
     EntryBox::get().clear();
 
-    EntryBox::get().entries.emplace_back(last_find_pattern, [this, view_folder = std::move(view_folder), excludes = std::move(excludes)](const std::string &pattern) {
+    EntryBox::get().entries.emplace_back(last_find_pattern, [this](const std::string &pattern_) {
+      auto pattern = pattern_; // Store pattern to safely hide entrybox
+      EntryBox::get().hide();
       if(!pattern.empty()) {
-        std::stringstream stdin_stream;
-        std::string flags;
-        if(!find_pattern_case_sensitive)
-          flags += " -i";
-        if(find_pattern_extended_regex)
-          flags += " -E";
-        auto escaped_pattern = '\'' + pattern + '\'';
-        for(size_t i = 1; i < escaped_pattern.size() - 1; ++i) {
-          if(escaped_pattern[i] == '\'') {
-            escaped_pattern.insert(i, "\\");
-            ++i;
-          }
-        }
-        std::string command = Config::get().project.grep_command + " -R " + flags + " --color=always --binary-files=without-match " + excludes + " -n " + escaped_pattern + " *";
-        //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
-        auto stdout_stream = std::make_unique<std::stringstream>();
-        Terminal::get().process(stdin_stream, *stdout_stream, command, view_folder);
-        stdout_stream->seekg(0, std::ios::end);
-        if(stdout_stream->tellg() == 0) {
+        auto pair = Grep::get_result(Project::get_preferably_view_folder(), pattern, find_pattern_case_sensitive, find_pattern_extended_regex);
+        auto path = std::move(pair.first);
+        auto stream = std::move(pair.second);
+        stream->seekg(0, std::ios::end);
+        if(stream->tellg() == 0) {
           Info::get().print("Pattern not found");
           EntryBox::get().hide();
           return;
         }
-        stdout_stream->seekg(0, std::ios::beg);
+        stream->seekg(0, std::ios::beg);
 
         if(auto view = Notebook::get().get_current_view())
           SelectionDialog::create(view, true, true);
         else
           SelectionDialog::create(true, true);
         std::string line;
-        while(std::getline(*stdout_stream, line)) {
-          auto line_markup = Glib::Markup::escape_text(line);
-          size_t start = 0;
-          while((start = line_markup.find("&#x1b;[", start)) != std::string::npos) {
-            auto start_end = line_markup.find("&#x1b;[K", start + 7);
-            if(start_end == std::string::npos)
-              break;
-            auto start_size = start_end - start + 8;
-            auto end = line_markup.find("&#x1b;[m&#x1b;[K", start + start_size);
-            if(end == std::string::npos)
-              break;
-            line_markup.replace(end, 16, "</b>");
-            line_markup.replace(start, start_size, "<b>");
-            start = end - start_size + 3 + 4;
-          }
-          SelectionDialog::get()->add_row(line_markup);
+
+        std::string current_path;
+        unsigned int current_line = 0;
+        auto view = Notebook::get().get_current_view();
+        if(view) {
+          current_path = filesystem::get_relative_path(view->file_path, path).string();
+          current_line = view->get_buffer()->get_insert()->get_iter().get_line();
         }
-        SelectionDialog::get()->on_select = [view_folder = std::move(view_folder)](unsigned int index, const std::string &text, bool hide_window) {
-          auto remove_markup = [](std::string &markup) {
-            auto start = markup.end();
-            for(auto it = markup.begin(); it != markup.end();) {
-              if(*it == '<') {
-                start = it;
-                it++;
-              }
-              else if(*it == '>' && start != markup.end()) {
-                it = markup.erase(start, ++it);
-                start = markup.end();
-              }
-              else
-                it++;
+        bool set_cursor_at_path = true;
+        while(std::getline(*stream, line)) {
+          auto location = Grep::get_location(std::move(line), true, false, current_path);
+          SelectionDialog::get()->add_row(location.markup);
+          if(view && location) {
+            if(set_cursor_at_path) {
+              SelectionDialog::get()->set_cursor_at_last_row();
+              set_cursor_at_path = false;
             }
-          };
-          auto file_end = text.find(':');
-          if(file_end != std::string::npos) {
-            auto file = text.substr(0, file_end);
-            remove_markup(file);
-            auto line_end = text.find(':', file_end + 1);
-            if(line_end != std::string::npos) {
-              try {
-                auto line_str = text.substr(file_end + 1, line_end - file_end);
-                remove_markup(line_str);
-                auto line = std::stoi(line_str);
-                Notebook::get().open(view_folder / file);
-                auto view = Notebook::get().get_current_view();
-                view->place_cursor_at_line_pos(line - 1, 0);
-                view->scroll_to_cursor_delayed(true, false);
-              }
-              catch(...) {
-              }
+            else {
+              if(current_line >= location.line)
+                SelectionDialog::get()->set_cursor_at_last_row();
             }
           }
+        }
+        SelectionDialog::get()->on_select = [path = std::move(path)](unsigned int index, const std::string &text, bool hide_window) {
+          auto location = Grep::get_location(text, false, true);
+          Notebook::get().open(path / location.file_path);
+          auto view = Notebook::get().get_current_view();
+          view->place_cursor_at_line_offset(location.line, location.offset);
+          view->scroll_to_cursor_delayed(true, false);
         };
         SelectionDialog::get()->show();
       }
-      EntryBox::get().hide();
     });
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Pattern");

@@ -219,8 +219,7 @@ void Project::Base::recreate_build() {
 }
 
 void Project::Base::show_symbols() {
-  auto view_folder = get_preferably_view_folder();
-  auto pair = Ctags::get_result(view_folder);
+  auto pair = Ctags::get_result(get_preferably_view_folder());
 
   auto path = std::move(pair.first);
   auto stream = std::move(pair.second);

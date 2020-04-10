@@ -17,8 +17,8 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
     std::string exclude = " --exclude=node_modules";
     if(!build->project_path.empty()) {
       run_path = build->project_path;
-      exclude += " --exclude=" + filesystem::get_relative_path(build->get_default_path(), run_path).string();
-      exclude += " --exclude=" + filesystem::get_relative_path(build->get_debug_path(), run_path).string();
+      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), run_path).string());
+      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), run_path).string());
     }
     else
       run_path = path;
@@ -36,7 +36,7 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
   return {run_path, std::move(stdout_stream)};
 }
 
-Ctags::Location Ctags::get_location(const std::string &line_, bool markup) {
+Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) {
   Location location;
 
 #ifdef _WIN32
@@ -118,7 +118,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool markup) {
   if(pos != std::string::npos)
     location.index += pos;
 
-  if(markup) {
+  if(add_markup) {
     location.source = Glib::Markup::escape_text(location.source);
     std::string symbol = Glib::Markup::escape_text(location.symbol);
     pos = -1;

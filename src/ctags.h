@@ -20,7 +20,7 @@ public:
 
   static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path);
 
-  static Location get_location(const std::string &line, bool markup);
+  static Location get_location(const std::string &line, bool add_markup);
 
   static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type);
 
