@@ -19,7 +19,8 @@
 Install dependencies:
 ```sh
 sudo apt-get install libclang-dev liblldb-dev || sudo apt-get install libclang-6.0-dev liblldb-6.0-dev || sudo apt-get install libclang-4.0-dev liblldb-4.0-dev || sudo apt-get install libclang-3.8-dev liblldb-3.8-dev
-sudo apt-get install git cmake make g++ clang-format pkg-config libboost-filesystem-dev libboost-serialization-dev libgtksourceviewmm-3.0-dev aspell-en libaspell-dev libgit2-dev exuberant-ctags
+sudo apt-get install universal-ctags || sudo apt-get install exuberant-ctags
+sudo apt-get install git cmake make g++ clang-format pkg-config libboost-filesystem-dev libboost-serialization-dev libgtksourceviewmm-3.0-dev aspell-en libaspell-dev libgit2-dev
 ```
 
 Get juCi++ source, compile and install:
@@ -118,7 +119,8 @@ On FreeBSD, latest release of juCi++ is available through the port: jucipp.
 ## MacOS with Homebrew (http://brew.sh/)
 Install dependencies:
 ```sh
-brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 ctags zlib libxml2
+brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 zlib libxml2
+brew install --HEAD universal-ctags/universal-ctags/universal-ctags # Recommended Ctags package
 ```
 
 Mojave users might need to install headers:

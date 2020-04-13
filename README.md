@@ -35,7 +35,7 @@ towards libclang with speed, stability, and ease of use in mind.
     * Language server protocol support is enabled if `[language identifier]-language-server` executable is found. This executable can be a symbolic link to one of your installed language server binaries.
         * For additional instructions, see: [setup of tested language servers](docs/language_servers.md)
     * otherwise, only keyword and buffer completion supported
-* Find symbol through Ctags
+* Find symbol through Ctags ([Universal Ctags](https://github.com/universal-ctags/ctags) is recommended)
 * Spell checking depending on file context
 * Run shell commands within juCi++
 * Regex search and replace
