@@ -8,8 +8,9 @@
 #include <regex>
 #include <vector>
 
-std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path) {
+std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path, bool enable_kinds) {
   boost::filesystem::path run_path;
+  auto fields = std::string(" --fields=ns") + (enable_kinds ? "K" : "");
   std::string command;
   boost::system::error_code ec;
   if(boost::filesystem::is_directory(path, ec)) {
@@ -22,11 +23,11 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
     }
     else
       run_path = path;
-    command = Config::get().project.ctags_command + exclude + " --fields=nsk --sort=foldcase -I \"override noexcept\" -f - -R *";
+    command = Config::get().project.ctags_command + exclude + fields + " --sort=foldcase -I \"override noexcept\" -f - -R *";
   }
   else {
     run_path = path.parent_path();
-    command = Config::get().project.ctags_command + " --fields=nsk --sort=foldcase -I \"override noexcept\" -f - " + path.string();
+    command = Config::get().project.ctags_command + fields + " --sort=foldcase -I \"override noexcept\" -f - " + path.string();
   }
 
   std::stringstream stdin_stream;
@@ -36,7 +37,7 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
   return {run_path, std::move(stdout_stream)};
 }
 
-Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) {
+Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, bool kinds_enabled) {
   Location location;
 
 #ifdef _WIN32
@@ -87,14 +88,24 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) {
   }
   location.source = line.substr(source_start, source_end - source_start - (line[source_end - 1] == '$' ? 1 : 0));
 
-  auto kind_start = source_end + 4;
-  if(kind_start >= line.size()) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
-    return location;
+  size_t line_start;
+  if(kinds_enabled) {
+    auto kind_start = source_end + 4;
+    if(kind_start >= line.size()) {
+      std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+      return location;
+    }
+    auto kind_end = line.find('\t', kind_start);
+    if(kind_end == std::string::npos) {
+      std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+      return location;
+    }
+    location.kind = line.substr(kind_start, kind_end - kind_start);
+    line_start = kind_start + location.kind.size() + 6;
   }
-  location.kind = line[kind_start];
+  else
+    line_start = source_end + 9;
 
-  auto line_start = kind_start + 7;
   if(line_start >= line.size()) {
     std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
     return location;

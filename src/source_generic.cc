@@ -70,15 +70,21 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
         Terminal::get().print("Error: could not get temporary directory folder\n", true);
         return methods;
       }
-      file_path /= ("jucipp_get_methods" + std::to_string(get_current_process_id()) + this->file_path.filename().string());
+      file_path /= "jucipp_get_methods" + std::to_string(get_current_process_id());
+      boost::filesystem::create_directory(file_path, ec);
+      if(ec) {
+        Terminal::get().print("Error: could not create temporary folder\n", true);
+        return methods;
+      }
+      file_path /= this->file_path.filename();
       filesystem::write(file_path, this->get_buffer()->get_text().raw());
     }
     else
       file_path = this->file_path;
 
-    auto pair = Ctags::get_result(file_path);
+    auto pair = Ctags::get_result(file_path, true);
     if(use_tmp_file)
-      boost::filesystem::remove(file_path, ec);
+      boost::filesystem::remove_all(file_path.parent_path(), ec);
     auto path = std::move(pair.first);
     auto stream = std::move(pair.second);
     stream->seekg(0, std::ios::end);
@@ -90,10 +96,15 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
     stream->seekg(0, std::ios::beg);
 
     std::string line;
-    bool all_kinds = this->language && (this->language->get_id() == "markdown" || this->language->get_id() == "json");
     while(std::getline(*stream, line)) {
-      auto location = Ctags::get_location(line, true);
-      if(all_kinds || location.kind == 'f' || location.kind == 's' || location.kind == 'm')
+      auto location = Ctags::get_location(line, true, true);
+      std::transform(location.kind.begin(), location.kind.end(), location.kind.begin(),
+                     [](char c) { return std::tolower(c); });
+      std::vector<std::string> ignore_kinds = {"variable", "local", "constant", "global", "property", "member", "enum",
+                                               "macro", "param", "header",
+                                               "typedef", "using", "alias",
+                                               "project", "option"};
+      if(std::none_of(ignore_kinds.begin(), ignore_kinds.end(), [&location](const std::string &e) { return location.kind.find(e) != std::string::npos; }))
         methods.emplace_back(Offset(location.line, location.index), location.source);
     }
     std::sort(methods.begin(), methods.end(), [](const std::pair<Offset, std::string> &e1, const std::pair<Offset, std::string> &e2) {

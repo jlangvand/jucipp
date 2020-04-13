@@ -14,13 +14,13 @@ public:
     std::string symbol;
     std::string scope;
     std::string source;
-    char kind;
+    std::string kind;
     operator bool() const { return !file_path.empty(); }
   };
 
-  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path);
+  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path, bool enable_kinds = false);
 
-  static Location get_location(const std::string &line, bool add_markup);
+  static Location get_location(const std::string &line, bool add_markup, bool kinds_enabled = false);
 
   static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type);
 
