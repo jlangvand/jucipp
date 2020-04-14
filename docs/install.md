@@ -7,6 +7,7 @@
         - [Fedora](#fedora)
         - [Mageia](#mageia)
         - [OpenSUSE Tumbleweed](#opensuse-tumbleweed)
+        - [GNU Guix/GuixSD](#gnu-guixguixsd)
     - [FreeBSD](#freebsd)
     - MacOS
         - [Homebrew](#macos-with-homebrew-httpbrewsh)
@@ -103,6 +104,12 @@ cd jucipp/build
 cmake -DCMAKE_CXX_COMPILER=g++ ..
 make
 sudo make install
+```
+
+## GNU Guix/GuixSD
+Simply install jucipp from the official package definition
+```sh
+guix install jucipp
 ```
 
 ## FreeBSD
