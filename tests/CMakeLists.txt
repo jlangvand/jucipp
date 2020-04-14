@@ -76,3 +76,8 @@ endif()
 add_executable(git_test git_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(git_test juci_shared)
 add_test(git_test git_test)
+
+add_executable(ctags_grep_test ctags_grep_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(ctags_grep_test juci_shared)
+add_test(ctags_grep_test ctags_grep_test)
+
