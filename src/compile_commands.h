@@ -5,6 +5,17 @@
 
 class CompileCommands {
 public:
+  class FindSystemIncludePaths {
+    int exit_status;
+
+  public:
+    std::vector<std::string> include_paths;
+    std::vector<std::string> framework_paths;
+    operator bool() const { return exit_status == 0; }
+
+    FindSystemIncludePaths();
+  };
+
   class Command {
   public:
     boost::filesystem::path directory;

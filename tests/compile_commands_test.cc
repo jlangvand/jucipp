@@ -1,9 +1,17 @@
 #include "compile_commands.h"
 #include <glib.h>
+#include <gtkmm.h>
 
 int main() {
+  auto app = Gtk::Application::create();
+
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
 
+  {
+    CompileCommands::FindSystemIncludePaths system_include_paths;
+    g_assert(system_include_paths);
+    g_assert(!system_include_paths.include_paths.empty());
+  }
   {
     CompileCommands compile_commands(tests_path / "meson_test_files" / "build");
 

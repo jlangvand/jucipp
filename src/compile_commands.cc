@@ -1,8 +1,34 @@
 #include "compile_commands.h"
 #include "clangmm.h"
+#include "terminal.h"
 #include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
 #include <regex>
+
+CompileCommands::FindSystemIncludePaths::FindSystemIncludePaths() {
+  std::stringstream stdin_stream, stdout_stream;
+  stdin_stream << "int main() {}";
+  exit_status = Terminal::get().process(stdin_stream, stdout_stream, "clang++ -v -x c++ -E 2>&1 -");
+  if(exit_status != 0)
+    return;
+  std::string line;
+  while(std::getline(stdout_stream, line)) {
+    if(line == "#include <...> search starts here:") {
+      while(std::getline(stdout_stream, line)) {
+        if(!line.empty() && line[0] == ' ') {
+          auto end = line.find(" (framework directory)", 1);
+          if(end == std::string::npos)
+            include_paths.emplace_back(line.substr(1, end));
+          else
+            framework_paths.emplace_back(line.substr(1, end));
+        }
+        else
+          return;
+      }
+      return;
+    }
+  }
+}
 
 std::vector<std::string> CompileCommands::Command::parameter_values(const std::string &parameter_name) const {
   std::vector<std::string> parameter_values;
@@ -135,25 +161,34 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
   else
     arguments.emplace_back(default_std_argument);
 
-  auto clang_version_string = clangmm::to_string(clang_getClangVersion());
-  const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)");
-  std::smatch sm;
-  if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
-    auto clang_version = sm[1].str();
-    arguments.emplace_back("-I/usr/lib/clang/" + clang_version + "/include");
-    arguments.emplace_back("-I/usr/lib64/clang/" + clang_version + "/include"); // For Fedora
+  static FindSystemIncludePaths system_include_paths;
+  if(system_include_paths) {
+    for(auto &path : system_include_paths.include_paths)
+      arguments.emplace_back("-I" + path);
+    for(auto &path : system_include_paths.framework_paths)
+      arguments.emplace_back("-F" + path);
+  }
+  else {
+    auto clang_version_string = clangmm::to_string(clang_getClangVersion());
+    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)");
+    std::smatch sm;
+    if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
+      auto clang_version = sm[1].str();
+      arguments.emplace_back("-I/usr/lib/clang/" + clang_version + "/include");
+      arguments.emplace_back("-I/usr/lib64/clang/" + clang_version + "/include"); // For Fedora
 #if defined(__APPLE__)
-    // Missing include and framework folders for MacOS:
-    arguments.emplace_back("-I/usr/local/opt/llvm/include/c++/v1");
-    arguments.emplace_back("-I/usr/local/opt/llvm/lib/clang/" + clang_version + "/include");
-    arguments.emplace_back("-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
-    arguments.emplace_back("-F/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks");
+      // Missing include and framework folders for MacOS:
+      arguments.emplace_back("-I/usr/local/opt/llvm/include/c++/v1");
+      arguments.emplace_back("-I/usr/local/opt/llvm/lib/clang/" + clang_version + "/include");
+      arguments.emplace_back("-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
+      arguments.emplace_back("-F/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks");
 #endif
 #ifdef _WIN32
-    auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
-    if(env_msystem_prefix != nullptr)
-      arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
+      auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
+      if(env_msystem_prefix != nullptr)
+        arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
 #endif
+    }
   }
 
   // Do not add -fretain-comments-from-system-headers if pch is used, since the pch was most likely made without this flag
