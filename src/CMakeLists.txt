@@ -40,7 +40,7 @@ target_link_libraries(juci_shared
   tiny-process-library
 )
 
-add_executable(juci
+set(JUCI_FILES
   config.cc
   dialogs.cc
   dialogs_unix.cc
@@ -54,7 +54,17 @@ add_executable(juci
   tooltips.cc
   window.cc
 )
+if(APPLE)
+  list(APPEND JUCI_FILES window_macos.m)
+endif()
+
+add_executable(juci ${JUCI_FILES})
 target_link_libraries(juci juci_shared)
+
+if(APPLE)
+  target_link_libraries(juci "-framework Foundation -framework AppKit")
+endif()
+
 
 install(TARGETS juci RUNTIME DESTINATION bin)
 if(${CMAKE_SYSTEM_NAME} MATCHES Linux|.*BSD|DragonFly)

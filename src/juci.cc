@@ -9,6 +9,10 @@
 #ifndef _WIN32
 #include <csignal>
 #endif
+#ifdef __APPLE__
+#include "dispatcher.h"
+#include "window_macos.h"
+#endif
 
 int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine> &cmd) {
   Glib::set_prgname("juci");
@@ -104,6 +108,13 @@ void Application::on_activate() {
       view->scroll_to_cursor_delayed(true, false);
     }
   }
+
+#ifdef __APPLE__
+  static Dispatcher dispatcher;
+  dispatcher.post([] {
+    macos_force_foreground_level(); // Must run after all other events
+  });
+#endif
 }
 
 void Application::on_startup() {

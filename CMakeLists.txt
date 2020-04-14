@@ -16,7 +16,9 @@ set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://gitlab.com/cppit/jucipp")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 include(CPack)
 
-add_compile_options(-std=c++1y -pthread -Wall -Wextra -Wno-unused-parameter)
+set(CMAKE_CXX_STANDARD 14)
+
+add_compile_options(-pthread -Wall -Wextra -Wno-unused-parameter)
 add_definitions(-DJUCI_VERSION="${JUCI_VERSION}")
 if(CMAKE_BUILD_TYPE STREQUAL "")
   add_compile_options(-O3)
