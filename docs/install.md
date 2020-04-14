@@ -107,7 +107,7 @@ sudo make install
 ```
 
 ## GNU Guix/GuixSD
-Simply install jucipp from the official package definition
+Simply install juCi++ from the official package definition
 ```sh
 guix install jucipp
 ```
