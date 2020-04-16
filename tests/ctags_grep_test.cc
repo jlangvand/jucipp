@@ -22,16 +22,16 @@ int main() {
 
   // Ctags tests
   {
-    auto result = Ctags::get_result(tests_path);
-    g_assert(result.first == tests_path.parent_path());
+    Ctags ctags(tests_path);
+    g_assert(ctags.project_path == tests_path.parent_path());
     bool found = false;
     std::string line;
-    while(std::getline(*result.second, line)) {
+    while(std::getline(ctags.output, line)) {
       if(line.find("ctags_grep_test_function") != std::string::npos) {
         {
-          auto location = Ctags::get_location(line, false);
+          auto location = ctags.get_location(line, false);
           g_assert(location.source == "void ctags_grep_test_function() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(ctags.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.index, ==, 5);
           g_assert(location.symbol == "ctags_grep_test_function");
@@ -39,9 +39,9 @@ int main() {
           g_assert(location.kind.empty());
         }
         {
-          auto location = Ctags::get_location(line, true);
+          auto location = ctags.get_location(line, true);
           g_assert(location.source == "void <b>ctags_grep_test_function</b>() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(ctags.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.index, ==, 5);
           g_assert(location.symbol == "ctags_grep_test_function");
@@ -55,16 +55,16 @@ int main() {
     g_assert(found == true);
   }
   {
-    auto result = Ctags::get_result(tests_path, false, true);
-    g_assert(result.first == tests_path.parent_path());
+    Ctags ctags(tests_path, false, true);
+    g_assert(ctags.project_path == tests_path.parent_path());
     bool found = false;
     std::string line;
-    while(std::getline(*result.second, line)) {
+    while(std::getline(ctags.output, line)) {
       if(line.find("ctags_grep_test_function") != std::string::npos) {
         {
-          auto location = Ctags::get_location(line, false, false, true);
+          auto location = ctags.get_location(line, false);
           g_assert(location.source == "void ctags_grep_test_function() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(ctags.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.index, ==, 5);
           g_assert(location.symbol == "ctags_grep_test_function");
@@ -72,9 +72,9 @@ int main() {
           g_assert(location.kind == "function");
         }
         {
-          auto location = Ctags::get_location(line, true, false, true);
+          auto location = ctags.get_location(line, true);
           g_assert(location.source == "void <b>ctags_grep_test_function</b>() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(ctags.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.index, ==, 5);
           g_assert(location.symbol == "ctags_grep_test_function");
@@ -88,16 +88,16 @@ int main() {
     g_assert(found == true);
   }
   {
-    auto result = Ctags::get_result(tests_path, true);
-    g_assert(result.first == tests_path.parent_path());
+    Ctags ctags(tests_path, true);
+    g_assert(ctags.project_path == tests_path.parent_path());
     bool found = false;
     std::string line;
-    while(std::getline(*result.second, line)) {
+    while(std::getline(ctags.output, line)) {
       if(line.find("ctags_grep_test_function2") != std::string::npos) {
         {
-          auto location = Ctags::get_location(line, false, true);
+          auto location = ctags.get_location(line, false);
           g_assert(location.source == "void ctags_grep_test_function2() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(ctags.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 10);
           g_assert_cmpint(location.index, ==, 7);
           g_assert(location.symbol == "ctags_grep_test_function2");
@@ -113,50 +113,50 @@ int main() {
 
   // Grep tests
   {
-    auto result = Grep::get_result(tests_path, "ctags_grep_test_function", true, false);
-    g_assert(result.first == tests_path.parent_path());
+    Grep grep(tests_path, "ctags_grep_test_function", true, false);
+    g_assert(grep.project_path == tests_path.parent_path());
     bool found = false;
     std::string line;
-    while(std::getline(*result.second, line)) {
+    while(std::getline(grep.output, line)) {
       if(line.find("ctags_grep_test_function") != std::string::npos) {
         {
-          auto location = Grep::get_location(line, true, true);
+          auto location = grep.get_location(line, true, true);
           g_assert(location.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(grep.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.offset, ==, 5);
           {
-            auto location2 = Grep::get_location(location.markup, false, true);
+            auto location2 = grep.get_location(location.markup, false, true);
             g_assert(location2.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
-            g_assert(result.first / location2.file_path == tests_path / "ctags_grep_test.cc");
+            g_assert(grep.project_path / location2.file_path == tests_path / "ctags_grep_test.cc");
             g_assert_cmpint(location2.line, ==, 6);
             g_assert_cmpint(location2.offset, ==, 5);
           }
         }
         {
-          auto location = Grep::get_location(line, true, false);
+          auto location = grep.get_location(line, true, false);
           g_assert(location.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(grep.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.offset, ==, 0);
           {
-            auto location2 = Grep::get_location(location.markup, false, false);
+            auto location2 = grep.get_location(location.markup, false, false);
             g_assert(location2.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
-            g_assert(result.first / location2.file_path == tests_path / "ctags_grep_test.cc");
+            g_assert(grep.project_path / location2.file_path == tests_path / "ctags_grep_test.cc");
             g_assert_cmpint(location2.line, ==, 6);
             g_assert_cmpint(location2.offset, ==, 0);
           }
         }
         {
-          auto location = Grep::get_location(line, true, true, (boost::filesystem::path("tests") / "ctags_grep_test.cc").string());
+          auto location = grep.get_location(line, true, true, (boost::filesystem::path("tests") / "ctags_grep_test.cc").string());
           g_assert(location.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
-          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert(grep.project_path / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert(location);
           g_assert_cmpint(location.line, ==, 6);
           g_assert_cmpint(location.offset, ==, 5);
         }
         {
-          auto location = Grep::get_location(line, true, true, "CMakeLists.txt");
+          auto location = grep.get_location(line, true, true, "CMakeLists.txt");
           g_assert(location.markup == "tests/ctags_grep_test.cc:7:void <b>ctags_grep_test_function</b>() {");
           g_assert(location.file_path.empty());
           g_assert(!location);
@@ -172,22 +172,22 @@ int main() {
   {
     auto pattern = std::string("C") + "tags_grep_test_function";
     {
-      auto result = Grep::get_result(tests_path, pattern, true, false);
-      g_assert(result.first == tests_path.parent_path());
+      Grep grep(tests_path, pattern, true, false);
+      g_assert(grep.project_path == tests_path.parent_path());
       bool found = false;
       std::string line;
-      while(std::getline(*result.second, line)) {
+      while(std::getline(grep.output, line)) {
         if(line.find("ctags_grep_test_function") != std::string::npos)
           found = true;
       }
       g_assert(found == false);
     }
     {
-      auto result = Grep::get_result(tests_path, pattern, false, false);
-      g_assert(result.first == tests_path.parent_path());
+      Grep grep(tests_path, pattern, false, false);
+      g_assert(grep.project_path == tests_path.parent_path());
       bool found = false;
       std::string line;
-      while(std::getline(*result.second, line)) {
+      while(std::getline(grep.output, line)) {
         if(line.find("ctags_grep_test_function") != std::string::npos)
           found = true;
       }

@@ -793,16 +793,12 @@ void Window::set_menu_actions() {
       auto pattern = pattern_; // Store pattern to safely hide entrybox
       EntryBox::get().hide();
       if(!pattern.empty()) {
-        auto pair = Grep::get_result(Project::get_preferably_view_folder(), pattern, find_pattern_case_sensitive, find_pattern_extended_regex);
-        auto path = std::move(pair.first);
-        auto stream = std::move(pair.second);
-        stream->seekg(0, std::ios::end);
-        if(stream->tellg() == 0) {
+        auto grep = std::make_shared<Grep>(Project::get_preferably_view_folder(), pattern, find_pattern_case_sensitive, find_pattern_extended_regex);
+        if(!*grep) {
           Info::get().print("Pattern not found");
           EntryBox::get().hide();
           return;
         }
-        stream->seekg(0, std::ios::beg);
 
         if(auto view = Notebook::get().get_current_view())
           SelectionDialog::create(view, true, true);
@@ -814,12 +810,12 @@ void Window::set_menu_actions() {
         unsigned int current_line = 0;
         auto view = Notebook::get().get_current_view();
         if(view) {
-          current_path = filesystem::get_relative_path(view->file_path, path).string();
+          current_path = filesystem::get_relative_path(view->file_path, grep->project_path).string();
           current_line = view->get_buffer()->get_insert()->get_iter().get_line();
         }
         bool set_cursor_at_path = true;
-        while(std::getline(*stream, line)) {
-          auto location = Grep::get_location(std::move(line), true, false, current_path);
+        while(std::getline(grep->output, line)) {
+          auto location = grep->get_location(std::move(line), true, false, current_path);
           SelectionDialog::get()->add_row(location.markup);
           if(view && location) {
             if(set_cursor_at_path) {
@@ -832,9 +828,9 @@ void Window::set_menu_actions() {
             }
           }
         }
-        SelectionDialog::get()->on_select = [path = std::move(path)](unsigned int index, const std::string &text, bool hide_window) {
-          auto location = Grep::get_location(text, false, true);
-          Notebook::get().open(path / location.file_path);
+        SelectionDialog::get()->on_select = [grep](unsigned int index, const std::string &text, bool hide_window) {
+          auto location = grep->get_location(text, false, true);
+          Notebook::get().open(grep->project_path / location.file_path);
           auto view = Notebook::get().get_current_view();
           view->place_cursor_at_line_offset(location.line, location.offset);
           view->scroll_to_cursor_delayed(true, false);

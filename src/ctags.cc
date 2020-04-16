@@ -4,12 +4,9 @@
 #include "project_build.h"
 #include "terminal.h"
 #include <climits>
-#include <iostream>
-#include <regex>
 #include <vector>
 
-std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path, bool enable_scope, bool enable_kind) {
-  boost::filesystem::path run_path;
+Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable_kind) : enable_scope(enable_scope), enable_kind(enable_kind) {
   std::string fields(" --fields=n");
   if(enable_scope)
     fields += 's';
@@ -21,27 +18,32 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
     auto build = Project::Build::create(path);
     std::string exclude = " --exclude=node_modules";
     if(!build->project_path.empty()) {
-      run_path = build->project_path;
-      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), run_path).string());
-      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), run_path).string());
+      project_path = build->project_path;
+      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), project_path).string());
+      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), project_path).string());
     }
     else
-      run_path = path;
+      project_path = path;
     command = Config::get().project.ctags_command + exclude + fields + " --sort=foldcase -I \"override noexcept\" -f - -R *";
   }
   else {
-    run_path = path.parent_path();
+    project_path = path.parent_path();
     command = Config::get().project.ctags_command + fields + " --sort=foldcase -I \"override noexcept\" -f - " + path.string();
   }
 
   std::stringstream stdin_stream;
-  //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
-  auto stdout_stream = std::make_unique<std::stringstream>();
-  Terminal::get().process(stdin_stream, *stdout_stream, command, run_path);
-  return {run_path, std::move(stdout_stream)};
+  Terminal::get().process(stdin_stream, output, command, project_path);
 }
 
-Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, bool scope_enabled, bool kind_enabled) {
+Ctags::operator bool() {
+  output.seekg(0, std::ios::end);
+  if(output.tellg() == 0)
+    return false;
+  output.seekg(0, std::ios::beg);
+  return true;
+}
+
+Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) const {
   Location location;
 
 #ifdef _WIN32
@@ -105,7 +107,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   }
 
   size_t line_start;
-  if(kind_enabled) {
+  if(enable_kind) {
     auto kind_start = source_end + 4;
     if(kind_start >= line.size()) {
       std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
@@ -135,7 +137,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
     location.line = 0;
   }
 
-  if(scope_enabled && line_end != std::string::npos && line_end + 1 < line.size()) {
+  if(enable_scope && line_end != std::string::npos && line_end + 1 < line.size()) {
     auto scope_start = line.find(':', line_end + 1);
     if(scope_start != std::string::npos && scope_start + 1 < line.size())
       location.scope = line.substr(scope_start + 1);
@@ -188,11 +190,9 @@ std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
 }
 
 std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type) {
-  auto result = get_result(path, true);
-  result.second->seekg(0, std::ios::end);
-  if(result.second->tellg() == 0)
-    return std::vector<Location>();
-  result.second->seekg(0, std::ios::beg);
+  Ctags ctags(path, true);
+  if(!ctags)
+    return {};
 
   //insert name into type
   size_t c = 0;
@@ -213,10 +213,10 @@ std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path 
   std::string line;
   long best_score = LONG_MIN;
   std::vector<Location> best_locations;
-  while(std::getline(*result.second, line)) {
+  while(std::getline(ctags.output, line)) {
     if(line.size() > 2048)
       continue;
-    auto location = Ctags::get_location(line, false, true);
+    auto location = ctags.get_location(line);
     if(!location.scope.empty()) {
       if(location.scope + "::" + location.symbol != name)
         continue;
@@ -224,7 +224,7 @@ std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path 
     else if(location.symbol != name)
       continue;
 
-    location.file_path = result.first / location.file_path;
+    location.file_path = ctags.project_path / location.file_path;
 
     auto source_parts = get_type_parts(location.source);
 

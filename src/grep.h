@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/filesystem.hpp>
+#include <sstream>
 
 class Grep {
 public:
@@ -12,7 +13,12 @@ public:
     operator bool() const { return !file_path.empty(); }
   };
 
-  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex);
+  Grep(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex);
 
-  static Location get_location(std::string line, bool color_codes_to_markup, bool include_offset, const std::string &only_for_file = {});
+  operator bool();
+
+  Location get_location(std::string line, bool color_codes_to_markup, bool include_offset, const std::string &only_for_file = {}) const;
+
+  boost::filesystem::path project_path;
+  std::stringstream output;
 };

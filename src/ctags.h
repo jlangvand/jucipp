@@ -18,12 +18,18 @@ public:
     operator bool() const { return !file_path.empty(); }
   };
 
-  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path, bool enable_scope = false, bool enable_kind = false);
+  Ctags(const boost::filesystem::path &path, bool enable_scope = false, bool enable_kind = false);
 
-  static Location get_location(const std::string &line, bool add_markup, bool scope_enabled = false, bool kind_enabled = false);
+  operator bool();
+
+  Location get_location(const std::string &line, bool add_markup = false) const;
+
+  boost::filesystem::path project_path;
+  std::stringstream output;
 
   static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type);
 
 private:
+  bool enable_scope, enable_kind;
   static std::vector<std::string> get_type_parts(const std::string &type);
 };

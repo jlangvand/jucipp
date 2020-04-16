@@ -219,16 +219,11 @@ void Project::Base::recreate_build() {
 }
 
 void Project::Base::show_symbols() {
-  auto pair = Ctags::get_result(get_preferably_view_folder());
-
-  auto path = std::move(pair.first);
-  auto stream = std::move(pair.second);
-  stream->seekg(0, std::ios::end);
-  if(stream->tellg() == 0) {
+  Ctags ctags(get_preferably_view_folder());
+  if(!ctags) {
     Info::get().print("No symbols found in current project");
     return;
   }
-  stream->seekg(0, std::ios::beg);
 
   auto view = Notebook::get().get_current_view();
   if(view)
@@ -239,8 +234,8 @@ void Project::Base::show_symbols() {
   std::vector<Source::Offset> rows;
 
   std::string line;
-  while(std::getline(*stream, line)) {
-    auto location = Ctags::get_location(line, true);
+  while(std::getline(ctags.output, line)) {
+    auto location = ctags.get_location(line, true);
 
     std::string row = location.file_path.string() + ":" + std::to_string(location.line + 1) + ": " + location.source;
     rows.emplace_back(Source::Offset(location.line, location.index, location.file_path));
@@ -249,11 +244,11 @@ void Project::Base::show_symbols() {
 
   if(rows.size() == 0)
     return;
-  SelectionDialog::get()->on_select = [rows = std::move(rows), path = std::move(path)](unsigned int index, const std::string &text, bool hide_window) {
+  SelectionDialog::get()->on_select = [rows = std::move(rows), project_path = std::move(ctags.project_path)](unsigned int index, const std::string &text, bool hide_window) {
     if(index >= rows.size())
       return;
     auto offset = rows[index];
-    auto full_path = path / offset.file_path;
+    auto full_path = project_path / offset.file_path;
     boost::system::error_code ec;
     if(!boost::filesystem::is_regular_file(full_path, ec))
       return;

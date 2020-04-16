@@ -82,22 +82,17 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
     else
       file_path = this->file_path;
 
-    auto pair = Ctags::get_result(file_path, false, true);
+    Ctags ctags(file_path, false, true);
     if(use_tmp_file)
       boost::filesystem::remove_all(file_path.parent_path(), ec);
-    auto path = std::move(pair.first);
-    auto stream = std::move(pair.second);
-    stream->seekg(0, std::ios::end);
-
-    if(stream->tellg() == 0) {
+    if(!ctags) {
       Info::get().print("No methods found in current buffer");
       return methods;
     }
-    stream->seekg(0, std::ios::beg);
 
     std::string line;
-    while(std::getline(*stream, line)) {
-      auto location = Ctags::get_location(line, true, false, true);
+    while(std::getline(ctags.output, line)) {
+      auto location = ctags.get_location(line, true);
       std::transform(location.kind.begin(), location.kind.end(), location.kind.begin(),
                      [](char c) { return std::tolower(c); });
       std::vector<std::string> ignore_kinds = {"variable", "local", "constant", "global", "property", "member", "enum",

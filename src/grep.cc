@@ -4,17 +4,16 @@
 #include "project_build.h"
 #include "terminal.h"
 
-std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Grep::get_result(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex) {
-  boost::filesystem::path run_path;
+Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex) {
   auto build = Project::Build::create(path);
   std::string exclude = "--exclude-dir=node_modules";
   if(!build->project_path.empty()) {
-    run_path = build->project_path;
+    project_path = build->project_path;
     exclude += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), build->project_path).string());
     exclude += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), build->project_path).string());
   }
   else
-    run_path = path;
+    project_path = path;
 
   std::string flags;
   if(!case_sensitive)
@@ -34,12 +33,18 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Grep::get
 
   std::stringstream stdin_stream;
   //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
-  auto stdout_stream = std::make_unique<std::stringstream>();
-  Terminal::get().process(stdin_stream, *stdout_stream, command, run_path);
-  return {run_path, std::move(stdout_stream)};
+  Terminal::get().process(stdin_stream, output, command, project_path);
 }
 
-Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, bool include_offset, const std::string &only_for_file) {
+Grep::operator bool() {
+  output.seekg(0, std::ios::end);
+  if(output.tellg() == 0)
+    return false;
+  output.seekg(0, std::ios::beg);
+  return true;
+}
+
+Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, bool include_offset, const std::string &only_for_file) const {
   std::vector<std::pair<size_t, size_t>> positions;
   size_t file_end = std::string::npos, line_end = std::string::npos;
   if(color_codes_to_markup) {
