@@ -7,6 +7,11 @@
 void ctags_grep_test_function() {
 }
 
+class Test {
+  void ctags_grep_test_function2() {
+  }
+};
+
 int main() {
   auto app = Gtk::Application::create();
   Config::get().project.ctags_command = "ctags";
@@ -50,14 +55,14 @@ int main() {
     g_assert(found == true);
   }
   {
-    auto result = Ctags::get_result(tests_path, true);
+    auto result = Ctags::get_result(tests_path, false, true);
     g_assert(result.first == tests_path.parent_path());
     bool found = false;
     std::string line;
     while(std::getline(*result.second, line)) {
       if(line.find("ctags_grep_test_function") != std::string::npos) {
         {
-          auto location = Ctags::get_location(line, false, true);
+          auto location = Ctags::get_location(line, false, false, true);
           g_assert(location.source == "void ctags_grep_test_function() {");
           g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
@@ -67,7 +72,7 @@ int main() {
           g_assert(location.kind == "function");
         }
         {
-          auto location = Ctags::get_location(line, true, true);
+          auto location = Ctags::get_location(line, true, false, true);
           g_assert(location.source == "void <b>ctags_grep_test_function</b>() {");
           g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
           g_assert_cmpint(location.line, ==, 6);
@@ -75,6 +80,29 @@ int main() {
           g_assert(location.symbol == "ctags_grep_test_function");
           g_assert(location.scope.empty());
           g_assert(location.kind == "function");
+        }
+        found = true;
+        break;
+      }
+    }
+    g_assert(found == true);
+  }
+  {
+    auto result = Ctags::get_result(tests_path, true);
+    g_assert(result.first == tests_path.parent_path());
+    bool found = false;
+    std::string line;
+    while(std::getline(*result.second, line)) {
+      if(line.find("ctags_grep_test_function2") != std::string::npos) {
+        {
+          auto location = Ctags::get_location(line, false, true);
+          g_assert(location.source == "void ctags_grep_test_function2() {");
+          g_assert(result.first / location.file_path == tests_path / "ctags_grep_test.cc");
+          g_assert_cmpint(location.line, ==, 10);
+          g_assert_cmpint(location.index, ==, 7);
+          g_assert(location.symbol == "ctags_grep_test_function2");
+          g_assert(location.scope == "Test");
+          g_assert(location.kind.empty());
         }
         found = true;
         break;

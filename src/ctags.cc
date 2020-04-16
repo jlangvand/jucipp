@@ -8,9 +8,13 @@
 #include <regex>
 #include <vector>
 
-std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path, bool enable_kinds) {
+std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::get_result(const boost::filesystem::path &path, bool enable_scope, bool enable_kind) {
   boost::filesystem::path run_path;
-  auto fields = std::string(" --fields=ns") + (enable_kinds ? "K" : "");
+  std::string fields(" --fields=n");
+  if(enable_scope)
+    fields += 's';
+  if(enable_kind)
+    fields += 'K';
   std::string command;
   boost::system::error_code ec;
   if(boost::filesystem::is_directory(path, ec)) {
@@ -37,7 +41,7 @@ std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> Ctags::ge
   return {run_path, std::move(stdout_stream)};
 }
 
-Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, bool kinds_enabled) {
+Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, bool scope_enabled, bool kind_enabled) {
   Location location;
 
 #ifdef _WIN32
@@ -86,10 +90,22 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
     std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
     return location;
   }
-  location.source = line.substr(source_start, source_end - source_start - (line[source_end - 1] == '$' ? 1 : 0));
+
+  // Unescape source
+  auto end = source_end - (line[source_end - 1] == '$' ? 1 : 0);
+  location.source.reserve(end - source_start);
+  bool escaped = false;
+  for(auto i = source_start; i < end; ++i) {
+    if(!escaped && line[i] == '\\') {
+      escaped = true;
+      continue;
+    }
+    escaped = false;
+    location.source += line[i];
+  }
 
   size_t line_start;
-  if(kinds_enabled) {
+  if(kind_enabled) {
     auto kind_start = source_end + 4;
     if(kind_start >= line.size()) {
       std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
@@ -119,25 +135,31 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
     location.line = 0;
   }
 
-  if(line_end != std::string::npos && line_end + 1 < line.size()) {
+  if(scope_enabled && line_end != std::string::npos && line_end + 1 < line.size()) {
     auto scope_start = line.find(':', line_end + 1);
     if(scope_start != std::string::npos && scope_start + 1 < line.size())
       location.scope = line.substr(scope_start + 1);
   }
 
-  auto pos = location.source.find(location.symbol);
-  if(pos != std::string::npos)
-    location.index += pos;
-
   if(add_markup) {
     location.source = Glib::Markup::escape_text(location.source);
     std::string symbol = Glib::Markup::escape_text(location.symbol);
-    pos = -1;
-    while((pos = location.source.find(symbol, pos + 1)) != std::string::npos) {
+    size_t pos = 0;
+    bool first = true;
+    while((pos = location.source.find(symbol, pos)) != std::string::npos) {
+      if(first) {
+        location.index += pos;
+        first = false;
+      }
       location.source.insert(pos + symbol.size(), "</b>");
       location.source.insert(pos, "<b>");
       pos += 7 + symbol.size();
     }
+  }
+  else {
+    auto pos = location.source.find(location.symbol);
+    if(pos != std::string::npos)
+      location.index += pos;
   }
 
   return location;
@@ -166,7 +188,7 @@ std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
 }
 
 std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type) {
-  auto result = get_result(path);
+  auto result = get_result(path, true);
   result.second->seekg(0, std::ios::end);
   if(result.second->tellg() == 0)
     return std::vector<Location>();
@@ -194,7 +216,7 @@ std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path 
   while(std::getline(*result.second, line)) {
     if(line.size() > 2048)
       continue;
-    auto location = Ctags::get_location(line, false);
+    auto location = Ctags::get_location(line, false, true);
     if(!location.scope.empty()) {
       if(location.scope + "::" + location.symbol != name)
         continue;

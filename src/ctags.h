@@ -18,9 +18,9 @@ public:
     operator bool() const { return !file_path.empty(); }
   };
 
-  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path, bool enable_kinds = false);
+  static std::pair<boost::filesystem::path, std::unique_ptr<std::stringstream>> get_result(const boost::filesystem::path &path, bool enable_scope = false, bool enable_kind = false);
 
-  static Location get_location(const std::string &line, bool add_markup, bool kinds_enabled = false);
+  static Location get_location(const std::string &line, bool add_markup, bool scope_enabled = false, bool kind_enabled = false);
 
   static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type);
 

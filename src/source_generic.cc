@@ -82,7 +82,7 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
     else
       file_path = this->file_path;
 
-    auto pair = Ctags::get_result(file_path, true);
+    auto pair = Ctags::get_result(file_path, false, true);
     if(use_tmp_file)
       boost::filesystem::remove_all(file_path.parent_path(), ec);
     auto path = std::move(pair.first);
@@ -97,7 +97,7 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
 
     std::string line;
     while(std::getline(*stream, line)) {
-      auto location = Ctags::get_location(line, true, true);
+      auto location = Ctags::get_location(line, true, false, true);
       std::transform(location.kind.begin(), location.kind.end(), location.kind.begin(),
                      [](char c) { return std::tolower(c); });
       std::vector<std::string> ignore_kinds = {"variable", "local", "constant", "global", "property", "member", "enum",
