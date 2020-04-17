@@ -13,7 +13,6 @@
 #include "info.h"
 #include "selection_dialog.h"
 #include "usages_clang.h"
-#include <algorithm>
 
 const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)");
 
