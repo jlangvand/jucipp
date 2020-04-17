@@ -13,6 +13,7 @@
 #include "info.h"
 #include "selection_dialog.h"
 #include "usages_clang.h"
+#include <algorithm>
 
 const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)");
 
@@ -1600,38 +1601,34 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
             continue;
           last_offset = offset;
 
-          std::string method;
-          if(kind != clangmm::Cursor::Kind::Constructor && kind != clangmm::Cursor::Kind::Destructor) {
-            method += cursor.get_type().get_result().get_spelling();
-            if(!method.empty() && method.back() != '&' && method.back() != '*')
-              method += ' ';
-          }
-          method += cursor.get_display_name();
-
           std::string prefix;
           auto parent = cursor.get_semantic_parent();
           while(parent && parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit) {
             prefix.insert(0, parent.get_display_name() + (prefix.empty() ? "" : "::"));
             parent = parent.get_semantic_parent();
           }
-
-          method = Glib::Markup::escape_text(method);
-          // Add bold method token
-          auto token_end_pos = method.find('(');
-          if(token_end_pos == std::string::npos)
-            continue;
-          auto token_start_pos = token_end_pos;
-          while(token_start_pos > 0 && is_token_char(method[token_start_pos - 1]))
-            --token_start_pos;
-          method.insert(token_end_pos, "</b>");
-          method.insert(token_start_pos, "<b>");
-
           if(!prefix.empty())
             prefix += ':';
           prefix += std::to_string(offset.line) + ": ";
           prefix = Glib::Markup::escape_text(prefix);
 
-          methods.emplace_back(Offset(offset.line - 1, offset.index - 1), prefix + method);
+          std::string ret;
+          if(kind != clangmm::Cursor::Kind::Constructor && kind != clangmm::Cursor::Kind::Destructor) {
+            ret += cursor.get_type().get_result().get_spelling();
+            if(!ret.empty() && ret.back() != '&' && ret.back() != '*')
+              ret += ' ';
+          }
+          ret = Glib::Markup::escape_text(ret);
+
+          auto method = Glib::Markup::escape_text(cursor.get_display_name());
+          // Add bold method token
+          auto end = method.find('(');
+          if(end == std::string::npos)
+            continue;
+          method.insert(end, "</b>");
+          method.insert(0, "<b>");
+
+          methods.emplace_back(Offset(offset.line - 1, offset.index - 1), prefix + ret + method);
         }
       }
     }
