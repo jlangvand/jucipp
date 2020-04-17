@@ -1603,10 +1603,8 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
           std::string method;
           if(kind != clangmm::Cursor::Kind::Constructor && kind != clangmm::Cursor::Kind::Destructor) {
             method += cursor.get_type().get_result().get_spelling();
-            auto pos = method.find(' ');
-            if(pos != std::string::npos)
-              method.erase(pos, 1);
-            method += " ";
+            if(!method.empty() && method.back() != '&' && method.back() != '*')
+              method += ' ';
           }
           method += cursor.get_display_name();
 
@@ -1618,12 +1616,12 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
           }
 
           method = Glib::Markup::escape_text(method);
-          //Add bold method token
-          size_t token_end_pos = method.find('(');
+          // Add bold method token
+          auto token_end_pos = method.find('(');
           if(token_end_pos == std::string::npos)
             continue;
           auto token_start_pos = token_end_pos;
-          while(token_start_pos != 0 && method[token_start_pos] != ' ')
+          while(token_start_pos > 0 && is_token_char(method[token_start_pos - 1]))
             --token_start_pos;
           method.insert(token_end_pos, "</b>");
           method.insert(token_start_pos, "<b>");
