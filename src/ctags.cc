@@ -146,16 +146,28 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) c
   if(add_markup) {
     location.source = Glib::Markup::escape_text(location.source);
     std::string symbol = Glib::Markup::escape_text(location.symbol);
-    size_t pos = 0;
     bool first = true;
-    while((pos = location.source.find(symbol, pos)) != std::string::npos) {
-      if(first) {
-        location.index += pos;
-        first = false;
+    bool escaped = false;
+    for(size_t i = 0; i < location.source.size(); i++) {
+      if(!escaped) {
+        if(location.source.compare(i, symbol.size(), symbol) == 0) {
+          location.source.insert(i + symbol.size(), "</b>");
+          location.source.insert(i, "<b>");
+          i += 7 + symbol.size() - 1;
+          if(first)
+            first = false;
+        }
+        else {
+          if(location.source[i] == '&') {
+            escaped = true;
+            i += 2; // Minimum character entities: &lt; and &gt;
+          }
+          if(first)
+            location.index++;
+        }
       }
-      location.source.insert(pos + symbol.size(), "</b>");
-      location.source.insert(pos, "<b>");
-      pos += 7 + symbol.size();
+      else if(location.source[i] == ';')
+        escaped = false;
     }
   }
   else {
