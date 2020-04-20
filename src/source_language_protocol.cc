@@ -364,43 +364,12 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_)
-    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)), autocomplete(this, interactive_completion, last_keyval, false) {
+    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)) {
   configure();
   get_source_buffer()->set_language(language);
   get_source_buffer()->set_highlight_syntax(true);
 
   initialize();
-
-  get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
-    std::string content_changes;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::none)
-      return;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
-      std::string text = text_;
-      escape_text(text);
-      content_changes = R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}";
-    }
-    else {
-      std::string text = get_buffer()->get_text();
-      escape_text(text);
-      content_changes = R"({"text":")" + text + "\"}";
-    }
-    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
-  }, false);
-
-  get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start, const Gtk::TextBuffer::iterator &end) {
-    std::string content_changes;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::none)
-      return;
-    if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental)
-      content_changes = R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})";
-    else {
-      std::string text = get_buffer()->get_text();
-      escape_text(text);
-      content_changes = R"({"text":")" + text + "\"}";
-    }
-    client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + content_changes + "]");
-  }, false);
 }
 
 void Source::LanguageProtocolView::initialize() {
@@ -425,6 +394,7 @@ void Source::LanguageProtocolView::initialize() {
       client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
 
       if(!initialized) {
+        setup_signals();
         setup_autocomplete();
         setup_navigation_and_refactoring();
         Menu::get().toggle_menu_items();
@@ -450,9 +420,9 @@ void Source::LanguageProtocolView::close() {
   if(initialize_thread.joinable())
     initialize_thread.join();
 
-  autocomplete.state = Autocomplete::State::idle;
-  if(autocomplete.thread.joinable())
-    autocomplete.thread.join();
+  autocomplete->state = Autocomplete::State::idle;
+  if(autocomplete->thread.joinable())
+    autocomplete->thread.join();
 
   client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri + "\"}");
   client->close(this);
@@ -1199,17 +1169,40 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
   return *offset;
 }
 
+void Source::LanguageProtocolView::setup_signals() {
+  if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
+    get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
+      std::string text = text_;
+      escape_text(text);
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
+    }, false);
+
+    get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start, const Gtk::TextBuffer::iterator &end) {
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
+    }, false);
+  }
+  else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
+    get_buffer()->signal_changed().connect([this]() {
+      std::string text = get_buffer()->get_text();
+      escape_text(text);
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + text + "\"}" + "]");
+    });
+  }
+}
+
 void Source::LanguageProtocolView::setup_autocomplete() {
+  autocomplete = std::make_unique<Autocomplete>(this, interactive_completion, last_keyval, false);
+
   if(!capabilities.completion)
     return;
 
   non_interactive_completion = [this] {
     if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
       return;
-    autocomplete.run();
+    autocomplete->run();
   };
 
-  autocomplete.reparse = [this] {
+  autocomplete->reparse = [this] {
     autocomplete_comment.clear();
     autocomplete_insert.clear();
   };
@@ -1224,7 +1217,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       if(!has_focus())
         return;
       if(autocomplete_show_arguments)
-        autocomplete.stop();
+        autocomplete->stop();
       autocomplete_show_arguments = false;
       autocomplete_delayed_show_arguments_connection.disconnect();
       autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect([this]() {
@@ -1235,8 +1228,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         if(!has_focus())
           return false;
         if(is_possible_argument()) {
-          autocomplete.stop();
-          autocomplete.run();
+          autocomplete->stop();
+          autocomplete->run();
         }
         return false;
       }, 500);
@@ -1258,14 +1251,14 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
   }
 
-  autocomplete.is_continue_key = [](guint keyval) {
+  autocomplete->is_continue_key = [](guint keyval) {
     if((keyval >= '0' && keyval <= '9') || (keyval >= 'a' && keyval <= 'z') || (keyval >= 'A' && keyval <= 'Z') || keyval == '_')
       return true;
 
     return false;
   };
 
-  autocomplete.is_restart_key = [this](guint keyval) {
+  autocomplete->is_restart_key = [this](guint keyval) {
     auto iter = get_buffer()->get_insert()->get_iter();
     iter.backward_chars(2);
     if(keyval == '.' || (keyval == ':' && *iter == ':'))
@@ -1273,7 +1266,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     return false;
   };
 
-  autocomplete.run_check = [this]() {
+  autocomplete->run_check = [this]() {
     auto iter = get_buffer()->get_insert()->get_iter();
     iter.backward_char();
     if(!is_code_iter(iter))
@@ -1289,8 +1282,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
-        LockGuard lock(autocomplete.prefix_mutex);
-        autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
         if(!sm.length(2) && !sm.length(4))
           autocomplete_enable_snippets = true;
       }
@@ -1298,21 +1291,21 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
     else if(is_possible_argument()) {
       autocomplete_show_arguments = true;
-      LockGuard lock(autocomplete.prefix_mutex);
-      autocomplete.prefix = "";
+      LockGuard lock(autocomplete->prefix_mutex);
+      autocomplete->prefix = "";
       return true;
     }
     else if(!interactive_completion) {
       auto end_iter = get_buffer()->get_insert()->get_iter();
       auto iter = end_iter;
-      while(iter.backward_char() && autocomplete.is_continue_key(*iter)) {
+      while(iter.backward_char() && autocomplete->is_continue_key(*iter)) {
       }
       if(iter != end_iter)
         iter.forward_char();
 
       {
-        LockGuard lock(autocomplete.prefix_mutex);
-        autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = get_buffer()->get_text(iter, end_iter);
       }
       auto prev1 = iter;
       if(prev1.backward_char() && *prev1 != '.') {
@@ -1329,25 +1322,25 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     return false;
   };
 
-  autocomplete.before_add_rows = [this] {
+  autocomplete->before_add_rows = [this] {
     status_state = "autocomplete...";
     if(update_status_state)
       update_status_state(this);
   };
 
-  autocomplete.after_add_rows = [this] {
+  autocomplete->after_add_rows = [this] {
     status_state = "";
     if(update_status_state)
       update_status_state(this);
   };
 
-  autocomplete.on_add_rows_error = [this] {
+  autocomplete->on_add_rows_error = [this] {
     autocomplete_comment.clear();
     autocomplete_insert.clear();
   };
 
-  autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
-    if(autocomplete.state == Autocomplete::State::starting) {
+  autocomplete->add_rows = [this](std::string &buffer, int line_number, int column) {
+    if(autocomplete->state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
       autocomplete_insert.clear();
       std::promise<void> result_processed;
@@ -1363,7 +1356,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 auto label = parameter_it->second.get<std::string>("label", "");
                 auto insert = label;
                 auto documentation = parameter_it->second.get<std::string>("documentation", "");
-                autocomplete.rows.emplace_back(std::move(label));
+                autocomplete->rows.emplace_back(std::move(label));
                 autocomplete_insert.emplace_back(std::move(insert));
                 autocomplete_comment.emplace_back(std::move(documentation));
               }
@@ -1375,12 +1368,15 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       else {
         client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
-            auto begin = result.begin(); // rust language server is bugged
-            auto end = result.end();
-            auto items_it = result.find("items"); // correct
-            if(items_it != result.not_found()) {
-              begin = items_it->second.begin();
-              end = items_it->second.end();
+            boost::property_tree::ptree::const_iterator begin, end;
+            auto items = result.get_child_optional("items");
+            if(items) {
+              begin = items->begin();
+              end = items->end();
+            }
+            else {
+              begin = result.begin();
+              end = result.end();
             }
             for(auto it = begin; it != end; ++it) {
               auto label = it->second.get<std::string>("label", "");
@@ -1419,11 +1415,11 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               if(!label.empty()) {
                 std::string prefix;
                 {
-                  LockGuard lock(autocomplete.prefix_mutex);
-                  prefix = autocomplete.prefix;
+                  LockGuard lock(autocomplete->prefix_mutex);
+                  prefix = autocomplete->prefix;
                 }
                 if(prefix.compare(0, prefix.size(), label, 0, prefix.size()) == 0) {
-                  autocomplete.rows.emplace_back(std::move(label));
+                  autocomplete->rows.emplace_back(std::move(label));
                   autocomplete_comment.emplace_back(std::move(detail));
                   if(!documentation.empty() && documentation != autocomplete_comment.back()) {
                     if(!autocomplete_comment.back().empty())
@@ -1438,14 +1434,14 @@ void Source::LanguageProtocolView::setup_autocomplete() {
             if(autocomplete_enable_snippets) {
               std::string prefix;
               {
-                LockGuard lock(autocomplete.prefix_mutex);
-                prefix = autocomplete.prefix;
+                LockGuard lock(autocomplete->prefix_mutex);
+                prefix = autocomplete->prefix;
               }
               LockGuard lock(snippets_mutex);
               if(snippets) {
                 for(auto &snippet : *snippets) {
                   if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
-                    autocomplete.rows.emplace_back(snippet.prefix);
+                    autocomplete->rows.emplace_back(snippet.prefix);
                     autocomplete_insert.emplace_back(snippet.body);
                     autocomplete_comment.emplace_back(snippet.description);
                   }
@@ -1460,16 +1456,16 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }
   };
 
-  autocomplete.on_show = [this] {
+  autocomplete->on_show = [this] {
     hide_tooltips();
   };
 
-  autocomplete.on_hide = [this] {
+  autocomplete->on_hide = [this] {
     autocomplete_comment.clear();
     autocomplete_insert.clear();
   };
 
-  autocomplete.on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
+  autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
     Glib::ustring insert = hide_window ? autocomplete_insert[index] : text;
 
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
@@ -1500,14 +1496,14 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       auto iter = get_buffer()->get_insert()->get_iter();
       if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
         last_keyval = '(';
-        autocomplete.run();
+        autocomplete->run();
       }
     }
     else
       get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
   };
 
-  autocomplete.get_tooltip = [this](unsigned int index) {
+  autocomplete->get_tooltip = [this](unsigned int index) {
     return autocomplete_comment[index];
   };
 }

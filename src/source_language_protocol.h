@@ -188,7 +188,8 @@ namespace Source {
 
     Offset get_declaration(const Gtk::TextIter &iter);
 
-    Autocomplete autocomplete;
+    std::unique_ptr<Autocomplete> autocomplete;
+    void setup_signals();
     void setup_autocomplete();
     std::vector<std::string> autocomplete_comment;
     std::vector<std::string> autocomplete_insert;
