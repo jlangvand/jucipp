@@ -127,7 +127,9 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     LockGuard lock(read_write_mutex);
     process_id = process->get_id();
   }
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true},"executeCommand":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"willSave":true,"willSaveWaitUntil":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true},"codeLens":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"onTypeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"documentLink":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  // When using rust-analyzer instead of rls, remove: "initializationOptions":{"omitInitBuild":true}
+  // Also remove: "workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true} ?
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true}},"hover":{"dynamicRegistration":true},"signatureHelp":{"dynamicRegistration":true},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -446,6 +448,8 @@ void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
 bool Source::LanguageProtocolView::save() {
   if(!Source::View::save())
     return false;
+
+  client->write_notification("textDocument/didSave", R"("textDocument":{"uri":")" + uri + "\"}");
 
   update_type_coverage();
 
@@ -848,15 +852,22 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             try {
               auto kind = it->second.get<int>("kind");
               if(kind == 6 || kind == 9 || kind == 12) {
-                LanguageProtocol::Location location(it->second.get_child("location"));
-
                 std::string row;
-                auto container_name = it->second.get<std::string>("containerName", "");
-                if(!container_name.empty() && container_name != "null")
-                  row += container_name + ':';
-                row += std::to_string(location.range.start.line + 1) + ": <b>" + it->second.get<std::string>("name") + "</b>";
+                std::unique_ptr<LanguageProtocol::Range> range;
+                auto location_pt = it->second.get_child_optional("location");
+                if(location_pt) {
+                  LanguageProtocol::Location location(*location_pt);
+                  auto container_name = it->second.get<std::string>("containerName", "");
+                  if(!container_name.empty() && container_name != "null")
+                    row += container_name + ':';
+                  range = std::make_unique<LanguageProtocol::Range>(location.range);
+                }
+                else
+                  range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
 
-                methods.emplace_back(Offset(location.range.start.line, location.range.start.character), std::move(row));
+                row += std::to_string(range->start.line + 1) + ": <b>" + it->second.get<std::string>("name") + "</b>";
+
+                methods.emplace_back(Offset(range->start.line, range->start.character), std::move(row));
               }
             }
             catch(...) {
@@ -1002,31 +1013,30 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
-      auto content = std::make_shared<std::string>();
-      auto contents_pt = result.get_child("contents", boost::property_tree::ptree());
-      for(auto it = contents_pt.begin(); it != contents_pt.end(); ++it) {
-        auto value = it->second.get<std::string>("value", "");
-        if(!value.empty())
-          content->insert(0, value + (content->empty() ? "" : "\n\n"));
+      std::string tooltip;
+      auto contents_pt = result.get_child_optional("contents");
+      if(!contents_pt)
+        return;
+      tooltip = contents_pt->get_value<std::string>("");
+      if(tooltip.empty()) {
+        auto value_pt = contents_pt->get_optional<std::string>("value");
+        if(value_pt)
+          tooltip = *value_pt;
         else {
-          value = it->second.get_value<std::string>("");
-          if(!value.empty())
-            *content += (content->empty() ? "" : "\n\n") + value;
+          for(auto it = contents_pt->begin(); it != contents_pt->end(); ++it) {
+            auto value = it->second.get<std::string>("value", "");
+            if(value.empty())
+              value = it->second.get_value<std::string>("");
+            if(!value.empty())
+              tooltip.insert(0, value + (tooltip.empty() ? "" : "\n\n"));
+          }
         }
       }
-      if(content->empty()) {
-        auto contents_it = result.find("contents");
-        if(contents_it != result.not_found()) {
-          *content = contents_it->second.get<std::string>("value", "");
-          if(content->empty())
-            *content = contents_it->second.get_value<std::string>("");
+      if(!tooltip.empty()) {
+        while(!tooltip.empty() && tooltip.back() == '\n') {
+          tooltip.pop_back(); // Remove unnecessary newlines
         }
-      }
-      if(!content->empty()) {
-        while(!content->empty() && content->back() == '\n') {
-          content->pop_back();
-        } // Remove unnecessary newlines
-        dispatcher.post([this, offset, content, current_request] {
+        dispatcher.post([this, offset, tooltip = std::move(tooltip), current_request] {
           if(current_request != request_count)
             return;
           if(Notebook::get().get_current_view() != this)
@@ -1042,8 +1052,8 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           }
           while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
           }
-          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, content](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-            insert_with_links_tagged(buffer, *content);
+          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, tooltip = std::move(tooltip)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+            insert_with_links_tagged(buffer, tooltip);
 
 #ifdef JUCI_ENABLE_DEBUG
             if(language_id == "rust" && capabilities.definition) {
