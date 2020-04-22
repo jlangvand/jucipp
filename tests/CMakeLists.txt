@@ -19,7 +19,6 @@ add_library(test_stubs OBJECT
   stubs/notebook.cc
   stubs/project.cc
   stubs/selection_dialog.cc
-  stubs/tooltips.cc
 )
 
 add_executable(process_test process_test.cc $<TARGET_OBJECTS:test_stubs>)
@@ -80,4 +79,8 @@ add_test(git_test git_test)
 add_executable(ctags_grep_test ctags_grep_test.cc $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(ctags_grep_test juci_shared)
 add_test(ctags_grep_test ctags_grep_test)
+
+add_executable(tooltips_test tooltips_test.cc $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(tooltips_test juci_shared)
+add_test(tooltips_test tooltips_test)
 

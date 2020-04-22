@@ -1012,30 +1012,36 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
-      std::string tooltip;
+      struct Content {
+        std::string value;
+        bool markdown;
+      };
+      std::vector<Content> contents;
       auto contents_pt = result.get_child_optional("contents");
       if(!contents_pt)
         return;
-      tooltip = contents_pt->get_value<std::string>("");
-      if(tooltip.empty()) {
+      auto value = contents_pt->get_value<std::string>("");
+      if(!value.empty())
+        contents.emplace_back(Content{value, true});
+      else {
         auto value_pt = contents_pt->get_optional<std::string>("value");
         if(value_pt)
-          tooltip = *value_pt;
+          contents.emplace_back(Content{*value_pt, contents_pt->get<std::string>("kind", "") == "markdown"});
         else {
           for(auto it = contents_pt->begin(); it != contents_pt->end(); ++it) {
             auto value = it->second.get<std::string>("value", "");
-            if(value.empty())
-              value = it->second.get_value<std::string>("");
             if(!value.empty())
-              tooltip.insert(0, value + (tooltip.empty() ? "" : "\n\n"));
+              contents.emplace_back(Content{value, contents_pt->get<std::string>("kind", "") == "markdown"});
+            else {
+              value = it->second.get_value<std::string>("");
+              if(!value.empty())
+                contents.emplace_back(Content{value, true});
+            }
           }
         }
       }
-      if(!tooltip.empty()) {
-        while(!tooltip.empty() && tooltip.back() == '\n') {
-          tooltip.pop_back(); // Remove unnecessary newlines
-        }
-        dispatcher.post([this, offset, tooltip_text = std::move(tooltip), current_request] {
+      if(!contents.empty()) {
+        dispatcher.post([this, offset, contents = std::move(contents), current_request] {
           if(current_request != request_count)
             return;
           if(Notebook::get().get_current_view() != this)
@@ -1051,8 +1057,17 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           }
           while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
           }
-          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, tooltip_text = std::move(tooltip_text)](Tooltip &tooltip) {
-            tooltip.insert_with_links_tagged(tooltip_text);
+          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
+            for(size_t i = 0; i < contents.size(); i++) {
+              if(i > 0)
+                tooltip.buffer->insert_at_cursor("\n\n");
+              if(contents[i].markdown && language_id != "python") // TODO: python-language-server might support markdown in the future
+                tooltip.insert_markdown(contents[i].value);
+              else {
+                tooltip.insert_with_links_tagged(contents[i].value);
+                tooltip.remove_trailing_newlines();
+              }
+            }
 
 #ifdef JUCI_ENABLE_DEBUG
             if(language_id == "rust" && capabilities.definition) {

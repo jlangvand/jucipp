@@ -4,6 +4,7 @@
 #include <list>
 #include <set>
 #include <string>
+#include <unordered_map>
 
 class Tooltip {
 public:
@@ -22,6 +23,9 @@ public:
   Glib::RefPtr<Gtk::TextBuffer> buffer;
 
   void insert_with_links_tagged(const std::string &text);
+  void insert_markdown(const std::string &text);
+  // Remove empty lines at end of buffer
+  void remove_trailing_newlines();
 
 private:
   std::unique_ptr<Gtk::Window> window;
@@ -35,6 +39,18 @@ private:
   bool shown = false;
 
   Glib::RefPtr<Gtk::TextTag> link_tag;
+  Glib::RefPtr<Gtk::TextTag> h1_tag;
+  Glib::RefPtr<Gtk::TextTag> h2_tag;
+  Glib::RefPtr<Gtk::TextTag> h3_tag;
+  Glib::RefPtr<Gtk::TextTag> code_tag;
+  Glib::RefPtr<Gtk::TextTag> code_block_tag;
+  Glib::RefPtr<Gtk::TextTag> bold_tag;
+  Glib::RefPtr<Gtk::TextTag> italic_tag;
+  Glib::RefPtr<Gtk::TextTag> strikethrough_tag;
+
+  std::map<Glib::RefPtr<Gtk::TextTag>, std::string> links;
+  std::map<Glib::RefPtr<Gtk::TextTag>, std::string> reference_links;
+  std::unordered_map<std::string, std::string> references;
 };
 
 class Tooltips {

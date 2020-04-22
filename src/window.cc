@@ -804,7 +804,6 @@ void Window::set_menu_actions() {
           SelectionDialog::create(view, true, true);
         else
           SelectionDialog::create(true, true);
-        std::string line;
 
         std::string current_path;
         unsigned int current_line = 0;
@@ -813,14 +812,15 @@ void Window::set_menu_actions() {
           current_path = filesystem::get_relative_path(view->file_path, grep->project_path).string();
           current_line = view->get_buffer()->get_insert()->get_iter().get_line();
         }
-        bool set_cursor_at_path = true;
+        bool cursor_set = false;
+        std::string line;
         while(std::getline(grep->output, line)) {
           auto location = grep->get_location(std::move(line), true, false, current_path);
           SelectionDialog::get()->add_row(location.markup);
           if(view && location) {
-            if(set_cursor_at_path) {
+            if(!cursor_set) {
               SelectionDialog::get()->set_cursor_at_last_row();
-              set_cursor_at_path = false;
+              cursor_set = true;
             }
             else {
               if(current_line >= location.line)

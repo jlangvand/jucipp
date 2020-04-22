@@ -21,6 +21,7 @@ set(JUCI_SHARED_FILES
   source_language_protocol.cc
   source_spellcheck.cc
   terminal.cc
+  tooltips.cc
   usages_clang.cc
   utility.cc
 )
@@ -51,7 +52,6 @@ set(JUCI_FILES
   notebook.cc
   project.cc
   selection_dialog.cc
-  tooltips.cc
   window.cc
 )
 if(APPLE)
