@@ -8,7 +8,7 @@ std::set<Tooltip *> Tooltips::shown_tooltips;
 Gdk::Rectangle Tooltips::drawn_tooltips_rectangle = Gdk::Rectangle();
 
 Tooltip::Tooltip(Gtk::TextView *text_view, Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark_,
-                 Glib::RefPtr<Gtk::TextBuffer::Mark> end_mark_, std::function<void(const Glib::RefPtr<Gtk::TextBuffer> &)> set_buffer_)
+                 Glib::RefPtr<Gtk::TextBuffer::Mark> end_mark_, std::function<void(Tooltip &toolip)> set_buffer_)
     : start_mark(std::move(start_mark_)), end_mark(std::move(end_mark_)), text_view(text_view), set_buffer(std::move(set_buffer_)) {}
 
 Tooltip::~Tooltip() {
@@ -73,21 +73,32 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     box->get_style_context()->add_class("juci_tooltip_box");
     window->add(*box);
 
+    buffer = Gtk::TextBuffer::create();
+
     if(text_view) {
-      text_buffer = Gtk::TextBuffer::create(text_view->get_buffer()->get_tag_table());
-      link_tag = text_buffer->get_tag_table()->lookup("link");
+      auto tag = text_view->get_buffer()->get_tag_table()->lookup("def:warning");
+      auto new_tag = buffer->create_tag("def:warning");
+      if(tag->property_foreground_set())
+        new_tag->property_foreground_rgba() = tag->property_foreground_rgba().get_value();
+      if(tag->property_background_set())
+        new_tag->property_background_rgba() = tag->property_background_rgba().get_value();
+
+      tag = text_view->get_buffer()->get_tag_table()->lookup("def:error");
+      new_tag = buffer->create_tag("def:error");
+      if(tag->property_foreground_set())
+        new_tag->property_foreground_rgba() = tag->property_foreground_rgba().get_value();
+      if(tag->property_background_set())
+        new_tag->property_background_rgba() = tag->property_background_rgba().get_value();
     }
-    else {
-      text_buffer = Gtk::TextBuffer::create();
-      link_tag = text_buffer->create_tag("link");
-      link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
-      link_tag->property_foreground_rgba() = window->get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
-    }
-    set_buffer(text_buffer);
+    link_tag = buffer->create_tag("link");
+    link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
+    link_tag->property_foreground_rgba() = window->get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
+
+    set_buffer(*this);
 
     wrap_lines();
 
-    auto tooltip_text_view = Gtk::manage(new Gtk::TextView(text_buffer));
+    auto tooltip_text_view = Gtk::manage(new Gtk::TextView(buffer));
     tooltip_text_view->get_style_context()->add_class("juci_tooltip_text_view");
     tooltip_text_view->set_editable(false);
 
@@ -159,7 +170,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 #endif
 
     auto layout = Pango::Layout::create(tooltip_text_view->get_pango_context());
-    layout->set_text(text_buffer->get_text());
+    layout->set_text(buffer->get_text());
     layout->get_pixel_size(size.first, size.second);
     size.first += 6;  // 2xpadding
     size.second += 8; // 2xpadding + 2
@@ -181,7 +192,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     });
   }
 
-  if(text_buffer->size() == 0)
+  if(buffer->size() == 0)
     return; // Do not show empty tooltips
 
   int root_x = 0, root_y = 0;
@@ -259,13 +270,13 @@ void Tooltip::hide(const std::pair<int, int> &last_mouse_pos, const std::pair<in
 }
 
 void Tooltip::wrap_lines() {
-  if(!text_buffer)
+  if(!buffer)
     return;
 
-  auto iter = text_buffer->begin();
+  auto iter = buffer->begin();
 
   while(iter) {
-    auto last_space = text_buffer->end();
+    auto last_space = buffer->end();
     bool end = false;
     for(unsigned c = 0; c <= 80; c++) {
       if(!iter) {
@@ -288,19 +299,36 @@ void Tooltip::wrap_lines() {
           last_space = iter;
       }
       if(iter && last_space) {
-        auto mark = text_buffer->create_mark(last_space);
+        auto mark = buffer->create_mark(last_space);
         auto last_space_p = last_space;
         last_space.forward_char();
-        text_buffer->erase(last_space_p, last_space);
-        text_buffer->insert(mark->get_iter(), "\n");
+        buffer->erase(last_space_p, last_space);
+        buffer->insert(mark->get_iter(), "\n");
 
         iter = mark->get_iter();
         iter.forward_char();
 
-        text_buffer->delete_mark(mark);
+        buffer->delete_mark(mark);
       }
     }
   }
+}
+
+void Tooltip::insert_with_links_tagged(const std::string &text) {
+  static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])");
+  std::smatch sm;
+  std::sregex_iterator it(text.begin(), text.end(), http_regex);
+  std::sregex_iterator end;
+  size_t start_pos = 0;
+  if(it != end) {
+    auto link_tag = buffer->get_tag_table()->lookup("link");
+    for(; it != end; ++it) {
+      buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[it->position()]);
+      buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], &text[it->position() + it->length()], link_tag);
+      start_pos = it->position() + it->length();
+    }
+  }
+  buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[text.size()]);
 }
 
 void Tooltips::show(const Gdk::Rectangle &rectangle, bool disregard_drawn) {

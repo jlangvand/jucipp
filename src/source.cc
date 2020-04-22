@@ -153,8 +153,6 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   mark_attr_debug_breakpoint_and_stop->set_background(rgba);
   set_mark_attributes("debug_breakpoint_and_stop", mark_attr_debug_breakpoint_and_stop, 102);
 
-  link_tag = get_buffer()->create_tag("link");
-
   hide_tag = get_buffer()->create_tag();
   hide_tag->property_scale() = 0.25;
 
@@ -432,9 +430,6 @@ void Source::View::configure() {
     diagnostic_tag_underline->set_property("underline-rgba", Gdk::RGBA(error_property));
   }
   //TODO: clear tag_class and param_spec?
-
-  link_tag->property_foreground_rgba() = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
-  link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
 
   if(Config::get().menu.keys["source_show_completion"].empty()) {
     get_completion()->unblock_interactive();
@@ -735,8 +730,8 @@ void Source::View::setup_format_style(bool is_generic_view) {
             if(start == end)
               start.backward_char();
 
-            add_diagnostic_tooltip(start, end, true, [error_message = sm[1].str()](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-              buffer->insert_at_cursor(error_message);
+            add_diagnostic_tooltip(start, end, true, [error_message = sm[1].str()](Tooltip &tooltip) {
+              tooltip.buffer->insert_at_cursor(error_message);
             });
           }
           catch(...) {
@@ -1544,29 +1539,15 @@ void Source::View::show_or_hide() {
   get_buffer()->apply_tag(hide_tag, start, end);
 }
 
-void Source::View::insert_with_links_tagged(const Glib::RefPtr<Gtk::TextBuffer> &buffer, const std::string &text) {
-  static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])");
-  std::smatch sm;
-  std::sregex_iterator it(text.begin(), text.end(), http_regex);
-  std::sregex_iterator end;
-  size_t start_pos = 0;
-  for(; it != end; ++it) {
-    buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[it->position()]);
-    buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], &text[it->position() + it->length()], link_tag);
-    start_pos = it->position() + it->length();
-  }
-  buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[text.size()]);
-}
-
-void Source::View::add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk::TextIter &end, bool error, std::function<void(const Glib::RefPtr<Gtk::TextBuffer> &)> &&set_buffer) {
+void Source::View::add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk::TextIter &end, bool error, std::function<void(Tooltip &)> &&set_buffer) {
   diagnostic_offsets.emplace(start.get_offset());
 
   std::string severity_tag_name = error ? "def:error" : "def:warning";
 
-  diagnostic_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [error, severity_tag_name, set_buffer = std::move(set_buffer)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-    buffer->insert_with_tag(buffer->get_insert()->get_iter(), error ? "Error" : "Warning", severity_tag_name);
-    buffer->insert(buffer->get_insert()->get_iter(), ":\n");
-    set_buffer(buffer);
+  diagnostic_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [error, severity_tag_name, set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
+    tooltip.buffer->insert_with_tag(tooltip.buffer->get_insert()->get_iter(), error ? "Error" : "Warning", severity_tag_name);
+    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), ":\n");
+    set_buffer(tooltip);
   });
 
   get_buffer()->apply_tag_by_name(severity_tag_name + "_underline", start, end);

@@ -162,8 +162,8 @@ void Autocomplete::setup_dialog() {
     else {
       tooltips.clear();
       auto iter = CompletionDialog::get()->start_mark->get_iter();
-      tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), [tooltip = std::move(tooltip)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-        buffer->insert(buffer->get_insert()->get_iter(), tooltip);
+      tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), [tooltip_text = std::move(tooltip)](Tooltip &tooltip) {
+        tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), tooltip_text);
       });
 
       tooltips.show(true);

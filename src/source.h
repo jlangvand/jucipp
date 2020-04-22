@@ -111,13 +111,10 @@ namespace Source {
     virtual void apply_clickable_tag(const Gtk::TextIter &iter) {}
     bool clickable_tag_applied = false;
 
-    Glib::RefPtr<Gtk::TextTag> link_tag; /// Used in tooltips
-    void insert_with_links_tagged(const Glib::RefPtr<Gtk::TextBuffer> &buffer, const std::string &text);
-
     Glib::RefPtr<Gtk::TextTag> hide_tag;
 
     virtual void show_diagnostic_tooltips(const Gdk::Rectangle &rectangle) { diagnostic_tooltips.show(rectangle); }
-    void add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk::TextIter &end, bool error, std::function<void(const Glib::RefPtr<Gtk::TextBuffer> &)> &&set_buffer);
+    void add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk::TextIter &end, bool error, std::function<void(Tooltip &)> &&set_buffer);
     void clear_diagnostic_tooltips();
     std::set<int> diagnostic_offsets;
     void place_cursor_at_next_diagnostic();

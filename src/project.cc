@@ -623,7 +623,7 @@ void Project::LLDB::debug_show_variables() {
       }
       self->debug_variable_tooltips.clear();
 
-      auto set_tooltip_buffer = [rows, index](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+      auto set_tooltip_buffer = [rows, index](Tooltip &tooltip) {
         auto variable = (*rows)[index];
 
         Glib::ustring value = variable.value;
@@ -634,7 +634,7 @@ void Project::LLDB::debug_show_variables() {
             next_char_iter++;
             value.replace(iter, next_char_iter, "?");
           }
-          buffer->insert(buffer->get_insert()->get_iter(), value.substr(0, value.size() - 1));
+          tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), value.substr(0, value.size() - 1));
         }
       };
       if(view) {

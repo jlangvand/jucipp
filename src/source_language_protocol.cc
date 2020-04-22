@@ -944,40 +944,39 @@ void Source::LanguageProtocolView::update_diagnostics(const std::vector<Language
     }
 
     bool error = false;
-    std::string severity_tag_name;
-    if(diagnostic.severity >= 2) {
-      severity_tag_name = "def:warning";
+    if(diagnostic.severity >= 2)
       num_warnings++;
-    }
     else {
-      severity_tag_name = "def:error";
       num_errors++;
       error = true;
     }
 
-    add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-      buffer->insert_at_cursor(diagnostic.message);
+    add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](Tooltip &tooltip) {
+      tooltip.buffer->insert_at_cursor(diagnostic.message);
 
-      for(size_t i = 0; i < diagnostic.related_informations.size(); ++i) {
-        auto link = filesystem::get_relative_path(diagnostic.related_informations[i].location.file, file_path.parent_path()).string();
-        link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.line + 1);
-        link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.character + 1);
+      if(!diagnostic.related_informations.empty()) {
+        auto link_tag = tooltip.buffer->get_tag_table()->lookup("link");
+        for(size_t i = 0; i < diagnostic.related_informations.size(); ++i) {
+          auto link = filesystem::get_relative_path(diagnostic.related_informations[i].location.file, file_path.parent_path()).string();
+          link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.line + 1);
+          link += ':' + std::to_string(diagnostic.related_informations[i].location.range.start.character + 1);
 
-        if(i == 0)
-          buffer->insert_at_cursor("\n\n");
-        buffer->insert_at_cursor(diagnostic.related_informations[i].message);
-        buffer->insert_at_cursor(": ");
-        auto pos = buffer->get_insert()->get_iter();
-        buffer->insert_with_tag(pos, link, link_tag);
-        if(i != diagnostic.related_informations.size() - 1)
-          buffer->insert_at_cursor("\n");
+          if(i == 0)
+            tooltip.buffer->insert_at_cursor("\n\n");
+          tooltip.buffer->insert_at_cursor(diagnostic.related_informations[i].message);
+          tooltip.buffer->insert_at_cursor(": ");
+          auto pos = tooltip.buffer->get_insert()->get_iter();
+          tooltip.buffer->insert_with_tag(pos, link, link_tag);
+          if(i != diagnostic.related_informations.size() - 1)
+            tooltip.buffer->insert_at_cursor("\n");
+        }
       }
     });
   }
 
   for(auto &mark : type_coverage_marks) {
-    add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-      buffer->insert_at_cursor(type_coverage_message);
+    add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](Tooltip &tooltip) {
+      tooltip.buffer->insert_at_cursor(type_coverage_message);
     });
     num_warnings++;
   }
@@ -1036,7 +1035,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
         while(!tooltip.empty() && tooltip.back() == '\n') {
           tooltip.pop_back(); // Remove unnecessary newlines
         }
-        dispatcher.post([this, offset, tooltip = std::move(tooltip), current_request] {
+        dispatcher.post([this, offset, tooltip_text = std::move(tooltip), current_request] {
           if(current_request != request_count)
             return;
           if(Notebook::get().get_current_view() != this)
@@ -1052,8 +1051,8 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           }
           while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
           }
-          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, tooltip = std::move(tooltip)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-            insert_with_links_tagged(buffer, tooltip);
+          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, tooltip_text = std::move(tooltip_text)](Tooltip &tooltip) {
+            tooltip.insert_with_links_tagged(tooltip_text);
 
 #ifdef JUCI_ENABLE_DEBUG
             if(language_id == "rust" && capabilities.definition) {
@@ -1084,7 +1083,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    buffer->insert(buffer->get_insert()->get_iter(), "\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
                   }
                 }
               }

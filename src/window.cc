@@ -521,7 +521,7 @@ void Window::set_menu_actions() {
   menu.add_action("edit_cut", [this]() {
     // Return if a shown tooltip has selected text
     for(auto tooltip : Tooltips::shown_tooltips) {
-      auto buffer = tooltip->text_buffer;
+      auto buffer = tooltip->buffer;
       if(buffer && buffer->get_has_selection())
         return;
     }
@@ -549,7 +549,7 @@ void Window::set_menu_actions() {
   menu.add_action("edit_cut_lines", [this]() {
     // Return if a shown tooltip has selected text
     for(auto tooltip : Tooltips::shown_tooltips) {
-      auto buffer = tooltip->text_buffer;
+      auto buffer = tooltip->buffer;
       if(buffer && buffer->get_has_selection())
         return;
     }
@@ -572,7 +572,7 @@ void Window::set_menu_actions() {
   menu.add_action("edit_copy", [this]() {
     // Copy from a tooltip if it has selected text
     for(auto tooltip : Tooltips::shown_tooltips) {
-      auto buffer = tooltip->text_buffer;
+      auto buffer = tooltip->buffer;
       if(buffer && buffer->get_has_selection()) {
         buffer->copy_clipboard(Gtk::Clipboard::get());
         return;
@@ -603,7 +603,7 @@ void Window::set_menu_actions() {
   menu.add_action("edit_copy_lines", [this]() {
     // Copy from a tooltip if it has selected text
     for(auto tooltip : Tooltips::shown_tooltips) {
-      auto buffer = tooltip->text_buffer;
+      auto buffer = tooltip->buffer;
       if(buffer && buffer->get_has_selection()) {
         Gtk::TextIter start, end;
         buffer->get_selection_bounds(start, end);

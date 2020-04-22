@@ -316,13 +316,9 @@ void Source::ClangViewParse::update_diagnostics() {
         end = get_buffer()->get_iter_at_line_index(line, index);
 
       bool error = false;
-      std::string severity_tag_name;
-      if(diagnostic.severity <= clangmm::Diagnostic::Severity::Warning) {
-        severity_tag_name = "def:warning";
+      if(diagnostic.severity <= clangmm::Diagnostic::Severity::Warning)
         num_warnings++;
-      }
       else {
-        severity_tag_name = "def:error";
         num_errors++;
         error = true;
       }
@@ -354,8 +350,8 @@ void Source::ClangViewParse::update_diagnostics() {
       if(!fix_its_string.empty())
         diagnostic.spelling += "\n\n" + fix_its_string;
 
-      add_diagnostic_tooltip(start, end, error, [spelling = std::move(diagnostic.spelling)](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-        buffer->insert_at_cursor(spelling);
+      add_diagnostic_tooltip(start, end, error, [spelling = std::move(diagnostic.spelling)](Tooltip &tooltip) {
+        tooltip.buffer->insert_at_cursor(spelling);
       });
     }
   }
@@ -391,12 +387,12 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
             auto start = get_buffer()->get_iter_at_line_index(token_offsets.first.line - 1, token_offsets.first.index - 1);
             auto end = get_buffer()->get_iter_at_line_index(token_offsets.second.line - 1, token_offsets.second.index - 1);
 
-            type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token](const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
+            type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token](Tooltip &tooltip) {
               auto cursor = token.get_cursor();
-              buffer->insert(buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
+              tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
               auto brief_comment = cursor.get_brief_comments();
               if(brief_comment != "")
-                insert_with_links_tagged(buffer, "\n\n" + brief_comment);
+                tooltip.insert_with_links_tagged("\n\n" + brief_comment);
 
 #ifdef JUCI_ENABLE_DEBUG
               if(Debug::LLDB::get().is_stopped()) {
@@ -529,7 +525,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    buffer->insert(buffer->get_insert()->get_iter(), (buffer->size() > 0 ? "\n\n" : "") + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), (tooltip.buffer->size() > 0 ? "\n\n" : "") + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
                   }
                 }
               }
