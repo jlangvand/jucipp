@@ -80,6 +80,7 @@ EntryBox::Label::Label(std::function<void(int state, const std::string &message)
 }
 
 EntryBox::EntryBox() : Gtk::Box(Gtk::ORIENTATION_VERTICAL), upper_box(Gtk::ORIENTATION_HORIZONTAL), lower_box(Gtk::ORIENTATION_HORIZONTAL) {
+  get_style_context()->add_class("juci_entry");
   pack_start(upper_box, Gtk::PACK_SHRINK);
   pack_start(lower_box, Gtk::PACK_SHRINK);
   this->set_focus_chain({&lower_box});

@@ -19,6 +19,7 @@ Window::Window() {
   Gsv::init();
 
   set_title("juCi++");
+  get_style_context()->add_class("juci_window");
   set_events(Gdk::POINTER_MOTION_MASK | Gdk::FOCUS_CHANGE_MASK | Gdk::SCROLL_MASK | Gdk::LEAVE_NOTIFY_MASK);
 
   auto provider = Gtk::CssProvider::create();
@@ -1604,6 +1605,7 @@ void Window::add_widgets() {
   notebook_vbox->pack_end(EntryBox::get(), Gtk::PACK_SHRINK);
 
   auto terminal_scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
+  terminal_scrolled_window->get_style_context()->add_class("juci_terminal_scrolledwindow");
   terminal_scrolled_window->add(Terminal::get());
 
   int width, height;
@@ -1620,6 +1622,7 @@ void Window::add_widgets() {
   hpaned->pack2(*notebook_and_terminal_vpaned, Gtk::SHRINK);
 
   auto status_hbox = Gtk::manage(new Gtk::Box());
+  status_hbox->get_style_context()->add_class("juci_status_box");
   status_hbox->set_homogeneous(true);
   status_hbox->pack_start(*Gtk::manage(new Gtk::Box()));
   auto status_right_hbox = Gtk::manage(new Gtk::Box());
@@ -1630,6 +1633,7 @@ void Window::add_widgets() {
   status_hbox->pack_end(*status_right_overlay);
 
   auto status_overlay = Gtk::manage(new Gtk::Overlay());
+  status_overlay->get_style_context()->add_class("juci_status_overlay");
   status_overlay->add(*status_hbox);
   auto status_file_info_hbox = Gtk::manage(new Gtk::Box);
   status_file_info_hbox->pack_start(Notebook::get().status_file_path, Gtk::PACK_SHRINK);
@@ -1658,6 +1662,7 @@ void Window::add_widgets() {
   add(*overlay);
 
   show_all_children();
+  EntryBox::get().hide();
   Info::get().hide();
 
   //Scroll to end of terminal whenever info is printed
