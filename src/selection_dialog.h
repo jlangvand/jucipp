@@ -29,10 +29,10 @@ class SelectionDialogBase {
     unsigned int size = 0;
   };
 
-  class SearchEntry : public Gtk::Entry {
+  class SearchEntry : public Gtk::SearchEntry {
   public:
-    SearchEntry() : Gtk::Entry() {}
-    bool on_key_press_event(GdkEventKey *event) override { return Gtk::Entry::on_key_press_event(event); };
+    SearchEntry() : Gtk::SearchEntry() {}
+    bool on_key_press_event(GdkEventKey *event) override { return Gtk::SearchEntry::on_key_press_event(event); };
   };
 
 public:
