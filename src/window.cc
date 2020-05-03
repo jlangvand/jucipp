@@ -34,7 +34,10 @@ Window::Window() {
 #endif
   provider->load_from_data(R"(
     .juci_directories *:selected {border-left-color: inherit; color: inherit; background-color: rgba(128, 128, 128 , 0.2); background-image: inherit;}
+    .juci_directories button {background: @theme_base_color; border: 0px; color: @theme_text_color;font-weight: bold;}
     )" + notebook_style + R"(
+    .juci_entry {padding: 3px;}
+    .juci_terminal_scrolledwindow {padding-left: 3px;}
     .juci_info {border-radius: 5px;}
     .juci_tooltip_window {background-color: transparent;}
     .juci_tooltip_box {)" + border_radius_style + R"(padding: 3px;}
