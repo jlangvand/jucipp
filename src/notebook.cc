@@ -238,7 +238,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
         yellow.set_blue(normal_color.get_blue() + factor * (yellow.get_blue() - normal_color.get_blue()));
         Gdk::RGBA red;
         red.set_rgba(1.0, 0.0, 0.0);
-        factor = 0.5;
+        factor = 0.45;
         red.set_red(normal_color.get_red() + factor * (red.get_red() - normal_color.get_red()));
         red.set_green(normal_color.get_green() + factor * (red.get_green() - normal_color.get_green()));
         red.set_blue(normal_color.get_blue() + factor * (red.get_blue() - normal_color.get_blue()));
