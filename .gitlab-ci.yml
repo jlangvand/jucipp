@@ -33,9 +33,9 @@ thread-safety-analysis:
   image: cppit/jucipp:arch
   stage: test
   script:
-  - mkdir build && cd build
-  - CXX=clang++ CXXFLAGS="-Werror -Wno-deprecated-declarations" cmake ..
-  - make -j$(nproc)
+    - mkdir build && cd build
+    - CXX=clang++ CXXFLAGS="-Werror -Wno-deprecated-declarations" cmake ..
+    - make -j$(nproc)
 debian-testing:
   image: cppit/jucipp:debian-testing
   <<: *compile

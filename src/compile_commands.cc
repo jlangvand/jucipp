@@ -13,9 +13,13 @@ CompileCommands::FindSystemIncludePaths::FindSystemIncludePaths() {
     return;
   std::string line;
   while(std::getline(stdout_stream, line)) {
-    if(line == "#include <...> search starts here:") {
+    if(line.compare(0, 34, "#include <...> search starts here:") == 0) {
       while(std::getline(stdout_stream, line)) {
         if(!line.empty() && line[0] == ' ') {
+#ifdef _WIN32
+          if(line.back() == '\r')
+            line.pop_back();
+#endif
           auto end = line.find(" (framework directory)", 1);
           if(end == std::string::npos)
             include_paths.emplace_back(line.substr(1, end));
@@ -167,6 +171,17 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
       arguments.emplace_back("-I" + path);
     for(auto &path : system_include_paths.framework_paths)
       arguments.emplace_back("-F" + path);
+#ifdef _WIN32
+    auto clang_version_string = clangmm::to_string(clang_getClangVersion());
+    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)");
+    std::smatch sm;
+    if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
+      auto clang_version = sm[1].str();
+      auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
+      if(env_msystem_prefix != nullptr)
+        arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
+    }
+#endif
   }
   else {
     auto clang_version_string = clangmm::to_string(clang_getClangVersion());

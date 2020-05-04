@@ -45,6 +45,11 @@ Grep::operator bool() {
 }
 
 Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, bool include_offset, const std::string &only_for_file) const {
+#ifdef _WIN32
+  if(!line.empty() && line.back() == '\r')
+    line.pop_back();
+#endif
+
   std::vector<std::pair<size_t, size_t>> positions;
   size_t file_end = std::string::npos, line_end = std::string::npos;
   if(color_codes_to_markup) {
@@ -106,8 +111,15 @@ Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, 
   location.markup = std::move(line);
 
   auto file = location.markup.substr(0, file_end);
-  if(!only_for_file.empty() && file != only_for_file)
-    return location;
+  if(!only_for_file.empty()) {
+#ifdef _WIN32
+    if(boost::filesystem::path(file) != boost::filesystem::path(only_for_file))
+      return location;
+#else
+    if(file != only_for_file)
+      return location;
+#endif
+  }
   location.file_path = std::move(file);
   try {
     location.line = std::stoul(location.markup.substr(file_end + 1, line_end - file_end)) - 1;
