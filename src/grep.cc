@@ -21,9 +21,9 @@ Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool
   if(extended_regex)
     flags += " -E";
 
-  auto escaped_pattern = '\'' + pattern + '\'';
+  auto escaped_pattern = '"' + pattern + '"';
   for(size_t i = 1; i < escaped_pattern.size() - 1; ++i) {
-    if(escaped_pattern[i] == '\'') {
+    if(escaped_pattern[i] == '"') {
       escaped_pattern.insert(i, "\\");
       ++i;
     }
