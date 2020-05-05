@@ -54,13 +54,19 @@ See [enhancements](https://gitlab.com/cppit/jucipp/issues?scope=all&state=opened
 ## Screenshots
 <table border="0">
 <tr>
-<td><img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot1c.png" width="380"/></td>
-<td><img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot2c.png" width="380"/></td>
+<td><img src="docs/images/screenshot1c.png" width="380"/></td>
+<td><img src="docs/images/screenshot2c.png" width="380"/></td>
 </tr><tr>
-<td><img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot3c.png" width="380"/></td>
-<td><img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot4b.png" width="380"/></td>
+<td><img src="docs/images/screenshot3c.png" width="380"/></td>
+<td><img src="docs/images/screenshot4b.png" width="380"/></td>
 </tr>
 </table>
+
+## Installation
+See [installation guide](docs/install.md).
+
+## Custom styling
+See [custom styling](docs/custom_styling.md).
 
 ## Dependencies
 * boost-filesystem
@@ -73,9 +79,6 @@ See [enhancements](https://gitlab.com/cppit/jucipp/issues?scope=all&state=opened
 * libgit2
 * [libclangmm](http://gitlab.com/cppit/libclangmm/) (downloaded directly with git --recursive, no need to install)
 * [tiny-process-library](http://gitlab.com/eidheim/tiny-process-library/) (downloaded directly with git --recursive, no need to install)
-
-## Installation
-See [installation guide](docs/install.md).
 
 ## Documentation
 See [how to build the API doc](docs/api.md).
