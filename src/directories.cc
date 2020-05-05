@@ -823,9 +823,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
             auto name = Glib::Markup::escape_text(child.get_value(column_record.name));
             auto path = child.get_value(column_record.path);
             // Use canonical path to follow symbolic links
-            auto canonical_path = boost::filesystem::canonical(path, ec);
-            if(ec)
-              canonical_path = path;
+            auto canonical_path = filesystem::get_canonical_path(path);
 
             Gdk::RGBA *color;
             if(status.modified.find(canonical_path.generic_string()) != status.modified.end())

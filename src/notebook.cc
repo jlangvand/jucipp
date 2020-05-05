@@ -116,10 +116,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   // Use canonical path to follow symbolic links
   if(position == Position::infer) {
-    boost::system::error_code ec;
-    auto canonical_file_path = boost::filesystem::canonical(file_path, ec);
-    if(ec)
-      canonical_file_path = file_path;
+    auto canonical_file_path = filesystem::get_canonical_path(file_path);
     for(size_t c = 0; c < size(); c++) {
       bool equal;
       {

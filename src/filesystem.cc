@@ -312,3 +312,12 @@ boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) {
 
   return unencoded;
 }
+
+boost::filesystem::path filesystem::get_canonical_path(const boost::filesystem::path &path) {
+  try {
+    return boost::filesystem::canonical(path);
+  }
+  catch(...) {
+    return path;
+  }
+}

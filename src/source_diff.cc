@@ -35,10 +35,7 @@ void Source::DiffView::Renderer::draw_vfunc(const Cairo::RefPtr<Cairo::Context> 
 }
 
 Source::DiffView::DiffView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), renderer(new Renderer()) {
-  boost::system::error_code ec;
-  canonical_file_path = boost::filesystem::canonical(file_path, ec);
-  if(ec)
-    canonical_file_path = file_path;
+  canonical_file_path = filesystem::get_canonical_path(file_path);
 
   renderer->tag_added = get_buffer()->create_tag("git_added");
   renderer->tag_modified = get_buffer()->create_tag("git_modified");
@@ -254,10 +251,7 @@ void Source::DiffView::rename(const boost::filesystem::path &path) {
   Source::BaseView::rename(path);
 
   LockGuard lock(canonical_file_path_mutex);
-  boost::system::error_code ec;
-  canonical_file_path = boost::filesystem::canonical(path, ec);
-  if(ec)
-    canonical_file_path = path;
+  canonical_file_path = filesystem::get_canonical_path(path);
 }
 
 void Source::DiffView::goto_next_diff() {

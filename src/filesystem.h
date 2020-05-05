@@ -44,4 +44,7 @@ public:
   static std::string get_uri_from_path(const boost::filesystem::path &path);
   /// Get path from file uri
   static boost::filesystem::path get_path_from_uri(const std::string &uri);
+
+  /// Returns path on error. Do not use boost::filesystem::canonical_path since it is bugged when current_folder() fails.
+  static boost::filesystem::path get_canonical_path(const boost::filesystem::path &path);
 };
