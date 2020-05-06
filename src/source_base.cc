@@ -25,6 +25,7 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 
   if(language) {
     get_source_buffer()->set_language(language);
+    get_source_buffer()->set_highlight_syntax(true);
     auto language_id = language->get_id();
     if(language_id == "chdr" || language_id == "cpphdr" || language_id == "c" ||
        language_id == "cpp" || language_id == "objc" || language_id == "java" ||

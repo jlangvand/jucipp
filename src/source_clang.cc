@@ -1851,11 +1851,6 @@ void Source::ClangViewRefactor::apply_clickable_tag(const Gtk::TextIter &iter) {
 
 Source::ClangView::ClangView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language)
     : BaseView(file_path, language), ClangViewParse(file_path, language), ClangViewAutocomplete(file_path, language), ClangViewRefactor(file_path, language) {
-  if(language) {
-    get_source_buffer()->set_highlight_syntax(true);
-    get_source_buffer()->set_language(language);
-  }
-
   do_delete_object.connect([this]() {
     if(delete_thread.joinable())
       delete_thread.join();

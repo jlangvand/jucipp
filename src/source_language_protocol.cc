@@ -367,9 +367,6 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_)
     : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)) {
-  get_source_buffer()->set_language(language);
-  get_source_buffer()->set_highlight_syntax(true);
-
   initialize();
 }
 
