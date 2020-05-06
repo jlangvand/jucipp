@@ -5,5 +5,5 @@ if(NOT DEFINED plantuml_FOUND)
    )
    include(FindPackageHandleStandardArgs)
    find_package_handle_standard_args(
-     plantuml DEFAULT_MSG PLANTUML_JARFILE)
+     Plantuml DEFAULT_MSG PLANTUML_JARFILE)
 endif()
