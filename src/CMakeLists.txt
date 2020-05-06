@@ -65,7 +65,6 @@ if(APPLE)
   target_link_libraries(juci "-framework Foundation -framework AppKit")
 endif()
 
-
 install(TARGETS juci RUNTIME DESTINATION bin)
 if(${CMAKE_SYSTEM_NAME} MATCHES Linux|.*BSD|DragonFly)
   install(FILES "${CMAKE_SOURCE_DIR}/share/juci.desktop"

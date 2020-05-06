@@ -14,7 +14,11 @@ class Test {
 
 int main() {
   auto app = Gtk::Application::create();
+#ifdef JUCI_USE_UCTAGS
+  Config::get().project.ctags_command = "uctags";
+#else
   Config::get().project.ctags_command = "ctags";
+#endif
   Config::get().project.grep_command = "grep";
   Config::get().project.debug_build_path = "build";
 

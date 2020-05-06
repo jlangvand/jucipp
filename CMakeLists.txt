@@ -98,6 +98,11 @@ else()
   message("liblldb not found. Building juCi++ without debugging support")
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES .*BSD|DragonFly)
+  add_definitions(-DJUCI_USE_UCTAGS) # See https://svnweb.freebsd.org/ports?view=revision&revision=452957
+  add_definitions(-DJUCI_USE_GREP_EXCLUDE) # --exclude-dir is not an argument in bsd grep
+endif()
+
 # For both src and tests targets
 include_directories(
   ${Boost_INCLUDE_DIRS}

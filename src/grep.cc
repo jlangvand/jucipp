@@ -6,11 +6,20 @@
 
 Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex) {
   auto build = Project::Build::create(path);
+#ifdef JUCI_USE_GREP_EXCLUDE
+  std::string exclude = "--exclude=node_modules/*";
+#else
   std::string exclude = "--exclude-dir=node_modules";
+#endif
   if(!build->project_path.empty()) {
     project_path = build->project_path;
+#ifdef JUCI_USE_GREP_EXCLUDE
+    exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), build->project_path).string()) + "/*";
+    exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), build->project_path).string()) + "/*";
+#else
     exclude += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), build->project_path).string());
     exclude += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), build->project_path).string());
+#endif
   }
   else
     project_path = path;

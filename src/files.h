@@ -191,8 +191,15 @@ const std::string default_config_file = R"RAW({
         "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
         "default_build_management_system": "cmake",
         "save_on_compile_or_run": true,
-        "clear_terminal_on_compile": true,
-        "ctags_command": "ctags",
+        "clear_terminal_on_compile": true,)RAW"
+#ifdef JUCI_USE_UCTAGS
+                                                    R"RAW(
+        "ctags_command": "uctags",)RAW"
+#else
+                                                    R"RAW(
+        "ctags_command": "ctags",)RAW"
+#endif
+                                                    R"RAW(
         "grep_command": "grep",
         "python_command": "PYTHONUNBUFFERED=1 python",
         "markdown_command": "grip -b"
