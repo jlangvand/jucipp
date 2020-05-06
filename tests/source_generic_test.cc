@@ -8,7 +8,7 @@ int main() {
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
   auto source_file = tests_path / "tmp" / "source_file.md";
 
-  auto language_manager = Gsv::LanguageManager::get_default();
+  auto language_manager = Source::LanguageManager::get_default();
 
   auto language = language_manager->get_language("markdown");
   Source::GenericView view(source_file, language);

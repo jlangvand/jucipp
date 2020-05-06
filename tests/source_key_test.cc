@@ -14,7 +14,7 @@ int main() {
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
   auto source_file = tests_path / "tmp" / "source_file.cpp";
 
-  auto language_manager = Gsv::LanguageManager::get_default();
+  auto language_manager = Source::LanguageManager::get_default();
   GdkEventKey event;
   event.state = 0;
 

@@ -29,7 +29,7 @@ int main() {
 
   Config::get().project.default_build_path = "./build";
   Source::ClangView *clang_view = new Source::ClangView(boost::filesystem::canonical(std::string(JUCI_TESTS_PATH) + "/source_clang_test_files/main.cpp"),
-                                                        Gsv::LanguageManager::get_default()->get_language("cpp"));
+                                                        Source::LanguageManager::get_default()->get_language("cpp"));
   while(!clang_view->parsed)
     flush_events();
   g_assert_cmpuint(clang_view->clang_diagnostics.size(), ==, 0);
@@ -82,7 +82,7 @@ int main() {
 
   // test remove_include_guard
   {
-    clang_view->language = Gsv::LanguageManager::get_default()->get_language("chdr");
+    clang_view->language = Source::LanguageManager::get_default()->get_language("chdr");
     std::string source = "#ifndef F\n#define F\n#endif  // F";
     clangmm::remove_include_guard(source);
     g_assert_cmpstr(source.c_str(), ==, "         \n         \n            ");

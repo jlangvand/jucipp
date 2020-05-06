@@ -20,7 +20,6 @@ inline pid_t get_current_process_id() {
 #endif
 
 Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
-  configure();
   spellcheck_all = true;
 
   if(language) {
