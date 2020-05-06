@@ -14,7 +14,11 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
   background-size: 100% 100%;
 }
 
-.juci_directories * {
+.juci_directories {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.juci_directories button {
   background-color: rgba(255, 255, 255, 0.7);
 }
 
@@ -22,8 +26,8 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
   background-color: rgba(200, 200, 200, 0.6);
 }
 
-.juci_directories button * {
-  background: transparent;
+.juci_terminal_scrolledwindow {
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .juci_terminal {
@@ -32,10 +36,6 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
 
 .juci_terminal * {
   background: transparent;
-}
-
-.juci_terminal_scrolledwindow {
-  background-color: rgba(255, 255, 255, 0.8);
 }
 
 .juci_notebook {
