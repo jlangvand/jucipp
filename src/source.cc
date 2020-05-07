@@ -681,7 +681,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
 
-      command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string()) + " --print-width 120 --config-precedence prefer-file";
+      command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string());
 
       if(get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
         Gtk::TextIter start, end;
@@ -704,7 +704,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         std::getline(stderr_stream, line);
         if(!line.empty() && line != "NaN") {
           try {
-            auto offset = atoi(line.c_str());
+            auto offset = std::stoi(line);
             if(offset < get_buffer()->size()) {
               get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(offset));
               hide_tooltips();
@@ -721,7 +721,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         std::smatch sm;
         if(std::regex_match(line, sm, regex)) {
           try {
-            auto start = get_iter_at_line_offset(atoi(sm[2].str().c_str()) - 1, atoi(sm[3].str().c_str()) - 1);
+            auto start = get_iter_at_line_offset(std::stoi(sm[2].str()) - 1, std::stoi(sm[3].str()) - 1);
             ++num_errors;
             while(start.ends_line() && start.backward_char()) {
             }

@@ -169,8 +169,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
               Notebook::get().open(path);
               if(auto view = Notebook::get().get_current_view()) {
                 try {
-                  auto line = atoi(sm[2].str().c_str()) - 1;
-                  auto offset = atoi(sm[3].str().c_str()) - 1;
+                  auto line = std::stoi(sm[2].str()) - 1;
+                  auto offset = std::stoi(sm[3].str()) - 1;
                   view->place_cursor_at_line_offset(line, offset);
                   view->scroll_to_cursor_delayed(true, false);
                 }
