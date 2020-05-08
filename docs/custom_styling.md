@@ -46,6 +46,10 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
   background: transparent;
 }
 
+.juci_source_map :not(text) {
+  background-color: rgba(200, 200, 200, 0.3);
+}
+
 textview.view text selection {
   background-color: #4a90d9;
 }
