@@ -85,6 +85,9 @@ const std::string default_config_file = R"RAW({
         "file_reload_file": "",
         "file_save": "<primary>s",
         "file_save_as": "<primary><shift>s",
+        "file_close_file": "<primary>w",
+        "file_close_folder": "",
+        "file_close_project": "",
         "file_print": "",
         "edit_undo": "<primary>z",
         "edit_redo": "<primary><shift>z",
@@ -154,7 +157,6 @@ const std::string default_config_file = R"RAW({
         "window_previous_tab": "<primary><alt>Left",)RAW"
 #endif
                                                     R"RAW(
-        "window_close_tab": "<primary>w",
         "window_toggle_split": "",
         "window_split_source_buffer": "",)RAW"
 #ifdef __APPLE__

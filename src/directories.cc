@@ -521,6 +521,18 @@ void Directories::open(const boost::filesystem::path &dir_path) {
   add_or_update_path(path, Gtk::TreeModel::Row(), true);
 }
 
+void Directories::close(const boost::filesystem::path &dir_path) {
+  if(path.empty() || dir_path.empty())
+    return;
+  if(filesystem::file_in_path(path, dir_path)) {
+    tree_store->clear();
+    path.clear();
+    get_column(0)->set_title("");
+  }
+  else
+    remove_path(dir_path);
+}
+
 void Directories::update() {
   std::vector<std::pair<std::string, Gtk::TreeModel::Row>> saved_directories;
   for(auto &directory : directories)

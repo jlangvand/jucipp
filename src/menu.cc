@@ -165,6 +165,20 @@ const Glib::ustring menu_xml = R"RAW(<interface>
       </section>
       <section>
         <item>
+          <attribute name='label' translatable='yes'>_Close _File</attribute>
+          <attribute name='action'>app.file_close_file</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Close _Folder</attribute>
+          <attribute name='action'>app.file_close_folder</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Close _Project</attribute>
+          <attribute name='action'>app.file_close_project</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
           <attribute name='label' translatable='yes'>_Print</attribute>
           <attribute name='action'>app.file_print</attribute>
         </item>
@@ -482,10 +496,6 @@ const Glib::ustring menu_xml = R"RAW(<interface>
         <item>
           <attribute name='label' translatable='yes'>_Previous _Tab</attribute>
           <attribute name='action'>app.window_previous_tab</attribute>
-        </item>
-        <item>
-          <attribute name='label' translatable='yes'>_Close _Tab</attribute>
-          <attribute name='action'>app.window_close_tab</attribute>
         </item>
       </section>
       <section>

@@ -304,6 +304,8 @@ void Window::set_menu_actions() {
       if(!ec && last_write_time >= time_now) {
         if(!Directories::get().path.empty())
           Directories::get().update();
+        else
+          Directories::get().open(path);
         Terminal::get().print("New folder " + path.string() + " created.\n");
       }
       else
@@ -419,8 +421,11 @@ void Window::set_menu_actions() {
   });
   menu.add_action("file_open_folder", []() {
     auto path = Dialog::open_folder(Project::get_preferably_directory_folder());
-    if(!path.empty())
+    if(!path.empty()) {
       Directories::get().open(path);
+      if(auto view = Notebook::get().get_current_view())
+        Directories::get().select(view->file_path);
+    }
   });
 
   menu.add_action("file_reload_file", []() {
@@ -474,6 +479,29 @@ void Window::set_menu_actions() {
           Terminal::get().print("Error saving file\n", true);
       }
     }
+  });
+
+  menu.add_action("file_close_file", []() {
+    if(Notebook::get().get_current_view())
+      Notebook::get().close_current();
+  });
+  menu.add_action("file_close_folder", []() {
+    Directories::get().close(Directories::get().path);
+  });
+  menu.add_action("file_close_project", []() {
+    if(!Notebook::get().get_current_view() && Directories::get().path.empty())
+      return;
+    auto project_path = Project::get_preferably_view_folder();
+    auto build = Project::Build::create(project_path);
+    if(!build->project_path.empty())
+      project_path = build->project_path;
+    for(size_t c = Notebook::get().size() - 1; c != static_cast<size_t>(-1); --c) {
+      if(filesystem::file_in_path(Notebook::get().get_view(c)->file_path, project_path)) {
+        if(!Notebook::get().close(c))
+          return;
+      }
+    }
+    Directories::get().close(project_path);
   });
 
   menu.add_action("file_print", [this]() {
@@ -1530,10 +1558,6 @@ void Window::set_menu_actions() {
   });
   menu.add_action("window_previous_tab", []() {
     Notebook::get().previous();
-  });
-  menu.add_action("window_close_tab", []() {
-    if(Notebook::get().get_current_view())
-      Notebook::get().close_current();
   });
   menu.add_action("window_toggle_split", [] {
     Notebook::get().toggle_split();

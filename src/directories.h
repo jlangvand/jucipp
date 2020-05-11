@@ -59,6 +59,7 @@ public:
   ~Directories() override;
 
   void open(const boost::filesystem::path &dir_path = "");
+  void close(const boost::filesystem::path &dir_path);
   void update();
   void on_save_file(const boost::filesystem::path &file_path);
   void select(const boost::filesystem::path &path);
