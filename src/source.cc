@@ -373,7 +373,7 @@ void Source::View::configure() {
   set_draw_spaces(parse_show_whitespace_characters(Config::get().source.show_whitespace_characters));
 
   if(Config::get().source.wrap_lines)
-    set_wrap_mode(Gtk::WrapMode::WRAP_CHAR);
+    set_wrap_mode(Gtk::WrapMode::WRAP_WORD_CHAR);
   else
     set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
   property_highlight_current_line() = Config::get().source.highlight_current_line;
