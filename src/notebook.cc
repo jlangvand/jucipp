@@ -227,6 +227,8 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
       auto num_fix_its = std::get<2>(view->status_diagnostics);
       if(num_warnings > 0 || num_errors > 0 || num_fix_its > 0) {
         auto normal_color = status_diagnostics.get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_NORMAL);
+        auto light_theme = (normal_color.get_red() + normal_color.get_green() + normal_color.get_blue()) / 3 < 0.5;
+
         Gdk::RGBA yellow;
         yellow.set_rgba(1.0, 1.0, 0.2);
         double factor = 0.5;
@@ -235,7 +237,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
         yellow.set_blue(normal_color.get_blue() + factor * (yellow.get_blue() - normal_color.get_blue()));
         Gdk::RGBA red;
         red.set_rgba(1.0, 0.0, 0.0);
-        factor = 0.45;
+        factor = light_theme ? 0.5 : 0.35;
         red.set_red(normal_color.get_red() + factor * (red.get_red() - normal_color.get_red()));
         red.set_green(normal_color.get_green() + factor * (red.get_green() - normal_color.get_green()));
         red.set_blue(normal_color.get_blue() + factor * (red.get_blue() - normal_color.get_blue()));
