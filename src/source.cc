@@ -372,7 +372,7 @@ void Source::View::configure() {
 
   set_draw_spaces(parse_show_whitespace_characters(Config::get().source.show_whitespace_characters));
 
-  if(Config::get().source.wrap_lines)
+  if(Config::get().source.wrap_lines || (language && language->get_id() == "markdown"))
     set_wrap_mode(Gtk::WrapMode::WRAP_WORD_CHAR);
   else
     set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
