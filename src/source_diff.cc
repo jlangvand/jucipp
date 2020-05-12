@@ -67,7 +67,7 @@ void Source::DiffView::configure() {
   auto normal_color = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_NORMAL);
   auto light_theme = (normal_color.get_red() + normal_color.get_green() + normal_color.get_blue()) / 3 < 0.5;
   yellow.set_rgba(1.0, 1.0, 0.2);
-  double factor = light_theme ? 0.8 : 0.5;
+  double factor = light_theme ? 0.85 : 0.5;
   yellow.set_red(normal_color.get_red() + factor * (yellow.get_red() - normal_color.get_red()));
   yellow.set_green(normal_color.get_green() + factor * (yellow.get_green() - normal_color.get_green()));
   yellow.set_blue(normal_color.get_blue() + factor * (yellow.get_blue() - normal_color.get_blue()));
