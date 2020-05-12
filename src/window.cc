@@ -22,6 +22,10 @@ Window::Window() {
   get_style_context()->add_class("juci_window");
   set_events(Gdk::POINTER_MOTION_MASK | Gdk::FOCUS_CHANGE_MASK | Gdk::SCROLL_MASK | Gdk::LEAVE_NOTIFY_MASK);
 
+  auto visual = get_screen()->get_rgba_visual();
+  if(visual)
+    gtk_widget_set_visual(reinterpret_cast<GtkWidget *>(gobj()), visual->gobj());
+
   auto provider = Gtk::CssProvider::create();
   auto screen = get_screen();
   std::string border_radius_style;
