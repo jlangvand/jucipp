@@ -23,6 +23,8 @@ namespace Source {
       Glib::RefPtr<Gtk::TextTag> tag_removed_below;
       Glib::RefPtr<Gtk::TextTag> tag_removed_above;
 
+      Gdk::RGBA yellow, red, green;
+
     protected:
       void draw_vfunc(const Cairo::RefPtr<Cairo::Context> &cr, const Gdk::Rectangle &background_area,
                       const Gdk::Rectangle &cell_area, Gtk::TextIter &start, Gtk::TextIter &end,

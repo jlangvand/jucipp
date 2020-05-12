@@ -13,22 +13,22 @@ void Source::DiffView::Renderer::draw_vfunc(const Cairo::RefPtr<Cairo::Context> 
                                             const Gdk::Rectangle &cell_area, Gtk::TextIter &start, Gtk::TextIter &end,
                                             Gsv::GutterRendererState p6) {
   if(start.has_tag(tag_added) || end.has_tag(tag_added)) {
-    cr->set_source_rgba(0.0, 1.0, 0.0, 0.5);
+    cr->set_source_rgba(green.get_red(), green.get_green(), green.get_blue(), green.get_alpha());
     cr->rectangle(cell_area.get_x(), cell_area.get_y(), 4, cell_area.get_height());
     cr->fill();
   }
   else if(start.has_tag(tag_modified) || end.has_tag(tag_modified)) {
-    cr->set_source_rgba(0.9, 0.9, 0.0, 0.75);
+    cr->set_source_rgba(yellow.get_red(), yellow.get_green(), yellow.get_blue(), yellow.get_alpha());
     cr->rectangle(cell_area.get_x(), cell_area.get_y(), 4, cell_area.get_height());
     cr->fill();
   }
   if(start.has_tag(tag_removed_below) || end.has_tag(tag_removed_below)) {
-    cr->set_source_rgba(1.0, 0.0, 0.0, 0.5);
+    cr->set_source_rgba(red.get_red(), red.get_green(), red.get_blue(), red.get_alpha());
     cr->rectangle(cell_area.get_x() - 4, cell_area.get_y() + cell_area.get_height() - 2, 8, 2);
     cr->fill();
   }
   if(start.has_tag(tag_removed_above) || end.has_tag(tag_removed_above)) {
-    cr->set_source_rgba(1.0, 0.0, 0.0, 0.5);
+    cr->set_source_rgba(red.get_red(), red.get_green(), red.get_blue(), red.get_alpha());
     cr->rectangle(cell_area.get_x() - 4, cell_area.get_y(), 8, 2);
     cr->fill();
   }
@@ -60,6 +60,28 @@ Source::DiffView::~DiffView() {
 }
 
 void Source::DiffView::configure() {
+  // Set colors
+  auto &yellow = renderer->yellow;
+  auto &red = renderer->red;
+  auto &green = renderer->green;
+  auto normal_color = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_NORMAL);
+  auto light_theme = (normal_color.get_red() + normal_color.get_green() + normal_color.get_blue()) / 3 < 0.5;
+  yellow.set_rgba(1.0, 1.0, 0.2);
+  double factor = light_theme ? 0.8 : 0.5;
+  yellow.set_red(normal_color.get_red() + factor * (yellow.get_red() - normal_color.get_red()));
+  yellow.set_green(normal_color.get_green() + factor * (yellow.get_green() - normal_color.get_green()));
+  yellow.set_blue(normal_color.get_blue() + factor * (yellow.get_blue() - normal_color.get_blue()));
+  red.set_rgba(1.0, 0.0, 0.0);
+  factor = light_theme ? 0.8 : 0.35;
+  red.set_red(normal_color.get_red() + factor * (red.get_red() - normal_color.get_red()));
+  red.set_green(normal_color.get_green() + factor * (red.get_green() - normal_color.get_green()));
+  red.set_blue(normal_color.get_blue() + factor * (red.get_blue() - normal_color.get_blue()));
+  green.set_rgba(0.0, 1.0, 0.0);
+  factor = light_theme ? 0.7 : 0.4;
+  green.set_red(normal_color.get_red() + factor * (green.get_red() - normal_color.get_red()));
+  green.set_green(normal_color.get_green() + factor * (green.get_green() - normal_color.get_green()));
+  green.set_blue(normal_color.get_blue() + factor * (green.get_blue() - normal_color.get_blue()));
+
   if(Config::get().source.show_git_diff) {
     if(repository)
       return;
