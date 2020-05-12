@@ -810,8 +810,6 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
           return;
 
         auto normal_color = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_NORMAL);
-        Gdk::RGBA gray;
-        gray.set_rgba(0.5, 0.5, 0.5);
         Gdk::RGBA yellow;
         yellow.set_rgba(1.0, 1.0, 0.2);
         double factor = 0.5;
