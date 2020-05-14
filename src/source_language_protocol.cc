@@ -150,6 +150,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
         capabilities.document_formatting = capabilities_pt->second.get<bool>("documentFormattingProvider", false);
         capabilities.document_range_formatting = capabilities_pt->second.get<bool>("documentRangeFormattingProvider", false);
         capabilities.rename = capabilities_pt->second.get<bool>("renameProvider", false);
+        if(!capabilities.rename)
+          capabilities.rename = capabilities_pt->second.get<bool>("renameProvider.prepareProvider", false);
         capabilities.type_coverage = capabilities_pt->second.get<bool>("typeCoverageProvider", false);
       }
 
@@ -848,22 +850,20 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             try {
               auto kind = it->second.get<int>("kind");
               if(kind == 6 || kind == 9 || kind == 12) {
-                std::string row;
                 std::unique_ptr<LanguageProtocol::Range> range;
+                std::string container;
                 auto location_pt = it->second.get_child_optional("location");
                 if(location_pt) {
                   LanguageProtocol::Location location(*location_pt);
-                  auto container_name = it->second.get<std::string>("containerName", "");
-                  if(!container_name.empty() && container_name != "null")
-                    row += container_name + ':';
+                  container = it->second.get<std::string>("containerName", "");
+                  if(container == "null")
+                    container.clear();
                   range = std::make_unique<LanguageProtocol::Range>(location.range);
                 }
                 else
                   range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
 
-                row += std::to_string(range->start.line + 1) + ": <b>" + it->second.get<std::string>("name") + "</b>";
-
-                methods.emplace_back(Offset(range->start.line, range->start.character), std::move(row));
+                methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>");
               }
             }
             catch(...) {

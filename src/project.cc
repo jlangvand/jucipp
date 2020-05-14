@@ -731,13 +731,11 @@ void Project::LanguageProtocol::show_symbols() {
             try {
               ::LanguageProtocol::Location location(it->second.get_child("location"));
               if(filesystem::file_in_path(location.file, *project_path)) {
-                ::LanguageProtocol::Location location(it->second.get_child("location"));
+                auto container = it->second.get<std::string>("containerName", "");
+                if(container == "null")
+                  container.clear();
 
-                std::string row = filesystem::get_relative_path(location.file, *project_path).string() + ':';
-                auto container_name = it->second.get<std::string>("containerName", "");
-                if(!container_name.empty() && container_name != "null")
-                  row += container_name + ':';
-                row += std::to_string(location.range.start.line + 1) + ": <b>" + it->second.get<std::string>("name") + "</b>";
+                auto row = filesystem::get_relative_path(location.file, *project_path).string() + ':' + std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>";
 
                 locations_rows.emplace(std::move(location), std::move(row));
               }
@@ -766,11 +764,10 @@ void Project::LanguageProtocol::show_symbols() {
           try {
             ::LanguageProtocol::Location location(it->second.get_child("location"));
 
-            std::string row;
-            auto container_name = it->second.get<std::string>("containerName", "");
-            if(!container_name.empty() && container_name != "null")
-              row += container_name + ':';
-            row += std::to_string(location.range.start.line + 1) + ": <b>" + it->second.get<std::string>("name") + "</b>";
+            auto container = it->second.get<std::string>("containerName", "");
+            if(container == "null")
+              container.clear();
+            auto row = std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>";
 
             locations_rows.emplace(std::move(location), std::move(row));
           }
