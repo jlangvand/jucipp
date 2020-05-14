@@ -1577,61 +1577,62 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
     return std::string();
   };
 
-  get_methods = [this]() {
-    std::vector<std::pair<Offset, std::string>> methods;
-    if(!parsed) {
-      Info::get().print("Buffer is parsing");
-      return methods;
-    }
-    clangmm::Offset last_offset{static_cast<unsigned>(-1), static_cast<unsigned>(-1)};
-    for(auto &token : *clang_tokens) {
-      if(token.is_identifier()) {
-        auto cursor = token.get_cursor();
-        auto kind = cursor.get_kind();
-        if(kind == clangmm::Cursor::Kind::FunctionDecl || kind == clangmm::Cursor::Kind::CXXMethod ||
-           kind == clangmm::Cursor::Kind::Constructor || kind == clangmm::Cursor::Kind::Destructor ||
-           kind == clangmm::Cursor::Kind::FunctionTemplate || kind == clangmm::Cursor::Kind::ConversionFunction) {
-          auto offset = cursor.get_source_location().get_offset();
-          if(offset == last_offset)
-            continue;
-          last_offset = offset;
+  if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr")) {
+    get_methods = [this]() {
+      std::vector<std::pair<Offset, std::string>> methods;
+      if(!parsed) {
+        Info::get().print("Buffer is parsing");
+        return methods;
+      }
+      clangmm::Offset last_offset{static_cast<unsigned>(-1), static_cast<unsigned>(-1)};
+      for(auto &token : *clang_tokens) {
+        if(token.is_identifier()) {
+          auto cursor = token.get_cursor();
+          auto kind = cursor.get_kind();
+          if(kind == clangmm::Cursor::Kind::FunctionDecl || kind == clangmm::Cursor::Kind::CXXMethod ||
+             kind == clangmm::Cursor::Kind::Constructor || kind == clangmm::Cursor::Kind::Destructor ||
+             kind == clangmm::Cursor::Kind::FunctionTemplate || kind == clangmm::Cursor::Kind::ConversionFunction) {
+            auto offset = cursor.get_source_location().get_offset();
+            if(offset == last_offset)
+              continue;
+            last_offset = offset;
 
-          std::string prefix;
-          auto parent = cursor.get_semantic_parent();
-          while(parent && parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit) {
-            prefix.insert(0, parent.get_display_name() + (prefix.empty() ? "" : "::"));
-            parent = parent.get_semantic_parent();
+            std::string scope;
+            auto parent = cursor.get_semantic_parent();
+            while(parent && parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit) {
+              scope.insert(0, parent.get_display_name() + (scope.empty() ? "" : "::"));
+              parent = parent.get_semantic_parent();
+            }
+            if(!scope.empty())
+              scope += "::";
+            scope = Glib::Markup::escape_text(scope);
+
+            std::string ret;
+            if(kind != clangmm::Cursor::Kind::Constructor && kind != clangmm::Cursor::Kind::Destructor) {
+              ret += cursor.get_type().get_result().get_spelling();
+              if(!ret.empty() && ret.back() != '&' && ret.back() != '*')
+                ret += ' ';
+            }
+            ret = Glib::Markup::escape_text(ret);
+
+            auto method = Glib::Markup::escape_text(cursor.get_display_name());
+            // Add bold method token
+            auto end = method.find('(');
+            if(end == std::string::npos)
+              continue;
+            method.insert(end, "</b>");
+            method.insert(0, "<b>");
+
+            methods.emplace_back(Offset(offset.line - 1, offset.index - 1), std::to_string(offset.line) + ": " + ret + scope + method);
           }
-          if(!prefix.empty())
-            prefix += ':';
-          prefix += std::to_string(offset.line) + ": ";
-          prefix = Glib::Markup::escape_text(prefix);
-
-          std::string ret;
-          if(kind != clangmm::Cursor::Kind::Constructor && kind != clangmm::Cursor::Kind::Destructor) {
-            ret += cursor.get_type().get_result().get_spelling();
-            if(!ret.empty() && ret.back() != '&' && ret.back() != '*')
-              ret += ' ';
-          }
-          ret = Glib::Markup::escape_text(ret);
-
-          auto method = Glib::Markup::escape_text(cursor.get_display_name());
-          // Add bold method token
-          auto end = method.find('(');
-          if(end == std::string::npos)
-            continue;
-          method.insert(end, "</b>");
-          method.insert(0, "<b>");
-
-          methods.emplace_back(Offset(offset.line - 1, offset.index - 1), prefix + ret + method);
         }
       }
-    }
-    if(methods.empty())
-      Info::get().print("No methods found in current buffer");
+      if(methods.empty())
+        Info::get().print("No methods found in current buffer");
 
-    return methods;
-  };
+      return methods;
+    };
+  }
 
   get_token_data = [this]() -> std::vector<std::string> {
     clangmm::Cursor cursor;

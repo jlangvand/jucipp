@@ -23,6 +23,12 @@ int main() {
   auto app = Gtk::Application::create();
   Gsv::init();
 
+#ifdef JUCI_USE_UCTAGS
+  Config::get().project.ctags_command = "uctags";
+#else
+  Config::get().project.ctags_command = "ctags";
+#endif
+
 #ifdef _WIN32
   g_assert_cmpstr(std::getenv("MSYSTEM_PREFIX"), !=, nullptr);
 #endif
