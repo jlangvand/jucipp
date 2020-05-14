@@ -182,20 +182,22 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) c
 ///Split up a type into its various significant parts
 std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
   std::vector<std::string> parts;
-  size_t text_start = -1;
+  size_t text_start = std::string::npos;
   for(size_t c = 0; c < type.size(); ++c) {
     auto &chr = type[c];
     if((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr == '_' || chr == '~') {
-      if(text_start == static_cast<size_t>(-1))
+      if(text_start == std::string::npos)
         text_start = c;
     }
     else {
-      if(text_start != static_cast<size_t>(-1)) {
+      if(text_start != std::string::npos) {
         parts.emplace_back(type.substr(text_start, c - text_start));
-        text_start = -1;
+        text_start = std::string::npos;
       }
       if(chr == '*' || chr == '&')
         parts.emplace_back(std::string() + chr);
+      else if(chr == '{')
+        break;
     }
   }
   return parts;
