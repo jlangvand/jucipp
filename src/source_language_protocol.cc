@@ -846,29 +846,39 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::promise<void> result_processed;
       client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + uri + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
-          for(auto it = result.begin(); it != result.end(); ++it) {
-            try {
-              auto kind = it->second.get<int>("kind");
-              if(kind == 6 || kind == 9 || kind == 12) {
-                std::unique_ptr<LanguageProtocol::Range> range;
-                std::string container;
-                auto location_pt = it->second.get_child_optional("location");
-                if(location_pt) {
-                  LanguageProtocol::Location location(*location_pt);
-                  container = it->second.get<std::string>("containerName", "");
-                  if(container == "null")
-                    container.clear();
-                  range = std::make_unique<LanguageProtocol::Range>(location.range);
+          std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&methods, &parse_result](const boost::property_tree::ptree &pt, const std::string &container) {
+            for(auto it = pt.begin(); it != pt.end(); ++it) {
+              try {
+                auto kind = it->second.get<int>("kind");
+                if(kind == 6 || kind == 9 || kind == 12) {
+                  std::unique_ptr<LanguageProtocol::Range> range;
+                  std::string prefix;
+                  auto location_pt = it->second.get_child_optional("location");
+                  if(location_pt) {
+                    LanguageProtocol::Location location(*location_pt);
+                    range = std::make_unique<LanguageProtocol::Range>(location.range);
+                    std::string container = it->second.get<std::string>("containerName", "");
+                    if(container == "null")
+                      container.clear();
+                    if(!container.empty())
+                      prefix = container + "::";
+                  }
+                  else {
+                    range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
+                    if(!container.empty())
+                      prefix = container + "::";
+                  }
+                  methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + prefix + "<b>" + it->second.get<std::string>("name") + "</b>");
                 }
-                else
-                  range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
-
-                methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>");
+                auto children = it->second.get_child_optional("children");
+                if(children)
+                  parse_result(*children, (!container.empty() ? container + "::" : "") + it->second.get<std::string>("name"));
+              }
+              catch(...) {
               }
             }
-            catch(...) {
-            }
-          }
+          };
+          parse_result(result, "");
         }
         result_processed.set_value();
       });

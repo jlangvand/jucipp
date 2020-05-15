@@ -758,22 +758,38 @@ void Project::LanguageProtocol::show_symbols() {
   else {
     std::map<::LanguageProtocol::Location, std::string> locations_rows;
     std::promise<void> result_processed;
-    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + language_protocol_view->uri + "\"}", [&result_processed, &locations_rows, locations](const boost::property_tree::ptree &result, bool error) {
+    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + language_protocol_view->uri + "\"}", [&result_processed, &locations_rows, locations, language_protocol_view](const boost::property_tree::ptree &result, bool error) {
       if(!error) {
-        for(auto it = result.begin(); it != result.end(); ++it) {
-          try {
-            ::LanguageProtocol::Location location(it->second.get_child("location"));
-
-            auto container = it->second.get<std::string>("containerName", "");
-            if(container == "null")
-              container.clear();
-            auto row = std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>";
-
-            locations_rows.emplace(std::move(location), std::move(row));
+        std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&locations_rows, &parse_result, language_protocol_view](const boost::property_tree::ptree &pt, const std::string &container) {
+          for(auto it = pt.begin(); it != pt.end(); ++it) {
+            try {
+              std::unique_ptr<::LanguageProtocol::Location> location;
+              std::string prefix;
+              auto location_pt = it->second.get_child_optional("location");
+              if(location_pt) {
+                location = std::make_unique<::LanguageProtocol::Location>(*location_pt);
+                std::string container = it->second.get<std::string>("containerName", "");
+                if(container == "null")
+                  container.clear();
+                if(!container.empty())
+                  prefix = container + "::";
+              }
+              else {
+                location = std::make_unique<::LanguageProtocol::Location>(language_protocol_view->file_path.string(), ::LanguageProtocol::Range(it->second.get_child("range")));
+                if(!container.empty())
+                  prefix = container + "::";
+              }
+              auto row = std::to_string(location->range.start.line + 1) + ": " + prefix + "<b>" + it->second.get<std::string>("name") + "</b>";
+              locations_rows.emplace(std::move(*location), std::move(row));
+              auto children = it->second.get_child_optional("children");
+              if(children)
+                parse_result(*children, (!container.empty() ? container + "::" : "") + it->second.get<std::string>("name"));
+            }
+            catch(...) {
+            }
           }
-          catch(...) {
-          }
-        }
+        };
+        parse_result(result, "");
       }
       result_processed.set_value();
     });

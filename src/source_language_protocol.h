@@ -44,6 +44,7 @@ namespace LanguageProtocol {
   class Location {
   public:
     Location(const boost::property_tree::ptree &pt, std::string file_ = {});
+    Location(std::string _file, Range _range) : file(std::move(_file)), range(std::move(_range)) {}
     std::string file;
     Range range;
 
