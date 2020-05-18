@@ -403,13 +403,9 @@ bool Source::View::save() {
     auto end_iter = start_iter;
     bool end_reached = false;
     while(!end_reached) {
-      for(size_t c = 0; c < 131072; c++) {
-        if(!end_iter.forward_char()) {
-          end_reached = true;
-          break;
-        }
-      }
-      output << get_buffer()->get_text(start_iter, end_iter).c_str();
+      if(!end_iter.forward_chars(131072))
+        end_reached = true;
+      output << get_buffer()->get_text(start_iter, end_iter).raw();
       start_iter = end_iter;
     }
     output.close();

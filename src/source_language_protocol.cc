@@ -190,9 +190,7 @@ void LanguageProtocol::Client::parse_server_message() {
 
     std::string line;
     while(!header_read && std::getline(server_message_stream, line)) {
-      if(!line.empty()) {
-        if(line.back() == '\r')
-          line.pop_back();
+      if(!line.empty() && line != "\r") {
         if(line.compare(0, 16, "Content-Length: ") == 0) {
           try {
             server_message_size = static_cast<size_t>(std::stoul(line.substr(16)));
@@ -201,7 +199,7 @@ void LanguageProtocol::Client::parse_server_message() {
           }
         }
       }
-      if(line.empty() && server_message_size != static_cast<size_t>(-1)) {
+      else if(server_message_size != static_cast<size_t>(-1)) {
         server_message_content_pos = server_message_stream.tellg();
         server_message_size += server_message_content_pos;
         header_read = true;

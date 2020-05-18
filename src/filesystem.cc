@@ -7,13 +7,17 @@
 
 //Only use on small files
 std::string filesystem::read(const std::string &path) {
-  std::stringstream ss;
+  std::string str;
   std::ifstream input(path, std::ofstream::binary);
   if(input) {
-    ss << input.rdbuf();
+    input.seekg(0, std::ios::end);
+    auto size = input.tellg();
+    input.seekg(0, std::ios::beg);
+    str.reserve(size);
+    str.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
     input.close();
   }
-  return ss.str();
+  return str;
 }
 
 //Only use on small files
@@ -21,11 +25,11 @@ std::vector<std::string> filesystem::read_lines(const std::string &path) {
   std::vector<std::string> res;
   std::ifstream input(path, std::ofstream::binary);
   if(input) {
-    do {
-      res.emplace_back();
-    } while(getline(input, res.back()));
+    std::string line;
+    while(std::getline(input, line))
+      res.emplace_back(std::move(line));
+    input.close();
   }
-  input.close();
   return res;
 }
 

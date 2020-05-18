@@ -109,9 +109,13 @@ bool Source::BaseView::load(bool not_undoable_action) {
   if(language) {
     std::ifstream input(file_path.string(), std::ofstream::binary);
     if(input) {
-      std::stringstream ss;
-      ss << input.rdbuf();
-      Glib::ustring ustr = ss.str();
+      std::string str;
+      input.seekg(0, std::ios::end);
+      auto size = input.tellg();
+      input.seekg(0, std::ios::beg);
+      str.reserve(size);
+      str.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+      Glib::ustring ustr(std::move(str));
 
       bool valid = true;
       Glib::ustring::iterator iter;
@@ -136,9 +140,13 @@ bool Source::BaseView::load(bool not_undoable_action) {
   else {
     std::ifstream input(file_path.string(), std::ofstream::binary);
     if(input) {
-      std::stringstream ss;
-      ss << input.rdbuf();
-      Glib::ustring ustr = ss.str();
+      std::string str;
+      input.seekg(0, std::ios::end);
+      auto size = input.tellg();
+      input.seekg(0, std::ios::beg);
+      str.reserve(size);
+      str.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+      Glib::ustring ustr(std::move(str));
 
       if(ustr.validate()) {
         if(get_buffer()->size() == 0)
