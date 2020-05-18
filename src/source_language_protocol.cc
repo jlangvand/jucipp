@@ -1402,6 +1402,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               auto label = it->second.get<std::string>("label", "");
               auto detail = it->second.get<std::string>("detail", "");
               auto documentation = it->second.get<std::string>("documentation", "");
+              if(documentation.empty())
+                documentation = it->second.get<std::string>("documentation.value", "");
               auto insert = it->second.get<std::string>("insertText", "");
               if(insert.empty())
                 insert = it->second.get<std::string>("textEdit.newText", "");
