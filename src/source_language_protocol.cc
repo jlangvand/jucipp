@@ -659,21 +659,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
     };
   }
 
-  get_token_spelling = [this]() -> std::string {
-    auto start = get_buffer()->get_insert()->get_iter();
-    auto end = start;
-    auto previous = start;
-    while(previous.backward_char() && ((*previous >= 'A' && *previous <= 'Z') || (*previous >= 'a' && *previous <= 'z') || (*previous >= '0' && *previous <= '9') || *previous == '_') && start.backward_char()) {
-    }
-    while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
-    }
-
-    if(start == end) {
+  get_token_spelling = [this] {
+    auto spelling = get_token(get_buffer()->get_insert()->get_iter());
+    if(spelling.empty())
       Info::get().print("No valid symbol found at current cursor location");
-      return "";
-    }
-
-    return get_buffer()->get_text(start, end);
+    return spelling;
   };
 
   if(capabilities.rename || capabilities.document_highlight) {
@@ -684,7 +674,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         std::vector<LanguageProtocol::TextEdit> text_edits;
       };
 
-      auto previous_text = get_token_spelling();
+      auto previous_text = get_token(get_buffer()->get_insert()->get_iter());
       if(previous_text.empty())
         return;
 
@@ -1054,14 +1044,8 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
             return;
           type_tooltips.clear();
 
-          auto start = get_buffer()->get_iter_at_offset(offset);
-          auto end = start;
-          auto previous = start;
-          while(previous.backward_char() && ((*previous >= 'A' && *previous <= 'Z') || (*previous >= 'a' && *previous <= 'z') || (*previous >= '0' && *previous <= '9') || *previous == '_') && start.backward_char()) {
-          }
-          while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
-          }
-          type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
+          auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
+          type_tooltips.emplace_back(this, get_buffer()->create_mark(token_iters.first), get_buffer()->create_mark(token_iters.second), [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
             for(size_t i = 0; i < contents.size(); i++) {
               if(i > 0)
                 tooltip.buffer->insert_at_cursor("\n\n");
@@ -1078,20 +1062,35 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
               if(Debug::LLDB::get().is_stopped()) {
                 Glib::ustring value_type = "Value";
 
-                auto start = get_buffer()->get_iter_at_offset(offset);
-                auto end = start;
-                auto previous = start;
-                while(previous.backward_char() && ((*previous >= 'A' && *previous <= 'Z') || (*previous >= 'a' && *previous <= 'z') || (*previous >= '0' && *previous <= '9') || *previous == '_') && start.backward_char()) {
-                }
-                while(((*end >= 'A' && *end <= 'Z') || (*end >= 'a' && *end <= 'z') || (*end >= '0' && *end <= '9') || *end == '_') && end.forward_char()) {
-                }
-                auto variable = get_buffer()->get_text(start, end);
+                auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
+                auto offset = get_declaration(token_iters.first);
 
-                auto offset = get_declaration(start);
+                auto variable = get_buffer()->get_text(token_iters.first, token_iters.second);
                 Glib::ustring debug_value = Debug::LLDB::get().get_value(variable, offset.file_path, offset.line + 1, offset.index + 1);
                 if(debug_value.empty()) {
-                  value_type = "Return value";
-                  debug_value = Debug::LLDB::get().get_return_value(file_path, start.get_line() + 1, start.get_line_index() + 1);
+                  debug_value = Debug::LLDB::get().get_return_value(file_path, token_iters.first.get_line() + 1, token_iters.first.get_line_index() + 1);
+                  if(!debug_value.empty())
+                    value_type = "Return value";
+                }
+                if(debug_value.empty()) {
+                  auto end = token_iters.second;
+                  while((end.ends_line() || *end == ' ' || *end == '\t') && end.forward_char()) {
+                  }
+                  if(*end != '(') {
+                    auto iter = token_iters.first;
+                    auto start = iter;
+                    while(iter.backward_char()) {
+                      if(*iter == '.') {
+                        while(iter.backward_char() && (*iter == ' ' || *iter == '\t' || iter.ends_line())) {
+                        }
+                      }
+                      if(!is_token_char(*iter))
+                        break;
+                      start = iter;
+                    }
+                    if(is_token_char(*start))
+                      debug_value = Debug::LLDB::get().get_value(get_buffer()->get_text(start, token_iters.second));
+                  }
                 }
                 if(!debug_value.empty()) {
                   size_t pos = debug_value.find(" = ");
@@ -1278,13 +1277,6 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }, false);
     }
   }
-
-  autocomplete->is_continue_key = [](guint keyval) {
-    if((keyval >= '0' && keyval <= '9') || (keyval >= 'a' && keyval <= 'z') || (keyval >= 'A' && keyval <= 'Z') || keyval == '_')
-      return true;
-
-    return false;
-  };
 
   autocomplete->is_restart_key = [this](guint keyval) {
     auto iter = get_buffer()->get_insert()->get_iter();

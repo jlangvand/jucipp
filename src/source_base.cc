@@ -618,14 +618,9 @@ std::pair<Gtk::TextIter, Gtk::TextIter> Source::BaseView::get_token_iters(Gtk::T
   auto start = iter;
   auto end = iter;
 
-  while(is_token_char(*iter)) {
+  while(iter.backward_char() && is_token_char(*iter))
     start = iter;
-    if(!iter.backward_char())
-      break;
-  }
-  while(is_token_char(*end)) {
-    if(!end.forward_char())
-      break;
+  while(is_token_char(*end) && end.forward_char()) {
   }
 
   return {start, end};

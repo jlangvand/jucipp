@@ -611,13 +611,6 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     return false;
   }, false);
 
-  autocomplete.is_continue_key = [](guint keyval) {
-    if((keyval >= '0' && keyval <= '9') || (keyval >= 'a' && keyval <= 'z') || (keyval >= 'A' && keyval <= 'Z') || keyval == '_')
-      return true;
-
-    return false;
-  };
-
   autocomplete.is_restart_key = [this](guint keyval) {
     auto iter = get_buffer()->get_insert()->get_iter();
     iter.backward_chars(2);

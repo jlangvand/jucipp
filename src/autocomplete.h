@@ -33,7 +33,7 @@ public:
   std::function<std::unique_ptr<LockGuard>()> get_parse_lock = [] { return nullptr; };
   std::function<void()> stop_parse = [] {};
 
-  std::function<bool(guint last_keyval)> is_continue_key = [](guint) { return false; };
+  std::function<bool(guint last_keyval)> is_continue_key = [](guint keyval) { return (keyval >= '0' && keyval <= '9') || (keyval >= 'a' && keyval <= 'z') || (keyval >= 'A' && keyval <= 'Z') || keyval == '_' || gdk_keyval_to_unicode(keyval) >= 0x00C0; };
   std::function<bool(guint last_keyval)> is_restart_key = [](guint) { return false; };
   std::function<bool()> run_check = [] { return false; };
 

@@ -198,13 +198,6 @@ void Source::GenericView::setup_autocomplete() {
     autocomplete_insert.clear();
   };
 
-  autocomplete.is_continue_key = [](guint keyval) {
-    if((keyval >= '0' && keyval <= '9') || (keyval >= 'a' && keyval <= 'z') || (keyval >= 'A' && keyval <= 'Z') || keyval == '_' || gdk_keyval_to_unicode(keyval) >= 0x00C0)
-      return true;
-
-    return false;
-  };
-
   autocomplete.is_restart_key = [](guint keyval) {
     return false;
   };
