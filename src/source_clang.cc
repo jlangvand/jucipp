@@ -908,8 +908,13 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     }
   };
 
-  autocomplete.get_tooltip = [this](unsigned int index) {
-    return completion_strings[index] ? clangmm::to_string(clang_getCompletionBriefComment(completion_strings[index])) : snippet_comments[index];
+  autocomplete.set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
+    auto tooltip_str = completion_strings[index] ? clangmm::to_string(clang_getCompletionBriefComment(completion_strings[index])) : snippet_comments[index];
+    if(tooltip_str.empty())
+      return nullptr;
+    return [tooltip_str = std::move(tooltip_str)](Tooltip &tooltip) {
+      tooltip.insert_with_links_tagged(tooltip_str);
+    };
   };
 }
 

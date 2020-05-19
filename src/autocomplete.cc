@@ -156,16 +156,15 @@ void Autocomplete::setup_dialog() {
 
     on_changed(index, text);
 
-    auto tooltip = get_tooltip(index);
-    if(tooltip.empty())
+    auto set_buffer = set_tooltip_buffer(index);
+    if(!set_buffer)
       tooltips.hide();
     else {
       tooltips.clear();
       auto iter = CompletionDialog::get()->start_mark->get_iter();
-      tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), [tooltip_text = std::move(tooltip)](Tooltip &tooltip) {
-        tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), tooltip_text);
+      tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), [set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
+        set_buffer(tooltip);
       });
-
       tooltips.show(true);
     }
   };

@@ -49,7 +49,7 @@ public:
   std::function<void(unsigned int, const std::string &)> on_changed = [](unsigned int index, const std::string &text) {};
   std::function<void(unsigned int, const std::string &, bool)> on_select = [](unsigned int index, const std::string &text, bool hide_window) {};
 
-  std::function<std::string(unsigned int)> get_tooltip = [](unsigned int index) { return std::string(); };
+  std::function<std::function<void(Tooltip &tooltip)>(unsigned int)> set_tooltip_buffer = [](unsigned int index) { return nullptr; };
 
   Autocomplete(Gtk::TextView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
 

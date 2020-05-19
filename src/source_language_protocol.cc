@@ -1230,8 +1230,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->reparse = [this] {
-    autocomplete_comment.clear();
-    autocomplete_insert.clear();
+    autocomplete_rows.clear();
   };
 
   if(capabilities.signature_help) {
@@ -1355,14 +1354,12 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->on_add_rows_error = [this] {
-    autocomplete_comment.clear();
-    autocomplete_insert.clear();
+    autocomplete_rows.clear();
   };
 
   autocomplete->add_rows = [this](std::string &buffer, int line_number, int column) {
     if(autocomplete->state == Autocomplete::State::starting) {
-      autocomplete_comment.clear();
-      autocomplete_insert.clear();
+      autocomplete_rows.clear();
       std::promise<void> result_processed;
       if(autocomplete_show_arguments) {
         if(!capabilities.signature_help)
@@ -1375,10 +1372,20 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
                 auto label = parameter_it->second.get<std::string>("label", "");
                 auto insert = label;
-                auto documentation = parameter_it->second.get<std::string>("documentation", "");
+                auto plaintext = parameter_it->second.get<std::string>("documentation", "");
+                std::string markdown;
+                if(plaintext.empty()) {
+                  auto documentation = parameter_it->second.get_child_optional("documentation");
+                  if(documentation) {
+                    auto kind = documentation->get<std::string>("kind", "");
+                    if(kind == "markdown")
+                      markdown = documentation->get<std::string>("value", "");
+                    else
+                      plaintext = documentation->get<std::string>("value", "");
+                  }
+                }
                 autocomplete->rows.emplace_back(std::move(label));
-                autocomplete_insert.emplace_back(std::move(insert));
-                autocomplete_comment.emplace_back(std::move(documentation));
+                autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(plaintext), std::move(markdown)});
               }
             }
           }
@@ -1401,9 +1408,18 @@ void Source::LanguageProtocolView::setup_autocomplete() {
             for(auto it = begin; it != end; ++it) {
               auto label = it->second.get<std::string>("label", "");
               auto detail = it->second.get<std::string>("detail", "");
-              auto documentation = it->second.get<std::string>("documentation", "");
-              if(documentation.empty())
-                documentation = it->second.get<std::string>("documentation.value", "");
+              auto plaintext = it->second.get<std::string>("documentation", "");
+              std::string markdown;
+              if(plaintext.empty()) {
+                auto documentation = it->second.get_child_optional("documentation");
+                if(documentation) {
+                  auto kind = documentation->get<std::string>("kind", "");
+                  if(kind == "markdown")
+                    markdown = documentation->get<std::string>("value", "");
+                  else
+                    plaintext = documentation->get<std::string>("value", "");
+                }
+              }
               auto insert = it->second.get<std::string>("insertText", "");
               if(insert.empty())
                 insert = it->second.get<std::string>("textEdit.newText", "");
@@ -1442,13 +1458,12 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 }
                 if(prefix.compare(0, prefix.size(), label, 0, prefix.size()) == 0) {
                   autocomplete->rows.emplace_back(std::move(label));
-                  autocomplete_comment.emplace_back(std::move(detail));
-                  if(!documentation.empty() && documentation != autocomplete_comment.back()) {
-                    if(!autocomplete_comment.back().empty())
-                      autocomplete_comment.back() += "\n\n";
-                    autocomplete_comment.back() += documentation;
+                  if(!plaintext.empty() && detail != plaintext) {
+                    if(!detail.empty())
+                      detail += "\n\n";
+                    detail += plaintext;
                   }
-                  autocomplete_insert.emplace_back(std::move(insert));
+                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(markdown)});
                 }
               }
             }
@@ -1464,8 +1479,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 for(auto &snippet : *snippets) {
                   if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
                     autocomplete->rows.emplace_back(snippet.prefix);
-                    autocomplete_insert.emplace_back(snippet.body);
-                    autocomplete_comment.emplace_back(snippet.description);
+                    autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, snippet.description, {}});
                   }
                 }
               }
@@ -1483,12 +1497,11 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->on_hide = [this] {
-    autocomplete_comment.clear();
-    autocomplete_insert.clear();
+    autocomplete_rows.clear();
   };
 
   autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    Glib::ustring insert = hide_window ? autocomplete_insert[index] : text;
+    Glib::ustring insert = hide_window ? autocomplete_rows[index].insert : text;
 
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 
@@ -1525,8 +1538,20 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
   };
 
-  autocomplete->get_tooltip = [this](unsigned int index) {
-    return autocomplete_comment[index];
+  autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
+    auto plaintext = autocomplete_rows[index].plaintext;
+    auto markdown = autocomplete_rows[index].markdown;
+    if(plaintext.empty() && markdown.empty())
+      return nullptr;
+    return [plaintext = std::move(plaintext), markdown = std::move(markdown)](Tooltip &tooltip) {
+      if(!plaintext.empty())
+        tooltip.insert_with_links_tagged(plaintext);
+      if(!markdown.empty()) {
+        if(!plaintext.empty())
+          tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "\n\n");
+        tooltip.insert_markdown(markdown);
+      }
+    };
   };
 }
 

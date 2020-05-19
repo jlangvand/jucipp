@@ -310,7 +310,12 @@ void Source::GenericView::setup_autocomplete() {
       get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
   };
 
-  autocomplete.get_tooltip = [this](unsigned int index) {
-    return autocomplete_comment[index];
+  autocomplete.set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
+    auto tooltip_str = autocomplete_comment[index];
+    if(tooltip_str.empty())
+      return nullptr;
+    return [tooltip_str = std::move(tooltip_str)](Tooltip &tooltip) {
+      tooltip.insert_with_links_tagged(tooltip_str);
+    };
   };
 }

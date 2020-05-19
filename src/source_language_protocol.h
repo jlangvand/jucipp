@@ -192,8 +192,14 @@ namespace Source {
     std::unique_ptr<Autocomplete> autocomplete;
     void setup_signals();
     void setup_autocomplete();
-    std::vector<std::string> autocomplete_comment;
-    std::vector<std::string> autocomplete_insert;
+
+    struct AutocompleteRow {
+      std::string insert;
+      std::string plaintext;
+      std::string markdown;
+    };
+    std::vector<AutocompleteRow> autocomplete_rows;
+
     std::atomic<bool> autocomplete_enable_snippets = {false};
     bool autocomplete_show_arguments = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
