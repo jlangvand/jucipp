@@ -36,8 +36,6 @@ namespace Source {
 
     void show_type_tooltips(const Gdk::Rectangle &rectangle) override;
 
-    std::vector<FixIt> fix_its;
-
     Mutex parse_mutex;
     std::thread parse_thread;
     std::atomic<ParseState> parse_state;

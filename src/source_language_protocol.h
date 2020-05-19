@@ -70,6 +70,7 @@ namespace LanguageProtocol {
     Range range;
     int severity;
     std::vector<RelatedInformation> related_informations;
+    std::map<std::string, std::vector<Source::FixIt>> quickfixes;
   };
 
   class TextEdit {
@@ -96,6 +97,7 @@ namespace LanguageProtocol {
     bool document_formatting = false;
     bool document_range_formatting = false;
     bool rename = false;
+    bool code_action = false;
     bool type_coverage = false;
   };
 
@@ -153,10 +155,12 @@ namespace Source {
     void rename(const boost::filesystem::path &path) override;
     bool save() override;
 
-    void update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
+    void update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
 
   private:
-    void update_diagnostics(const std::vector<LanguageProtocol::Diagnostic> &diagnostics);
+    std::atomic<size_t> update_diagnostics_async_count = {0};
+
+    void update_diagnostics(std::vector<LanguageProtocol::Diagnostic> diagnostics);
 
   public:
     Gtk::TextIter get_iter_at_line_pos(int line, int pos) override;
@@ -180,6 +184,7 @@ namespace Source {
 
     std::thread initialize_thread;
     Dispatcher dispatcher;
+    Glib::ThreadPool thread_pool;
 
     void setup_navigation_and_refactoring();
 

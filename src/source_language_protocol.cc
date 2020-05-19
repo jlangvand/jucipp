@@ -129,7 +129,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
   }
   // When using rust-analyzer instead of rls, remove: "initializationOptions":{"omitInitBuild":true}
   // Also remove: "workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true} ?
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true,"documentationFormat":["markdown", "plaintext"]}},"hover":{"dynamicRegistration":true,"contentFormat": ["markdown", "plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown", "plaintext"]}},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true,"documentationFormat":["markdown", "plaintext"]}},"hover":{"dynamicRegistration":true,"contentFormat": ["markdown", "plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown", "plaintext"]}},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true,"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["quickfix"]}}}}},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -152,6 +152,9 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
         capabilities.rename = capabilities_pt->second.get<bool>("renameProvider", false);
         if(!capabilities.rename)
           capabilities.rename = capabilities_pt->second.get<bool>("renameProvider.prepareProvider", false);
+        capabilities.code_action = capabilities_pt->second.get<bool>("codeActionProvider", false);
+        if(!capabilities.code_action)
+          capabilities.code_action = static_cast<bool>(capabilities_pt->second.get_child_optional("codeActionProvider.codeActionKinds"));
         capabilities.type_coverage = capabilities_pt->second.get<bool>("typeCoverageProvider", false);
       }
 
@@ -357,7 +360,7 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
       LockGuard lock(views_mutex);
       for(auto view : views) {
         if(file == view->file_path) {
-          view->update_diagnostics(std::move(diagnostics));
+          view->update_diagnostics_async(std::move(diagnostics));
           break;
         }
       }
@@ -421,6 +424,8 @@ void Source::LanguageProtocolView::close() {
   autocomplete->state = Autocomplete::State::idle;
   if(autocomplete->thread.joinable())
     autocomplete->thread.join();
+
+  thread_pool.shutdown(true);
 
   client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri + "\"}");
   client->close(this);
@@ -894,6 +899,12 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   goto_next_diagnostic = [this]() {
     place_cursor_at_next_diagnostic();
   };
+
+  get_fix_its = [this]() {
+    if(fix_its.empty())
+      Info::get().print("No fix-its found in current buffer");
+    return fix_its;
+  };
 }
 
 void Source::LanguageProtocolView::escape_text(std::string &text) {
@@ -921,16 +932,93 @@ void Source::LanguageProtocolView::escape_text(std::string &text) {
   }
 }
 
-void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
-  dispatcher.post([this, diagnostics = std::move(diagnostics)]() {
-    update_diagnostics(diagnostics);
-    last_diagnostics = std::move(diagnostics);
-  });
+void Source::LanguageProtocolView::update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
+  update_diagnostics_async_count++;
+  size_t last_count = update_diagnostics_async_count;
+  if(capabilities.code_action && !diagnostics.empty()) {
+    dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
+      if(last_count != update_diagnostics_async_count)
+        return;
+      std::string diagnostics_string;
+      for(auto &diagnostic : diagnostics) {
+        auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
+        auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
+        auto range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+        auto message = diagnostic.message;
+        escape_text(message);
+        if(!diagnostics_string.empty())
+          diagnostics_string += ',';
+        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + message + "\"}";
+      }
+      auto start = get_buffer()->begin();
+      auto end = get_buffer()->end();
+      auto range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+
+      auto request = (R"("textDocument":{"uri":")" + uri + "\"},\"range\":" + range + ",\"context\":{\"diagnostics\":[" + diagnostics_string + "],\"only\":[\"quickfix\"]}");
+      thread_pool.push([this, diagnostics = std::move(diagnostics), request = std::move(request), last_count]() mutable {
+        if(last_count != update_diagnostics_async_count)
+          return;
+        std::promise<void> result_processed;
+        client->write_request(this, "textDocument/codeAction", request, [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
+          if(!error && last_count == update_diagnostics_async_count) {
+            try {
+              for(auto it = result.begin(); it != result.end(); ++it) {
+                if(it->second.get<std::string>("kind") == "quickfix") {
+                  auto title = it->second.get<std::string>("title");
+                  std::vector<LanguageProtocol::Diagnostic> quickfix_diagnostics;
+                  auto diagnostics_pt = it->second.get_child("diagnostics");
+                  for(auto it = diagnostics_pt.begin(); it != diagnostics_pt.end(); ++it)
+                    quickfix_diagnostics.emplace_back(it->second);
+                  auto changes = it->second.get_child("edit.changes");
+                  for(auto file_it = changes.begin(); file_it != changes.end(); ++file_it) {
+                    if(file_it->first == uri) {
+                      for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
+                        LanguageProtocol::TextEdit edit(edit_it->second);
+                        for(auto &diagnostic : diagnostics) {
+                          for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                            if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                              auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
+                              pair.first->second.emplace_back(edit.new_text, std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                                                            Offset(edit.range.end.line, edit.range.end.character)));
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            catch(...) {
+            }
+          }
+          result_processed.set_value();
+        });
+        result_processed.get_future().get();
+        dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
+          if(last_count == update_diagnostics_async_count) {
+            last_diagnostics = diagnostics;
+            update_diagnostics(std::move(diagnostics));
+          }
+        });
+      });
+    });
+  }
+  else {
+    dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
+      if(last_count == update_diagnostics_async_count) {
+        last_diagnostics = diagnostics;
+        update_diagnostics(std::move(diagnostics));
+      }
+    });
+  }
 }
 
-void Source::LanguageProtocolView::update_diagnostics(const std::vector<LanguageProtocol::Diagnostic> &diagnostics) {
+void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtocol::Diagnostic> diagnostics) {
   diagnostic_offsets.clear();
   diagnostic_tooltips.clear();
+  fix_its.clear();
   get_buffer()->remove_tag_by_name("def:warning_underline", get_buffer()->begin(), get_buffer()->end());
   get_buffer()->remove_tag_by_name("def:error_underline", get_buffer()->begin(), get_buffer()->end());
   num_warnings = 0;
@@ -956,6 +1044,10 @@ void Source::LanguageProtocolView::update_diagnostics(const std::vector<Language
       num_errors++;
       error = true;
     }
+    num_fix_its += diagnostic.quickfixes.size();
+
+    for(auto &quickfix : diagnostic.quickfixes)
+      fix_its.insert(fix_its.end(), quickfix.second.begin(), quickfix.second.end());
 
     add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](Tooltip &tooltip) {
       if(language_id == "python") { // Python might support markdown in the future
@@ -973,12 +1065,22 @@ void Source::LanguageProtocolView::update_diagnostics(const std::vector<Language
 
           if(i == 0)
             tooltip.buffer->insert_at_cursor("\n\n");
+          else
+            tooltip.buffer->insert_at_cursor("\n");
           tooltip.insert_markdown(diagnostic.related_informations[i].message);
           tooltip.buffer->insert_at_cursor(": ");
-          auto pos = tooltip.buffer->get_insert()->get_iter();
-          tooltip.buffer->insert_with_tag(pos, link, link_tag);
-          if(i != diagnostic.related_informations.size() - 1)
-            tooltip.buffer->insert_at_cursor("\n");
+          tooltip.buffer->insert_with_tag(tooltip.buffer->get_insert()->get_iter(), link, link_tag);
+        }
+      }
+
+      if(!diagnostic.quickfixes.empty()) {
+        if(diagnostic.quickfixes.size() == 1)
+          tooltip.buffer->insert_at_cursor("\n\nFix-it:");
+        else
+          tooltip.buffer->insert_at_cursor("\n\nFix-its:");
+        for(auto &quickfix : diagnostic.quickfixes) {
+          tooltip.buffer->insert_at_cursor("\n");
+          tooltip.insert_markdown(quickfix.first);
         }
       }
     });
@@ -1117,7 +1219,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    tooltip.buffer->insert_at_cursor("\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
                   }
                 }
               }
@@ -1564,7 +1666,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         tooltip.insert_with_links_tagged(plaintext);
       if(!markdown.empty()) {
         if(!plaintext.empty())
-          tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "\n\n");
+          tooltip.buffer->insert_at_cursor("\n\n");
         tooltip.insert_markdown(markdown);
       }
     };

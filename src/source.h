@@ -122,6 +122,8 @@ namespace Source {
     gdouble on_motion_last_x = 0.0;
     gdouble on_motion_last_y = 0.0;
 
+    std::vector<FixIt> fix_its;
+
     bool backward_to_code(Gtk::TextIter &iter);
     bool forward_to_code(Gtk::TextIter &iter);
     void backward_to_code_or_line_start(Gtk::TextIter &iter);
