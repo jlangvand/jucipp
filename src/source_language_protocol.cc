@@ -747,6 +747,9 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       result_processed.get_future().get();
 
       std::vector<Changes *> changes_renamed;
+
+      std::vector<Changes *> changes_in_unopened_files;
+      std::vector<std::pair<Changes *, Source::View *>> changes_in_opened_files;
       for(auto &change : changes) {
         auto view_it = views.end();
         for(auto it = views.begin(); it != views.end(); ++it) {
@@ -755,66 +758,75 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             break;
           }
         }
-        if(view_it != views.end()) {
-          auto buffer = (*view_it)->get_buffer();
-          buffer->begin_user_action();
+        if(view_it != views.end())
+          changes_in_opened_files.emplace_back(&change, *view_it);
+        else
+          changes_in_unopened_files.emplace_back(&change);
+      }
 
-          auto end_iter = buffer->end();
-          // If entire buffer is replaced
-          if(change.text_edits.size() == 1 &&
-             change.text_edits[0].range.start.line == 0 && change.text_edits[0].range.start.character == 0 &&
-             (change.text_edits[0].range.end.line > end_iter.get_line() ||
-              (change.text_edits[0].range.end.line == end_iter.get_line() && change.text_edits[0].range.end.character >= end_iter.get_line_offset())))
-            (*view_it)->replace_text(change.text_edits[0].new_text);
-          else {
-            for(auto edit_it = change.text_edits.rbegin(); edit_it != change.text_edits.rend(); ++edit_it) {
-              auto start_iter = (*view_it)->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
-              auto end_iter = (*view_it)->get_iter_at_line_pos(edit_it->range.end.line, edit_it->range.end.character);
-              buffer->erase(start_iter, end_iter);
-              start_iter = (*view_it)->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
-              buffer->insert(start_iter, edit_it->new_text);
-            }
-          }
-
-          buffer->end_user_action();
-          (*view_it)->save();
-          changes_renamed.emplace_back(&change);
+      // Write changes to unopened files first, since this might improve server handling of opened files that will be changed after
+      for(auto &change : changes_in_unopened_files) {
+        Glib::ustring buffer;
+        {
+          std::ifstream stream(change->file, std::ifstream::binary);
+          if(stream)
+            buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
         }
-        else {
-          Glib::ustring buffer;
-          {
-            std::ifstream stream(change.file, std::ifstream::binary);
-            if(stream)
-              buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+        std::ofstream stream(change->file, std::ifstream::binary);
+        if(!buffer.empty() && stream) {
+          std::vector<size_t> lines_start_pos = {0};
+          for(size_t c = 0; c < buffer.size(); ++c) {
+            if(buffer[c] == '\n')
+              lines_start_pos.emplace_back(c + 1);
           }
-          std::ofstream stream(change.file, std::ifstream::binary);
-          if(!buffer.empty() && stream) {
-            std::vector<size_t> lines_start_pos = {0};
-            for(size_t c = 0; c < buffer.size(); ++c) {
-              if(buffer[c] == '\n')
-                lines_start_pos.emplace_back(c + 1);
-            }
-            for(auto edit_it = change.text_edits.rbegin(); edit_it != change.text_edits.rend(); ++edit_it) {
-              auto start_line = edit_it->range.start.line;
-              auto end_line = edit_it->range.end.line;
-              if(static_cast<size_t>(start_line) < lines_start_pos.size()) {
-                auto start = lines_start_pos[start_line] + edit_it->range.start.character;
-                size_t end;
-                if(static_cast<size_t>(end_line) >= lines_start_pos.size())
-                  end = buffer.size();
-                else
-                  end = lines_start_pos[end_line] + edit_it->range.end.character;
-                if(start < buffer.size() && end <= buffer.size()) {
-                  buffer.replace(start, end - start, edit_it->new_text);
-                }
+          for(auto edit_it = change->text_edits.rbegin(); edit_it != change->text_edits.rend(); ++edit_it) {
+            auto start_line = edit_it->range.start.line;
+            auto end_line = edit_it->range.end.line;
+            if(static_cast<size_t>(start_line) < lines_start_pos.size()) {
+              auto start = lines_start_pos[start_line] + edit_it->range.start.character;
+              size_t end;
+              if(static_cast<size_t>(end_line) >= lines_start_pos.size())
+                end = buffer.size();
+              else
+                end = lines_start_pos[end_line] + edit_it->range.end.character;
+              if(start < buffer.size() && end <= buffer.size()) {
+                buffer.replace(start, end - start, edit_it->new_text);
               }
             }
-            stream.write(buffer.data(), buffer.bytes());
-            changes_renamed.emplace_back(&change);
           }
-          else
-            Terminal::get().print("Error: could not write to file " + change.file + '\n', true);
+          stream.write(buffer.data(), buffer.bytes());
+          changes_renamed.emplace_back(change);
         }
+        else
+          Terminal::get().print("Error: could not write to file " + change->file + '\n', true);
+      }
+
+      for(auto &pair : changes_in_opened_files) {
+        auto change = pair.first;
+        auto view = pair.second;
+        auto buffer = view->get_buffer();
+        buffer->begin_user_action();
+
+        auto end_iter = buffer->end();
+        // If entire buffer is replaced
+        if(change->text_edits.size() == 1 &&
+           change->text_edits[0].range.start.line == 0 && change->text_edits[0].range.start.character == 0 &&
+           (change->text_edits[0].range.end.line > end_iter.get_line() ||
+            (change->text_edits[0].range.end.line == end_iter.get_line() && change->text_edits[0].range.end.character >= end_iter.get_line_offset())))
+          view->replace_text(change->text_edits[0].new_text);
+        else {
+          for(auto edit_it = change->text_edits.rbegin(); edit_it != change->text_edits.rend(); ++edit_it) {
+            auto start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
+            auto end_iter = view->get_iter_at_line_pos(edit_it->range.end.line, edit_it->range.end.character);
+            buffer->erase(start_iter, end_iter);
+            start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
+            buffer->insert(start_iter, edit_it->new_text);
+          }
+        }
+
+        buffer->end_user_action();
+        view->save();
+        changes_renamed.emplace_back(change);
       }
 
       if(!changes_renamed.empty()) {
