@@ -946,7 +946,11 @@ void Source::LanguageProtocolView::update_diagnostics(const std::vector<Language
     }
 
     add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](Tooltip &tooltip) {
-      tooltip.buffer->insert_at_cursor(diagnostic.message);
+      if(language_id == "python") { // Python might support markdown in the future
+        tooltip.buffer->insert_at_cursor(diagnostic.message);
+        return;
+      }
+      tooltip.insert_markdown(diagnostic.message);
 
       if(!diagnostic.related_informations.empty()) {
         auto link_tag = tooltip.buffer->get_tag_table()->lookup("link");
@@ -957,7 +961,7 @@ void Source::LanguageProtocolView::update_diagnostics(const std::vector<Language
 
           if(i == 0)
             tooltip.buffer->insert_at_cursor("\n\n");
-          tooltip.buffer->insert_at_cursor(diagnostic.related_informations[i].message);
+          tooltip.insert_markdown(diagnostic.related_informations[i].message);
           tooltip.buffer->insert_at_cursor(": ");
           auto pos = tooltip.buffer->get_insert()->get_iter();
           tooltip.buffer->insert_with_tag(pos, link, link_tag);
