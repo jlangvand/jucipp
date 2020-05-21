@@ -63,10 +63,13 @@ ln -s `which pyls` /usr/local/bin/python-language-server
       
 Install language server, and create symbolic link to enable server in juCi++:
 ```sh
-rustup update
-rustup component add rls rust-analysis rust-src
+rustup component add rust-src
 
-ln -s `rustc --print sysroot`/bin/rls /usr/local/bin/rust-language-server
+git clone https://github.com/rust-analyzer/rust-analyzer
+cd rust-analyzer
+cargo xtask install --server
+
+ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 ```
 
 * Additional setup within a Rust project:
