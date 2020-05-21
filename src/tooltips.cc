@@ -196,6 +196,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     });
 
     auto layout = Pango::Layout::create(tooltip_text_view->get_pango_context());
+    if(auto tag = code_tag ? code_tag : code_block_tag)
+      layout->set_font_description(tag->property_font_desc());
     layout->set_text(buffer->get_text());
     layout->get_pixel_size(size.first, size.second);
     size.first += 6;  // 2xpadding
