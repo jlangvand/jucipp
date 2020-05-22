@@ -67,6 +67,10 @@ const std::string default_config_file = R"RAW({
         "clang_format_style": "ColumnLimit: 0, NamespaceIndentation: All",
         "clang_usages_threads_comment": "The number of threads used in finding usages in unparsed files. -1 corresponds to the number of cores available, and 0 disables the search",
         "clang_usages_threads": -1,
+        "enable_clang_tidy_comment": "Enable clang-tidy in new C/C++ buffers",
+        "enable_clang_tidy": false,
+        "clang_tidy_checks_comment": "In new C/C++ buffers, these checks are appended to the value of 'Checks' in the .clang-tidy file, if any",
+        "clang_tidy_checks": "",
         "debug_place_cursor_at_stop": false
     },
     "terminal": {

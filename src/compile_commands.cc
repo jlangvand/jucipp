@@ -1,5 +1,6 @@
 #include "compile_commands.h"
 #include "clangmm.h"
+#include "config.h"
 #include "terminal.h"
 #include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
@@ -236,6 +237,19 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
   if(!build_path.empty()) {
     arguments.emplace_back("-working-directory");
     arguments.emplace_back(build_path.string());
+  }
+
+  if(Config::get().source.enable_clang_tidy) {
+    arguments.emplace_back("-Xclang");
+    arguments.emplace_back("-add-plugin");
+    arguments.emplace_back("-Xclang");
+    arguments.emplace_back("clang-tidy");
+    if(!Config::get().source.clang_tidy_checks.empty()) {
+      arguments.emplace_back("-Xclang");
+      arguments.emplace_back("-plugin-arg-clang-tidy");
+      arguments.emplace_back("-Xclang");
+      arguments.emplace_back("-checks=" + Config::get().source.clang_tidy_checks);
+    }
   }
 
   return arguments;

@@ -95,6 +95,9 @@ public:
     std::string clang_format_style;
     unsigned clang_usages_threads;
 
+    bool enable_clang_tidy;
+    std::string clang_tidy_checks;
+
     bool debug_place_cursor_at_stop;
 
     std::unordered_map<std::string, DocumentationSearch> documentation_searches;
