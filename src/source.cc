@@ -397,33 +397,30 @@ bool Source::View::save() {
     hide_tooltips();
   }
 
-  std::ofstream output(file_path.string(), std::ofstream::binary);
-  if(output) {
+  try {
+    auto io_channel = Glib::IOChannel::create_from_file(file_path.string(), "w");
     auto start_iter = get_buffer()->begin();
     auto end_iter = start_iter;
-    bool end_reached = false;
-    while(!end_reached) {
-      if(!end_iter.forward_chars(131072))
-        end_reached = true;
-      auto text = get_buffer()->get_text(start_iter, end_iter).raw();
-      output.write(text.c_str(), text.size());
+    while(start_iter) {
+      end_iter.forward_chars(131072);
+      io_channel->write(get_buffer()->get_text(start_iter, end_iter));
       start_iter = end_iter;
     }
-    output.close();
-    boost::system::error_code ec;
-    last_write_time = boost::filesystem::last_write_time(file_path, ec);
-    if(ec)
-      last_write_time = static_cast<std::time_t>(-1);
-    // Remonitor file in case it did not exist before
-    monitor_file();
-    get_buffer()->set_modified(false);
-    Directories::get().on_save_file(file_path);
-    return true;
   }
-  else {
-    Terminal::get().print("Error: could not save file " + file_path.string() + '\n', true);
+  catch(const Glib::Error &error) {
+    Terminal::get().print("Error: Could not save file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
     return false;
   }
+
+  boost::system::error_code ec;
+  last_write_time = boost::filesystem::last_write_time(file_path, ec);
+  if(ec)
+    last_write_time = static_cast<std::time_t>(-1);
+  // Remonitor file in case it did not exist before
+  monitor_file();
+  get_buffer()->set_modified(false);
+  Directories::get().on_save_file(file_path);
+  return true;
 }
 
 void Source::View::configure() {

@@ -1,5 +1,6 @@
 #include "source_base.h"
 #include "config.h"
+#include "filesystem.h"
 #include "git.h"
 #include "info.h"
 #include "selection_dialog.h"
@@ -106,61 +107,26 @@ bool Source::BaseView::load(bool not_undoable_action) {
     disable_spellcheck = false;
   }};
 
-  if(language) {
-    std::ifstream input(file_path.string(), std::ofstream::binary);
-    if(input) {
-      std::string str;
-      input.seekg(0, std::ios::end);
-      auto size = input.tellg();
-      input.seekg(0, std::ios::beg);
-      str.reserve(size);
-      str.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
-      Glib::ustring ustr(std::move(str));
-
-      bool valid = true;
-      Glib::ustring::iterator iter;
-      while(!ustr.validate(iter)) {
-        auto next_char_iter = iter;
-        next_char_iter++;
-        ustr.replace(iter, next_char_iter, "?");
-        valid = false;
-      }
-
-      if(!valid)
-        Terminal::get().print("Warning: " + file_path.string() + " is not a valid UTF-8 file. Saving might corrupt the file.\n");
-
-      if(get_buffer()->size() == 0)
-        get_buffer()->insert_at_cursor(ustr);
-      else
-        replace_text(ustr.raw());
-    }
-    else
-      return false;
-  }
-  else {
-    std::ifstream input(file_path.string(), std::ofstream::binary);
-    if(input) {
-      std::string str;
-      input.seekg(0, std::ios::end);
-      auto size = input.tellg();
-      input.seekg(0, std::ios::beg);
-      str.reserve(size);
-      str.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
-      Glib::ustring ustr(std::move(str));
-
-      if(ustr.validate()) {
-        if(get_buffer()->size() == 0)
-          get_buffer()->insert_at_cursor(ustr);
-        else
-          replace_text(ustr.raw());
+  if(boost::filesystem::exists(file_path, ec)) {
+    try {
+      auto io_channel = Glib::IOChannel::create_from_file(file_path.string(), "r");
+      Glib::ustring text;
+      if(get_buffer()->size() == 0) {
+        Glib::IOStatus status;
+        do {
+          status = io_channel->read(text, 131072);
+          get_buffer()->insert_at_cursor(text);
+        } while(status == Glib::IOStatus::IO_STATUS_NORMAL);
       }
       else {
-        Terminal::get().print("Error: " + file_path.string() + " is not a valid UTF-8 file.\n", true);
-        return false;
+        io_channel->read_to_end(text);
+        replace_text(text.raw());
       }
     }
-    else
+    catch(const Glib::Error &error) {
+      Terminal::get().print("Error: Could not read file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
       return false;
+    }
   }
 
   get_buffer()->set_modified(false);
