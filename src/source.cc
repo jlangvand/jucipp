@@ -405,7 +405,8 @@ bool Source::View::save() {
     while(!end_reached) {
       if(!end_iter.forward_chars(131072))
         end_reached = true;
-      output << get_buffer()->get_text(start_iter, end_iter).raw();
+      auto text = get_buffer()->get_text(start_iter, end_iter).raw();
+      output.write(text.c_str(), text.size());
       start_iter = end_iter;
     }
     output.close();
