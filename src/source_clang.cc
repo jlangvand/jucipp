@@ -333,7 +333,7 @@ void Source::ClangViewParse::update_diagnostics() {
         offsets.second.line = clang_offsets.second.line - 1;
         offsets.second.index = clang_offsets.second.index - 1;
 
-        fix_its.emplace_back(fix_it.source, offsets);
+        fix_its.emplace_back(fix_it.source, fix_it.path, offsets);
 
         if(fix_its_string.size() > 0)
           fix_its_string += '\n';

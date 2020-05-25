@@ -971,17 +971,15 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                     quickfix_diagnostics.emplace_back(it->second);
                   auto changes = it->second.get_child("edit.changes");
                   for(auto file_it = changes.begin(); file_it != changes.end(); ++file_it) {
-                    if(file_it->first == uri) {
-                      for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
-                        LanguageProtocol::TextEdit edit(edit_it->second);
-                        for(auto &diagnostic : diagnostics) {
-                          for(auto &quickfix_diagnostic : quickfix_diagnostics) {
-                            if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
-                              auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                              pair.first->second.emplace_back(edit.new_text, std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                                                            Offset(edit.range.end.line, edit.range.end.character)));
-                              break;
-                            }
+                    for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
+                      LanguageProtocol::TextEdit edit(edit_it->second);
+                      for(auto &diagnostic : diagnostics) {
+                        for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                          if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                            auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
+                            pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                                                                                                                  Offset(edit.range.end.line, edit.range.end.character)));
+                            break;
                           }
                         }
                       }

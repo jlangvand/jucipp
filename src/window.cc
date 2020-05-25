@@ -3,6 +3,7 @@
 #ifdef JUCI_ENABLE_DEBUG
 #include "debug_lldb.h"
 #endif
+#include "compile_commands.h"
 #include "dialogs.h"
 #include "directories.h"
 #include "entrybox.h"
@@ -1240,36 +1241,54 @@ void Window::set_menu_actions() {
     }
   });
   menu.add_action("source_apply_fix_its", []() {
-    if(auto view = Notebook::get().get_current_view()) {
-      if(view->get_fix_its) {
-        auto buffer = view->get_buffer();
-        auto fix_its = view->get_fix_its();
+    if(auto current_view = Notebook::get().get_current_view()) {
+      if(current_view->get_fix_its) {
+        auto fix_its = current_view->get_fix_its();
+
+        std::set<Glib::RefPtr<Gtk::TextBuffer>> buffers;
+        std::set<Source::View *> header_views;
         std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> fix_it_marks;
         for(auto &fix_it : fix_its) {
+          auto view = current_view;
+          if(fix_it.path != current_view->file_path) {
+            Notebook::get().open(fix_it.path);
+            view = Notebook::get().get_current_view();
+            if(CompileCommands::is_header(view->file_path))
+              header_views.emplace(view);
+          }
           auto start_iter = view->get_iter_at_line_pos(fix_it.offsets.first.line, fix_it.offsets.first.index);
           auto end_iter = view->get_iter_at_line_pos(fix_it.offsets.second.line, fix_it.offsets.second.index);
-          fix_it_marks.emplace_back(buffer->create_mark(start_iter), buffer->create_mark(end_iter));
+          fix_it_marks.emplace_back(view->get_buffer()->create_mark(start_iter), view->get_buffer()->create_mark(end_iter));
+          buffers.emplace(view->get_buffer());
         }
-        size_t c = 0;
-        buffer->begin_user_action();
-        for(auto &fix_it : fix_its) {
-          if(fix_it.type == Source::FixIt::Type::insert) {
-            buffer->insert(fix_it_marks[c].first->get_iter(), fix_it.source);
+
+        for(auto &buffer : buffers)
+          buffer->begin_user_action();
+        for(size_t i = 0; i < fix_its.size(); ++i) {
+          auto buffer = fix_it_marks[i].first->get_buffer();
+          if(fix_its[i].type == Source::FixIt::Type::insert)
+            buffer->insert(fix_it_marks[i].first->get_iter(), fix_its[i].source);
+          else if(fix_its[i].type == Source::FixIt::Type::replace) {
+            buffer->erase(fix_it_marks[i].first->get_iter(), fix_it_marks[i].second->get_iter());
+            buffer->insert(fix_it_marks[i].first->get_iter(), fix_its[i].source);
           }
-          if(fix_it.type == Source::FixIt::Type::replace) {
-            buffer->erase(fix_it_marks[c].first->get_iter(), fix_it_marks[c].second->get_iter());
-            buffer->insert(fix_it_marks[c].first->get_iter(), fix_it.source);
-          }
-          if(fix_it.type == Source::FixIt::Type::erase) {
-            buffer->erase(fix_it_marks[c].first->get_iter(), fix_it_marks[c].second->get_iter());
-          }
-          c++;
+          else if(fix_its[i].type == Source::FixIt::Type::erase)
+            buffer->erase(fix_it_marks[i].first->get_iter(), fix_it_marks[i].second->get_iter());
         }
         for(auto &mark_pair : fix_it_marks) {
+          auto buffer = mark_pair.first->get_buffer();
           buffer->delete_mark(mark_pair.first);
           buffer->delete_mark(mark_pair.second);
         }
-        buffer->end_user_action();
+        for(auto &buffer : buffers)
+          buffer->end_user_action();
+
+        for(auto &view : header_views) {
+          if(view->save())
+            Info::get().print("Saved Fix-Its to header file: " + filesystem::get_short_path(view->file_path).string());
+        }
+        if(current_view != Notebook::get().get_current_view())
+          Notebook::get().open(current_view->file_path);
       }
     }
   });

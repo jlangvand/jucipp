@@ -87,7 +87,7 @@ Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path
   return language;
 }
 
-Source::FixIt::FixIt(std::string source_, std::pair<Offset, Offset> offsets_) : source(std::move(source_)), offsets(std::move(offsets_)) {
+Source::FixIt::FixIt(std::string source_, std::string path_, std::pair<Offset, Offset> offsets_) : source(std::move(source_)), path(std::move(path_)), offsets(std::move(offsets_)) {
   if(this->source.size() == 0)
     type = Type::erase;
   else {
@@ -99,17 +99,22 @@ Source::FixIt::FixIt(std::string source_, std::pair<Offset, Offset> offsets_) : 
 }
 
 std::string Source::FixIt::string(BaseView &view) {
-  auto pos_str = " at " + std::to_string(offsets.first.line + 1) + ":" + std::to_string(view.get_iter_at_line_index(offsets.first.line, offsets.first.index).get_line_offset() + 1);
+  bool in_current_view = path == view.file_path;
+
+  auto from_pos = (!in_current_view ? boost::filesystem::path(path).filename().string() + ':' : "") + std::to_string(offsets.first.line + 1) + ':' + std::to_string(offsets.first.index + 1);
+  std::string to_pos, text;
+  if(type != Type::insert) {
+    to_pos = std::to_string(offsets.second.line + 1) + ':' + std::to_string(offsets.second.index + 1);
+    text = in_current_view ? view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
+                                                         view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) : "";
+  }
 
   if(type == Type::insert)
-    return "Insert " + source + pos_str;
+    return "Insert " + source + " at " + from_pos;
   else if(type == Type::replace)
-    return "Replace " + view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
-                                                    view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) +
-           pos_str + " with " + source;
+    return "Replace " + (!text.empty() ? text + " at " : "") + from_pos + " - " + to_pos + " with " + source;
   else
-    return "Erase " + view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
-                                                  view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) + pos_str;
+    return "Erase " + (!text.empty() ? text + " at " : "") + from_pos + " - " + to_pos;
 }
 
 //////////////

@@ -43,12 +43,13 @@ namespace Source {
   public:
     enum class Type { insert, replace, erase };
 
-    FixIt(std::string source_, std::pair<Offset, Offset> offsets_);
+    FixIt(std::string source_, std::string path_, std::pair<Offset, Offset> offsets_);
 
     std::string string(BaseView &view);
 
     Type type;
     std::string source;
+    std::string path;
     std::pair<Offset, Offset> offsets;
   };
 
