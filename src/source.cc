@@ -98,30 +98,18 @@ Source::FixIt::FixIt(std::string source_, std::pair<Offset, Offset> offsets_) : 
   }
 }
 
-std::string Source::FixIt::string(const Glib::RefPtr<Gtk::TextBuffer> &buffer) {
-  auto iter = buffer->get_iter_at_line_index(offsets.first.line, offsets.first.index);
-  unsigned first_line_offset = iter.get_line_offset() + 1;
-  iter = buffer->get_iter_at_line_index(offsets.second.line, offsets.second.index);
-  unsigned second_line_offset = iter.get_line_offset() + 1;
+std::string Source::FixIt::string(BaseView &view) {
+  auto pos_str = " at " + std::to_string(offsets.first.line + 1) + ":" + std::to_string(view.get_iter_at_line_index(offsets.first.line, offsets.first.index).get_line_offset() + 1);
 
-  std::string text;
-  if(type == Type::insert) {
-    text += "Insert " + source + " at ";
-    text += std::to_string(offsets.first.line + 1) + ":" + std::to_string(first_line_offset);
-  }
-  else if(type == Type::replace) {
-    text += "Replace ";
-    text += std::to_string(offsets.first.line + 1) + ":" + std::to_string(first_line_offset) + " - ";
-    text += std::to_string(offsets.second.line + 1) + ":" + std::to_string(second_line_offset);
-    text += " with " + source;
-  }
-  else {
-    text += "Erase ";
-    text += std::to_string(offsets.first.line + 1) + ":" + std::to_string(first_line_offset) + " - ";
-    text += std::to_string(offsets.second.line + 1) + ":" + std::to_string(second_line_offset);
-  }
-
-  return text;
+  if(type == Type::insert)
+    return "Insert " + source + pos_str;
+  else if(type == Type::replace)
+    return "Replace " + view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
+                                                    view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) +
+           pos_str + " with " + source;
+  else
+    return "Erase " + view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
+                                                  view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) + pos_str;
 }
 
 //////////////

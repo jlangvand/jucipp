@@ -45,7 +45,7 @@ namespace Source {
 
     FixIt(std::string source_, std::pair<Offset, Offset> offsets_);
 
-    std::string string(const Glib::RefPtr<Gtk::TextBuffer> &buffer);
+    std::string string(BaseView &view);
 
     Type type;
     std::string source;

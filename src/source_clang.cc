@@ -337,7 +337,7 @@ void Source::ClangViewParse::update_diagnostics() {
 
         if(fix_its_string.size() > 0)
           fix_its_string += '\n';
-        fix_its_string += fix_its.back().string(get_buffer());
+        fix_its_string += fix_its.back().string(*this);
         fix_its_count++;
         num_fix_its++;
       }
