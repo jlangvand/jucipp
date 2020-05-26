@@ -966,16 +966,30 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                 if(it->second.get<std::string>("kind") == "quickfix") {
                   auto title = it->second.get<std::string>("title");
                   std::vector<LanguageProtocol::Diagnostic> quickfix_diagnostics;
-                  auto diagnostics_pt = it->second.get_child("diagnostics");
-                  for(auto it = diagnostics_pt.begin(); it != diagnostics_pt.end(); ++it)
-                    quickfix_diagnostics.emplace_back(it->second);
+                  auto diagnostics_pt = it->second.get_child_optional("diagnostics");
+                  if(diagnostics_pt) {
+                    for(auto it = diagnostics_pt->begin(); it != diagnostics_pt->end(); ++it)
+                      quickfix_diagnostics.emplace_back(it->second);
+                  }
                   auto changes = it->second.get_child("edit.changes");
                   for(auto file_it = changes.begin(); file_it != changes.end(); ++file_it) {
                     for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
                       LanguageProtocol::TextEdit edit(edit_it->second);
-                      for(auto &diagnostic : diagnostics) {
-                        for(auto &quickfix_diagnostic : quickfix_diagnostics) {
-                          if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                      if(!quickfix_diagnostics.empty()) {
+                        for(auto &diagnostic : diagnostics) {
+                          for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                            if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                              auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
+                              pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                                                                                                                    Offset(edit.range.end.line, edit.range.end.character)));
+                              break;
+                            }
+                          }
+                        }
+                      }
+                      else { // Workaround for language server that does not report quickfix diagnostics
+                        for(auto &diagnostic : diagnostics) {
+                          if(edit.range.start.line == diagnostic.range.start.line) {
                             auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
                             pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
                                                                                                                                                                   Offset(edit.range.end.line, edit.range.end.character)));
