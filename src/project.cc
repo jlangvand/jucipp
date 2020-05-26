@@ -712,7 +712,7 @@ void Project::LanguageProtocol::show_symbols() {
     SelectionDialog::get()->on_search_entry_changed = nullptr; // To delete client object
   };
 
-  auto locations = std::make_shared<std::vector<::LanguageProtocol::Location>>();
+  auto locations = std::make_shared<std::vector<std::pair<::LanguageProtocol::Location, std::string>>>();
   if(capabilities.workspace_symbol) {
     SelectionDialog::get()->on_search_entry_changed = [client, project_path, locations](const std::string &text) {
       if(text.size() > 1)
@@ -723,9 +723,8 @@ void Project::LanguageProtocol::show_symbols() {
         if(text.empty())
           return;
       }
-      std::map<::LanguageProtocol::Location, std::string> locations_rows;
       std::promise<void> result_processed;
-      client->write_request(nullptr, "workspace/symbol", R"("query":")" + text + '"', [&result_processed, &locations_rows, locations, project_path](const boost::property_tree::ptree &result, bool error) {
+      client->write_request(nullptr, "workspace/symbol", R"("query":")" + text + '"', [&result_processed, locations, project_path](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           for(auto it = result.begin(); it != result.end(); ++it) {
             try {
@@ -737,7 +736,7 @@ void Project::LanguageProtocol::show_symbols() {
 
                 auto row = filesystem::get_relative_path(location.file, *project_path).string() + ':' + std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>";
 
-                locations_rows.emplace(std::move(location), std::move(row));
+                locations->emplace_back(std::make_pair(std::move(location), std::move(row)));
               }
             }
             catch(...) {
@@ -748,19 +747,18 @@ void Project::LanguageProtocol::show_symbols() {
       });
       result_processed.get_future().get();
 
-      locations->reserve(locations_rows.size());
-      for(auto &location_row : locations_rows) {
-        locations->emplace_back(std::move(location_row.first));
-        SelectionDialog::get()->add_row(location_row.second);
+      std::sort(locations->begin(), locations->end());
+      for(auto &location : *locations) {
+        SelectionDialog::get()->add_row(location.second);
+        location.second.clear();
       }
     };
   }
   else {
-    std::map<::LanguageProtocol::Location, std::string> locations_rows;
     std::promise<void> result_processed;
-    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + language_protocol_view->uri + "\"}", [&result_processed, &locations_rows, locations, language_protocol_view](const boost::property_tree::ptree &result, bool error) {
+    client->write_request(language_protocol_view, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + language_protocol_view->uri + "\"}", [&result_processed, locations, language_protocol_view](const boost::property_tree::ptree &result, bool error) {
       if(!error) {
-        std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&locations_rows, &parse_result, language_protocol_view](const boost::property_tree::ptree &pt, const std::string &container) {
+        std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [locations, &parse_result, language_protocol_view](const boost::property_tree::ptree &pt, const std::string &container) {
           for(auto it = pt.begin(); it != pt.end(); ++it) {
             try {
               std::unique_ptr<::LanguageProtocol::Location> location;
@@ -780,7 +778,7 @@ void Project::LanguageProtocol::show_symbols() {
                   prefix = container + "::";
               }
               auto row = std::to_string(location->range.start.line + 1) + ": " + prefix + "<b>" + it->second.get<std::string>("name") + "</b>";
-              locations_rows.emplace(std::move(*location), std::move(row));
+              locations->emplace_back(std::make_pair(std::move(*location), std::move(row)));
               auto children = it->second.get_child_optional("children");
               if(children)
                 parse_result(*children, (!container.empty() ? container + "::" : "") + it->second.get<std::string>("name"));
@@ -795,21 +793,21 @@ void Project::LanguageProtocol::show_symbols() {
     });
     result_processed.get_future().get();
 
-    locations->reserve(locations_rows.size());
-    for(auto &location_row : locations_rows) {
-      locations->emplace_back(std::move(location_row.first));
-      SelectionDialog::get()->add_row(location_row.second);
+    std::sort(locations->begin(), locations->end());
+    for(auto &location : *locations) {
+      SelectionDialog::get()->add_row(location.second);
+      location.second.clear();
     }
   }
 
   SelectionDialog::get()->on_select = [locations](unsigned int index, const std::string &text, bool hide_window) {
-    auto &offset = (*locations)[index];
+    auto &location = (*locations)[index].first;
     boost::system::error_code ec;
-    if(!boost::filesystem::is_regular_file(offset.file, ec))
+    if(!boost::filesystem::is_regular_file(location.file, ec))
       return;
-    Notebook::get().open(offset.file);
+    Notebook::get().open(location.file);
     auto view = Notebook::get().get_current_view();
-    view->place_cursor_at_line_offset(offset.range.start.line, offset.range.start.character);
+    view->place_cursor_at_line_offset(location.range.start.line, location.range.start.character);
     view->scroll_to_cursor_delayed(true, false);
   };
 

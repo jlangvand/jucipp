@@ -1151,7 +1151,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
         }
       }
       if(!contents.empty()) {
-        dispatcher.post([this, offset, contents = std::move(contents), current_request] {
+        dispatcher.post([this, offset, contents = std::move(contents), current_request]() mutable {
           if(current_request != request_count)
             return;
           if(Notebook::get().get_current_view() != this)
