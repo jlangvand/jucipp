@@ -827,18 +827,17 @@ void Source::BaseView::search_highlight(const std::string &text, bool case_sensi
 }
 
 void Source::BaseView::search_forward() {
-  Gtk::TextIter insert, selection_bound;
-  get_buffer()->get_selection_bounds(insert, selection_bound);
-  auto &start = selection_bound;
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
 #if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
   gboolean has_wrapped_around;
-  if(gtk_source_search_context_forward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+  if(gtk_source_search_context_forward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
     get_buffer()->select_range(match_start, match_end);
     scroll_to(get_buffer()->get_insert());
   }
 #else
-  if(gtk_source_search_context_forward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
+  if(gtk_source_search_context_forward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
     get_buffer()->select_range(match_start, match_end);
     scroll_to(get_buffer()->get_insert());
   }
@@ -846,9 +845,8 @@ void Source::BaseView::search_forward() {
 }
 
 void Source::BaseView::search_backward() {
-  Gtk::TextIter insert, selection_bound;
-  get_buffer()->get_selection_bounds(insert, selection_bound);
-  auto &start = insert;
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
 #if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
   gboolean has_wrapped_around;
@@ -865,9 +863,8 @@ void Source::BaseView::search_backward() {
 }
 
 void Source::BaseView::replace_forward(const std::string &replacement) {
-  Gtk::TextIter insert, selection_bound;
-  get_buffer()->get_selection_bounds(insert, selection_bound);
-  auto &start = insert;
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
 #if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
   gboolean has_wrapped_around;
@@ -890,20 +887,19 @@ void Source::BaseView::replace_forward(const std::string &replacement) {
 }
 
 void Source::BaseView::replace_backward(const std::string &replacement) {
-  Gtk::TextIter insert, selection_bound;
-  get_buffer()->get_selection_bounds(insert, selection_bound);
-  auto &start = selection_bound;
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
 #if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
   gboolean has_wrapped_around;
-  if(gtk_source_search_context_backward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+  if(gtk_source_search_context_backward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
     auto offset = match_start.get_offset();
     gtk_source_search_context_replace2(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
     get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
     scroll_to(get_buffer()->get_insert());
   }
 #else
-  if(gtk_source_search_context_backward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
+  if(gtk_source_search_context_backward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
     auto offset = match_start.get_offset();
     gtk_source_search_context_replace(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
     get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
