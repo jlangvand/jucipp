@@ -10,7 +10,119 @@
 #include <gtksourceview/gtksource.h>
 #include <regex>
 
-Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), file_path(file_path), language(language), status_diagnostics(0, 0, 0) {
+Source::SearchView::SearchView() : Gsv::View() {
+  search_settings = gtk_source_search_settings_new();
+  gtk_source_search_settings_set_wrap_around(search_settings, true);
+  search_context = gtk_source_search_context_new(get_source_buffer()->gobj(), search_settings);
+  gtk_source_search_context_set_highlight(search_context, true);
+  g_signal_connect(search_context, "notify::occurrences-count", G_CALLBACK(search_occurrences_updated), this);
+}
+
+Source::SearchView::~SearchView() {
+  g_clear_object(&search_context);
+  g_clear_object(&search_settings);
+}
+
+void Source::SearchView::search_highlight(const std::string &text, bool case_sensitive, bool regex) {
+  gtk_source_search_settings_set_case_sensitive(search_settings, case_sensitive);
+  gtk_source_search_settings_set_regex_enabled(search_settings, regex);
+  gtk_source_search_settings_set_search_text(search_settings, text.c_str());
+  search_occurrences_updated(nullptr, nullptr, this);
+}
+
+void Source::SearchView::search_forward() {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  Gtk::TextIter match_start, match_end;
+#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
+  gboolean has_wrapped_around;
+  if(gtk_source_search_context_forward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+    get_buffer()->select_range(match_start, match_end);
+    scroll_to(get_buffer()->get_insert());
+  }
+#else
+  if(gtk_source_search_context_forward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
+    get_buffer()->select_range(match_start, match_end);
+    scroll_to(get_buffer()->get_insert());
+  }
+#endif
+}
+
+void Source::SearchView::search_backward() {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  Gtk::TextIter match_start, match_end;
+#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
+  gboolean has_wrapped_around;
+  if(gtk_source_search_context_backward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+    get_buffer()->select_range(match_start, match_end);
+    scroll_to(get_buffer()->get_insert());
+  }
+#else
+  if(gtk_source_search_context_backward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
+    get_buffer()->select_range(match_start, match_end);
+    scroll_to(get_buffer()->get_insert());
+  }
+#endif
+}
+
+void Source::SearchView::replace_forward(const std::string &replacement) {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  Gtk::TextIter match_start, match_end;
+#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
+  gboolean has_wrapped_around;
+  if(gtk_source_search_context_forward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+    auto offset = match_start.get_offset();
+    gtk_source_search_context_replace2(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
+    Glib::ustring replacement_ustring = replacement;
+    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement_ustring.size()));
+    scroll_to(get_buffer()->get_insert());
+  }
+#else
+  if(gtk_source_search_context_forward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
+    auto offset = match_start.get_offset();
+    gtk_source_search_context_replace(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
+    Glib::ustring replacement_ustring = replacement;
+    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement_ustring.size()));
+    scroll_to(get_buffer()->get_insert());
+  }
+#endif
+}
+
+void Source::SearchView::replace_backward(const std::string &replacement) {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  Gtk::TextIter match_start, match_end;
+#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
+  gboolean has_wrapped_around;
+  if(gtk_source_search_context_backward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
+    auto offset = match_start.get_offset();
+    gtk_source_search_context_replace2(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
+    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
+    scroll_to(get_buffer()->get_insert());
+  }
+#else
+  if(gtk_source_search_context_backward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
+    auto offset = match_start.get_offset();
+    gtk_source_search_context_replace(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
+    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
+    scroll_to(get_buffer()->get_insert());
+  }
+#endif
+}
+
+void Source::SearchView::replace_all(const std::string &replacement) {
+  gtk_source_search_context_replace_all(search_context, replacement.c_str(), replacement.size(), nullptr);
+}
+
+void Source::SearchView::search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data) {
+  auto view = static_cast<Source::BaseView *>(data);
+  if(view->update_search_occurrences)
+    view->update_search_occurrences(gtk_source_search_context_get_occurrences_count(view->search_context));
+}
+
+Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : SearchView(), file_path(file_path), language(language), status_diagnostics(0, 0, 0) {
   get_style_context()->add_class("juci_source_view");
 
   load(true);
@@ -59,13 +171,6 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 #endif
 
 
-  search_settings = gtk_source_search_settings_new();
-  gtk_source_search_settings_set_wrap_around(search_settings, true);
-  search_context = gtk_source_search_context_new(get_source_buffer()->gobj(), search_settings);
-  gtk_source_search_context_set_highlight(search_context, true);
-  g_signal_connect(search_context, "notify::occurrences-count", G_CALLBACK(search_occurrences_updated), this);
-
-
   set_snippets();
 
   snippet_argument_tag = get_buffer()->create_tag();
@@ -85,9 +190,6 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 }
 
 Source::BaseView::~BaseView() {
-  g_clear_object(&search_context);
-  g_clear_object(&search_settings);
-
   monitor_changed_connection.disconnect();
   delayed_monitor_changed_connection.disconnect();
 }
@@ -817,105 +919,6 @@ std::string Source::BaseView::get_selected_text() {
     return {};
   }
   return get_buffer()->get_text(start, end);
-}
-
-void Source::BaseView::search_highlight(const std::string &text, bool case_sensitive, bool regex) {
-  gtk_source_search_settings_set_case_sensitive(search_settings, case_sensitive);
-  gtk_source_search_settings_set_regex_enabled(search_settings, regex);
-  gtk_source_search_settings_set_search_text(search_settings, text.c_str());
-  search_occurrences_updated(nullptr, nullptr, this);
-}
-
-void Source::BaseView::search_forward() {
-  Gtk::TextIter start, end;
-  get_buffer()->get_selection_bounds(start, end);
-  Gtk::TextIter match_start, match_end;
-#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
-  gboolean has_wrapped_around;
-  if(gtk_source_search_context_forward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
-    get_buffer()->select_range(match_start, match_end);
-    scroll_to(get_buffer()->get_insert());
-  }
-#else
-  if(gtk_source_search_context_forward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
-    get_buffer()->select_range(match_start, match_end);
-    scroll_to(get_buffer()->get_insert());
-  }
-#endif
-}
-
-void Source::BaseView::search_backward() {
-  Gtk::TextIter start, end;
-  get_buffer()->get_selection_bounds(start, end);
-  Gtk::TextIter match_start, match_end;
-#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
-  gboolean has_wrapped_around;
-  if(gtk_source_search_context_backward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
-    get_buffer()->select_range(match_start, match_end);
-    scroll_to(get_buffer()->get_insert());
-  }
-#else
-  if(gtk_source_search_context_backward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
-    get_buffer()->select_range(match_start, match_end);
-    scroll_to(get_buffer()->get_insert());
-  }
-#endif
-}
-
-void Source::BaseView::replace_forward(const std::string &replacement) {
-  Gtk::TextIter start, end;
-  get_buffer()->get_selection_bounds(start, end);
-  Gtk::TextIter match_start, match_end;
-#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
-  gboolean has_wrapped_around;
-  if(gtk_source_search_context_forward2(search_context, start.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
-    auto offset = match_start.get_offset();
-    gtk_source_search_context_replace2(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
-    Glib::ustring replacement_ustring = replacement;
-    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement_ustring.size()));
-    scroll_to(get_buffer()->get_insert());
-  }
-#else
-  if(gtk_source_search_context_forward(search_context, start.gobj(), match_start.gobj(), match_end.gobj())) {
-    auto offset = match_start.get_offset();
-    gtk_source_search_context_replace(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
-    Glib::ustring replacement_ustring = replacement;
-    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement_ustring.size()));
-    scroll_to(get_buffer()->get_insert());
-  }
-#endif
-}
-
-void Source::BaseView::replace_backward(const std::string &replacement) {
-  Gtk::TextIter start, end;
-  get_buffer()->get_selection_bounds(start, end);
-  Gtk::TextIter match_start, match_end;
-#if defined(GTK_SOURCE_MAJOR_VERSION) && (GTK_SOURCE_MAJOR_VERSION > 3 || (GTK_SOURCE_MAJOR_VERSION == 3 && GTK_SOURCE_MINOR_VERSION >= 22))
-  gboolean has_wrapped_around;
-  if(gtk_source_search_context_backward2(search_context, end.gobj(), match_start.gobj(), match_end.gobj(), &has_wrapped_around)) {
-    auto offset = match_start.get_offset();
-    gtk_source_search_context_replace2(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
-    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
-    scroll_to(get_buffer()->get_insert());
-  }
-#else
-  if(gtk_source_search_context_backward(search_context, end.gobj(), match_start.gobj(), match_end.gobj())) {
-    auto offset = match_start.get_offset();
-    gtk_source_search_context_replace(search_context, match_start.gobj(), match_end.gobj(), replacement.c_str(), replacement.size(), nullptr);
-    get_buffer()->select_range(get_buffer()->get_iter_at_offset(offset), get_buffer()->get_iter_at_offset(offset + replacement.size()));
-    scroll_to(get_buffer()->get_insert());
-  }
-#endif
-}
-
-void Source::BaseView::replace_all(const std::string &replacement) {
-  gtk_source_search_context_replace_all(search_context, replacement.c_str(), replacement.size(), nullptr);
-}
-
-void Source::BaseView::search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data) {
-  auto view = static_cast<Source::BaseView *>(data);
-  if(view->update_search_occurrences)
-    view->update_search_occurrences(gtk_source_search_context_get_occurrences_count(view->search_context));
 }
 
 void Source::BaseView::set_snippets() {

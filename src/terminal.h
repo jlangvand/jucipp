@@ -3,12 +3,13 @@
 #include "gtkmm.h"
 #include "mutex.h"
 #include "process.hpp"
+#include "source_base.h"
 #include <boost/filesystem.hpp>
 #include <functional>
 #include <iostream>
 #include <tuple>
 
-class Terminal : public Gtk::TextView {
+class Terminal : public Source::SearchView {
   Terminal();
 
 public:

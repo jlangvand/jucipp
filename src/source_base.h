@@ -10,7 +10,26 @@
 #include <vector>
 
 namespace Source {
-  class BaseView : public Gsv::View {
+  class SearchView : public Gsv::View {
+  public:
+    SearchView();
+    ~SearchView() override;
+    void search_highlight(const std::string &text, bool case_sensitive, bool regex);
+    void search_forward();
+    void search_backward();
+    void replace_forward(const std::string &replacement);
+    void replace_backward(const std::string &replacement);
+    void replace_all(const std::string &replacement);
+
+    std::function<void(int number)> update_search_occurrences;
+
+  private:
+    GtkSourceSearchContext *search_context;
+    GtkSourceSearchSettings *search_settings;
+    static void search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data);
+  };
+
+  class BaseView : public SearchView {
   public:
     BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
     ~BaseView() override;
@@ -62,7 +81,6 @@ namespace Source {
     std::string status_state;
     std::function<void(BaseView *view)> update_status_branch;
     std::string status_branch;
-    std::function<void(int number)> update_search_occurrences;
 
     void cut();
     void cut_line();
@@ -70,22 +88,11 @@ namespace Source {
 
     std::string get_selected_text();
 
-    void search_highlight(const std::string &text, bool case_sensitive, bool regex);
-    void search_forward();
-    void search_backward();
-    void replace_forward(const std::string &replacement);
-    void replace_backward(const std::string &replacement);
-    void replace_all(const std::string &replacement);
-
     bool disable_spellcheck = false;
 
     void set_snippets();
 
   private:
-    GtkSourceSearchContext *search_context;
-    GtkSourceSearchSettings *search_settings;
-    static void search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data);
-
     bool keep_clipboard = false;
 
   protected:

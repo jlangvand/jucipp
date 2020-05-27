@@ -8,7 +8,7 @@
 #include <regex>
 #include <thread>
 
-Terminal::Terminal() {
+Terminal::Terminal() : Source::SearchView() {
   get_style_context()->add_class("juci_terminal");
 
   set_editable(false);
@@ -321,6 +321,22 @@ void Terminal::async_print(size_t line_nr, const std::string &message) {
 
 void Terminal::configure() {
   link_tag->property_foreground_rgba() = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
+
+  // Set search match style:
+  get_buffer()->get_tag_table()->foreach([](const Glib::RefPtr<Gtk::TextTag> &tag) {
+    if(tag->property_background_set()) {
+      auto scheme = Source::StyleSchemeManager::get_default()->get_scheme(Config::get().source.style);
+      if(scheme) {
+        auto style = scheme->get_style("search-match");
+        if(style) {
+          if(style->property_background_set())
+            tag->property_background() = style->property_background();
+          if(style->property_foreground_set())
+            tag->property_foreground() = style->property_foreground();
+        }
+      }
+    }
+  });
 }
 
 void Terminal::clear() {

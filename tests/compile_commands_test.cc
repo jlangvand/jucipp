@@ -1,9 +1,11 @@
 #include "compile_commands.h"
 #include <glib.h>
 #include <gtkmm.h>
+#include <gtksourceviewmm.h>
 
 int main() {
   auto app = Gtk::Application::create();
+  Gsv::init();
 
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
 

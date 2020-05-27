@@ -57,6 +57,7 @@ public:
   void update_status(Source::BaseView *view);
   void clear_status();
 
+  std::function<void(Source::View *)> on_focus_page;
   std::function<void(Source::View *)> on_change_page;
   std::function<void(Source::View *)> on_close_page;
 

@@ -56,19 +56,18 @@ Window::Window() {
   Menu::get().right_click_line_menu->attach_to_widget(*this);
   Menu::get().right_click_selected_menu->attach_to_widget(*this);
 
-  EntryBox::get().signal_hide().connect([]() {
-    if(auto view = Notebook::get().get_current_view())
-      view->grab_focus();
+  EntryBox::get().signal_hide().connect([this]() {
+    if(focused_view)
+      focused_view->grab_focus();
   });
 
-  Notebook::get().on_change_page = [this](Source::View *view) {
-    if(search_entry_shown && EntryBox::get().labels.size() > 0) {
-      view->update_search_occurrences = [](int number) {
-        EntryBox::get().labels.begin()->update(0, std::to_string(number));
-      };
-      view->search_highlight(last_search, case_sensitive_search, regex_search);
+  Notebook::get().on_focus_page = [this](Source::View *view) {
+    if(focused_view != view) {
+      focused_view = view;
+      update_search_and_replace_entry();
     }
-
+  };
+  Notebook::get().on_change_page = [](Source::View *view) {
     Menu::get().toggle_menu_items();
 
     Directories::get().select(view->file_path);
@@ -85,7 +84,7 @@ Window::Window() {
       Project::debug_update_stop();
 #endif
   };
-  Notebook::get().on_close_page = [](Source::View *view) {
+  Notebook::get().on_close_page = [this](Source::View *view) {
 #ifdef JUCI_ENABLE_DEBUG
     if(Project::current && Project::debugging) {
       auto iter = view->get_buffer()->begin();
@@ -102,10 +101,19 @@ Window::Window() {
       Notebook::get().update_status(view);
     else {
       Notebook::get().clear_status();
-
       Menu::get().toggle_menu_items();
+      if(dynamic_cast<Source::View *>(focused_view))
+        focused_view = nullptr;
     }
   };
+
+  Terminal::get().signal_focus_in_event().connect([this](GdkEventFocus *) {
+    if(focused_view != &Terminal::get()) {
+      focused_view = &Terminal::get();
+      update_search_and_replace_entry();
+    }
+    return false;
+  });
 
   signal_focus_out_event().connect([](GdkEventFocus *event) {
     if(auto view = Notebook::get().get_current_view()) {
@@ -1809,49 +1817,43 @@ void Window::search_and_replace_entry() {
     }
   };
 
-  if(auto view = Notebook::get().get_current_view()) {
+  if(focused_view) {
     if(Config::get().source.search_for_selection) {
-      auto const selected = view->get_selected_text();
-      if(!selected.empty())
-        last_search = selected;
+      Gtk::TextIter start, end;
+      if(focused_view->get_buffer()->get_selection_bounds(start, end))
+        last_search = focused_view->get_buffer()->get_text(start, end);
     }
   }
-  EntryBox::get().entries.emplace_back(last_search, [](const std::string &content) {
-    if(auto view = Notebook::get().get_current_view())
-      view->search_forward();
+  EntryBox::get().entries.emplace_back(last_search, [this](const std::string &content) {
+    if(focused_view)
+      focused_view->search_forward();
   });
   auto search_entry_it = EntryBox::get().entries.begin();
   search_entry_it->set_placeholder_text("Find");
-  if(auto view = Notebook::get().get_current_view()) {
-    view->update_search_occurrences = [label_it](int number) {
-      label_it->update(0, std::to_string(number));
-    };
-    view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
-  }
-  search_entry_it->signal_key_press_event().connect([](GdkEventKey *event) {
+  search_entry_it->signal_key_press_event().connect([this](GdkEventKey *event) {
     if((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) && (event->state & GDK_SHIFT_MASK) > 0) {
-      if(auto view = Notebook::get().get_current_view())
-        view->search_backward();
+      if(focused_view)
+        focused_view->search_backward();
     }
     return false;
   });
   search_entry_it->signal_changed().connect([this, search_entry_it]() {
     last_search = search_entry_it->get_text();
-    if(auto view = Notebook::get().get_current_view())
-      view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
+    if(focused_view)
+      focused_view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
   });
 
-  EntryBox::get().entries.emplace_back(last_replace, [](const std::string &content) {
-    if(auto view = Notebook::get().get_current_view())
-      view->replace_forward(content);
+  EntryBox::get().entries.emplace_back(last_replace, [this](const std::string &content) {
+    if(focused_view)
+      focused_view->replace_forward(content);
   });
   auto replace_entry_it = EntryBox::get().entries.begin();
   replace_entry_it++;
   replace_entry_it->set_placeholder_text("Replace");
-  replace_entry_it->signal_key_press_event().connect([replace_entry_it](GdkEventKey *event) {
+  replace_entry_it->signal_key_press_event().connect([this, replace_entry_it](GdkEventKey *event) {
     if((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) && (event->state & GDK_SHIFT_MASK) > 0) {
-      if(auto view = Notebook::get().get_current_view())
-        view->replace_backward(replace_entry_it->get_text());
+      if(focused_view)
+        focused_view->replace_backward(replace_entry_it->get_text());
     }
     return false;
   });
@@ -1859,25 +1861,24 @@ void Window::search_and_replace_entry() {
     last_replace = replace_entry_it->get_text();
   });
 
-  EntryBox::get().buttons.emplace_back("↑", []() {
-    if(auto view = Notebook::get().get_current_view())
-      view->search_backward();
+  EntryBox::get().buttons.emplace_back("↑", [this]() {
+    if(focused_view)
+      focused_view->search_backward();
   });
   EntryBox::get().buttons.back().set_tooltip_text("Find Previous\n\nShortcut: Shift+Enter in the Find entry field");
-  EntryBox::get().buttons.emplace_back("⇄", [replace_entry_it]() {
-    if(auto view = Notebook::get().get_current_view()) {
-      view->replace_forward(replace_entry_it->get_text());
-    }
+  EntryBox::get().buttons.emplace_back("⇄", [this, replace_entry_it]() {
+    if(focused_view)
+      focused_view->replace_forward(replace_entry_it->get_text());
   });
   EntryBox::get().buttons.back().set_tooltip_text("Replace Next\n\nShortcut: Enter in the Replace entry field");
-  EntryBox::get().buttons.emplace_back("↓", []() {
-    if(auto view = Notebook::get().get_current_view())
-      view->search_forward();
+  EntryBox::get().buttons.emplace_back("↓", [this]() {
+    if(focused_view)
+      focused_view->search_forward();
   });
   EntryBox::get().buttons.back().set_tooltip_text("Find Next\n\nShortcut: Enter in the Find entry field");
-  EntryBox::get().buttons.emplace_back("Replace All", [replace_entry_it]() {
-    if(auto view = Notebook::get().get_current_view())
-      view->replace_all(replace_entry_it->get_text());
+  EntryBox::get().buttons.emplace_back("Replace All", [this, replace_entry_it]() {
+    if(focused_view)
+      focused_view->replace_all(replace_entry_it->get_text());
   });
   EntryBox::get().buttons.back().set_tooltip_text("Replace All");
 
@@ -1886,26 +1887,54 @@ void Window::search_and_replace_entry() {
   EntryBox::get().toggle_buttons.back().set_active(case_sensitive_search);
   EntryBox::get().toggle_buttons.back().on_activate = [this, search_entry_it]() {
     case_sensitive_search = !case_sensitive_search;
-    if(auto view = Notebook::get().get_current_view())
-      view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
+    if(focused_view)
+      focused_view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
   };
   EntryBox::get().toggle_buttons.emplace_back(".*");
   EntryBox::get().toggle_buttons.back().set_tooltip_text("Use Regex");
   EntryBox::get().toggle_buttons.back().set_active(regex_search);
   EntryBox::get().toggle_buttons.back().on_activate = [this, search_entry_it]() {
     regex_search = !regex_search;
-    if(auto view = Notebook::get().get_current_view())
-      view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
+    if(focused_view)
+      focused_view->search_highlight(search_entry_it->get_text(), case_sensitive_search, regex_search);
   };
+
   EntryBox::get().signal_hide().connect([this]() {
     for(size_t c = 0; c < Notebook::get().size(); c++) {
       Notebook::get().get_view(c)->update_search_occurrences = nullptr;
       Notebook::get().get_view(c)->search_highlight("", case_sensitive_search, regex_search);
     }
+    Terminal::get().update_search_occurrences = nullptr;
+    Terminal::get().search_highlight("", case_sensitive_search, regex_search);
     search_entry_shown = false;
   });
+
   search_entry_shown = true;
+  update_search_and_replace_entry();
   EntryBox::get().show();
+}
+
+void Window::update_search_and_replace_entry() {
+  if(!search_entry_shown || !focused_view)
+    return;
+
+  focused_view->update_search_occurrences = [](int number) {
+    EntryBox::get().labels.begin()->update(0, std::to_string(number));
+  };
+  focused_view->search_highlight(last_search, case_sensitive_search, regex_search);
+
+  auto source_view = dynamic_cast<Source::View *>(focused_view);
+
+  auto entry = EntryBox::get().entries.begin();
+  entry++;
+  entry->set_sensitive(source_view);
+
+  auto button = EntryBox::get().buttons.begin();
+  button++;
+  button->set_sensitive(source_view);
+  button++;
+  button++;
+  button->set_sensitive(source_view);
 }
 
 void Window::set_tab_entry() {

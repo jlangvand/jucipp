@@ -1,5 +1,6 @@
 #include "terminal.h"
 #include <glib.h>
+#include <gtksourceviewmm.h>
 
 //Requires display server to work
 //However, it is possible to use the Broadway backend if the test is run in a pure terminal environment:
@@ -8,6 +9,7 @@
 
 int main() {
   auto app = Gtk::Application::create();
+  Gsv::init();
 
   {
     auto link = Terminal::get().find_link("~/test/test.cc:7:41: error: expected ';' after expression.");

@@ -415,6 +415,8 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
 #endif
 
   view->signal_focus_in_event().connect([this, view](GdkEventFocus *) {
+    if(on_focus_page)
+      on_focus_page(view);
     set_current_view(view);
     return false;
   });
