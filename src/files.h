@@ -261,7 +261,7 @@ const std::string juci_light_style = R"RAW(<?xml version="1.0" encoding="UTF-8"?
   <style name="bracket-mismatch"            foreground="white" background="#FF0000" bold="true"/>
 
   <!-- Search Matching -->
-  <style name="search-match"                background="yellow"/>
+  <style name="search-match"                foreground="#000000" background="#FFFF00"/>
 
   <!-- Language specifics -->
   <style name="def:builtin"                 foreground="blue"/>
@@ -325,7 +325,7 @@ const std::string juci_dark_style = R"RAW(<?xml version="1.0" encoding="UTF-8"?>
   <style name="bracket-mismatch"            foreground="black" background="#FF0000" bold="true"/>
 
   <!-- Search Matching -->
-  <style name="search-match"                foreground="black" background="white"/>
+  <style name="search-match"                foreground="#000000" background="#FFFF00"/>
 
   <!-- Language specifics -->
   <style name="def:builtin"                 foreground="blue"/>
@@ -390,7 +390,7 @@ const std::string juci_dark_blue_style = R"RAW(<?xml version="1.0" encoding="UTF
   <style name="bracket-mismatch"            foreground="dark-blue" background="#FF0000" bold="true"/>
 
   <!-- Search Matching -->
-  <style name="search-match"                foreground="dark-blue" background="white"/>
+  <style name="search-match"                foreground="#000000" background="#FFFF00"/>
 
   <!-- Language specifics -->
   <style name="def:builtin"                 foreground="blue"/>
