@@ -8,7 +8,7 @@
 #include "compile_commands.h"
 #include "ctags.h"
 #include "dialogs.h"
-#include "documentation_cppreference.h"
+#include "documentation.h"
 #include "filesystem.h"
 #include "info.h"
 #include "selection_dialog.h"
