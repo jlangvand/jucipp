@@ -149,6 +149,9 @@ namespace Source {
 
     bool interactive_completion = true;
 
+    bool is_c = false;
+    bool is_cpp = false;
+
   private:
     void setup_signals();
     void setup_format_style(bool is_generic_view);
@@ -158,7 +161,6 @@ namespace Source {
     Gsv::GutterRendererText *line_renderer;
 
     bool use_fixed_continuation_indenting = true;
-    bool is_cpp = false;
     guint previous_non_modifier_keyval = 0;
 
     bool keep_previous_extended_selections = false;

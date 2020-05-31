@@ -292,6 +292,7 @@ void Source::ClangViewParse::update_diagnostics() {
   size_t num_warnings = 0;
   size_t num_errors = 0;
   size_t num_fix_its = 0;
+
   for(auto &diagnostic : clang_diagnostics) {
     if(diagnostic.path == file_path.string()) {
       int line = diagnostic.offsets.first.line - 1;
@@ -321,6 +322,103 @@ void Source::ClangViewParse::update_diagnostics() {
       else {
         num_errors++;
         error = true;
+      }
+
+      // Add include fixits for std
+      auto get_new_include_offsets = [this]() -> std::pair<clangmm::Offset, clangmm::Offset> {
+        auto iter = get_buffer()->begin();
+        auto fallback = iter;
+        while(iter) {
+          if(*iter == '#') {
+            auto next = iter;
+            if(next.forward_char() && is_token_char(*next)) {
+              auto token = get_token(next);
+              if(token == "include")
+                break;
+              else if(token == "pragma" && next.forward_to_line_end() && get_buffer()->get_text(iter, next) == "#pragma once" && next.forward_char())
+                fallback = next;
+            }
+            // Move to next preprocessor directive:
+            while(iter) {
+              if((!iter.ends_line() && !iter.forward_to_line_end()) || !iter.forward_char() || *iter == '#')
+                break;
+            }
+          }
+          // Move to next line
+          else if((!iter.ends_line() && !iter.forward_to_line_end()) || !iter.forward_char())
+            break;
+        }
+        if(!iter) // Use fallback if end of buffer is reached
+          iter = fallback;
+        return {{static_cast<unsigned int>(iter.get_line() + 1), static_cast<unsigned int>(iter.get_line_index() + 1)},
+                {static_cast<unsigned int>(iter.get_line() + 1), static_cast<unsigned int>(iter.get_line_index() + 1)}};
+      };
+      auto has_using_namespace_std = [this](size_t token_index) -> bool {
+        if(token_index + 2 >= clang_tokens->size())
+          return false;
+        for(size_t i = 0; i + 2 < token_index; i++) {
+          if((*clang_tokens)[i].get_kind() == clangmm::Token::Kind::Keyword &&
+             (*clang_tokens)[i + 1].get_kind() == clangmm::Token::Kind::Keyword &&
+             (*clang_tokens)[i + 2].get_kind() == clangmm::Token::Kind::Identifier &&
+             (*clang_tokens)[i].get_spelling() == "using" &&
+             (*clang_tokens)[i + 1].get_spelling() == "namespace" &&
+             (*clang_tokens)[i + 2].get_spelling() == "std")
+            return true;
+        }
+        return false;
+      };
+      if(diagnostic.fix_its.empty() && diagnostic.severity >= clangmm::Diagnostic::Severity::Error && is_token_char(*start)) {
+        auto token_string = get_token(start);
+        for(size_t c = 0; c < clang_tokens->size(); c++) {
+          auto &token = (*clang_tokens)[c];
+          if(token.get_kind() == clangmm::Token::Kind::Identifier) {
+            auto &token_offsets = clang_tokens_offsets[c];
+            if(static_cast<unsigned int>(line) == token_offsets.first.line - 1 && static_cast<unsigned int>(index) >= token_offsets.first.index - 1 && static_cast<unsigned int>(index) <= token_offsets.second.index - 1) {
+              if(diagnostic.spelling.compare(0, 44, "implicit instantiation of undefined template") == 0) {
+                auto cursor = token.get_cursor();
+                if(cursor.get_referenced()) {
+                  auto type_description = cursor.get_type_description();
+                  bool has_std = false;
+                  if(type_description.compare(0, 5, "std::") == 0) {
+                    has_std = true;
+                    type_description.erase(0, 5);
+                  }
+                  if(type_description.compare(0, 5, "__1::") == 0)
+                    type_description.erase(0, 5);
+                  auto pos = type_description.find('<');
+                  if(pos != std::string::npos)
+                    type_description.erase(pos);
+                  auto header = Documentation::CppReference::get_header(is_cpp && (has_std || has_using_namespace_std(c)) ? "std::" + type_description : type_description);
+                  if(!header.empty())
+                    diagnostic.fix_its.emplace_back(clangmm::Diagnostic::FixIt{"#include <" + header + ">\n", file_path.string(), get_new_include_offsets()});
+                }
+              }
+              if(diagnostic.spelling.compare(0, 17, "unknown type name") == 0 ||
+                 diagnostic.spelling.compare(0, 13, "no type named") == 0 ||
+                 diagnostic.spelling.compare(0, 15, "no member named") == 0 ||
+                 diagnostic.spelling.compare(0, 17, "no template named") == 0 ||
+                 diagnostic.spelling.compare(0, 28, "use of undeclared identifier") == 0 ||
+                 diagnostic.spelling.compare(0, 44, "implicit instantiation of undefined template") == 0 ||
+                 diagnostic.spelling.compare(0, 79, "no viable constructor or deduction guide for deduction of template arguments of") == 0) {
+                bool has_std = false;
+                if(token_string == "std" && c + 2 < clang_tokens->size() && (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Kind::Identifier) {
+                  token_string = (*clang_tokens)[c + 2].get_spelling();
+                  has_std = true;
+                }
+                else if(c >= 2 &&
+                        (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
+                        (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
+                        (*clang_tokens)[c - 1].get_spelling() == "::" &&
+                        (*clang_tokens)[c - 2].get_spelling() == "std")
+                  has_std = true;
+                auto header = Documentation::CppReference::get_header(is_cpp && (has_std || has_using_namespace_std(c)) ? "std::" + token_string : token_string);
+                if(!header.empty())
+                  diagnostic.fix_its.emplace_back(clangmm::Diagnostic::FixIt{"#include <" + header + ">\n", file_path.string(), get_new_include_offsets()});
+              }
+              break;
+            }
+          }
+        }
       }
 
       std::string fix_its_string;
@@ -355,6 +453,7 @@ void Source::ClangViewParse::update_diagnostics() {
       });
     }
   }
+
   status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
   if(update_status_diagnostics)
     update_status_diagnostics(this);

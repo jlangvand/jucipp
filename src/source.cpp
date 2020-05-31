@@ -164,8 +164,12 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
 
   if(language) {
     auto language_id = language->get_id();
-    if(language_id == "chdr" || language_id == "cpphdr" || language_id == "c" || language_id == "cpp") {
+    if(language_id == "chdr" || language_id == "c")
+      is_c = true;
+    else if(language_id == "cpphdr" || language_id == "cpp")
       is_cpp = true;
+
+    if(is_c || is_cpp) {
       use_fixed_continuation_indenting = false;
       // TODO 2019: check if clang-format has improved...
       // boost::filesystem::path clang_format_file;
@@ -1520,8 +1524,8 @@ void Source::View::show_or_hide() {
         }
         else {
           auto tabs = tabs_end.get_line_offset() - line_start.get_line_offset();
-          if(is_cpp && tabs == 0 && *line_start == '#') { // C/C++ defines can be at the first line
-            if(end.get_line() == start.get_line())        // Do not try to find define blocks since these rarely are indented
+          if((is_c || is_cpp) && tabs == 0 && *line_start == '#') { // C/C++ defines can be at the first line
+            if(end.get_line() == start.get_line())                  // Do not try to find define blocks since these rarely are indented
               break;
           }
           else if(tabs < start_tabs) {
@@ -2506,7 +2510,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
           if(found_tabs_end_iter.get_line_offset() == tabs_end_iter.get_line_offset()) {
             has_right_curly_bracket = true;
             // Special case for functions and classes with no indentation after: namespace {
-            if(is_cpp && tabs_end_iter.starts_line()) {
+            if((is_c || is_cpp) && tabs_end_iter.starts_line()) {
               auto iter = condition_iter;
               Gtk::TextIter open_iter;
               if(iter.backward_char() && find_open_symbol_backward(iter, open_iter, '{', '}')) {
@@ -2522,7 +2526,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
 
         // Check if one should add semicolon after '}'
         bool add_semicolon = false;
-        if(is_cpp) {
+        if(is_c || is_cpp) {
           // add semicolon after class or struct?
           auto token = get_token(tabs_end_iter);
           if(token == "class" || token == "struct")
@@ -3027,7 +3031,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
         if(found_tabs_end_iter.get_line_offset() == tabs_end_iter.get_line_offset()) {
           has_right_curly_bracket = true;
           // Special case for functions and classes with no indentation after: namespace {:
-          if(is_cpp && tabs_end_iter.starts_line()) {
+          if((is_c || is_cpp) && tabs_end_iter.starts_line()) {
             Gtk::TextIter open_iter;
             if(find_open_symbol_backward(iter, open_iter, '{', '}')) {
               if(open_iter.starts_line()) // in case of: namespace test\n{
