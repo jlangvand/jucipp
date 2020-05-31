@@ -1,32 +1,32 @@
 # Files used both in ../src and ../tests
 set(JUCI_SHARED_FILES
-  autocomplete.cc
-  cmake.cc
-  compile_commands.cc
-  ctags.cc
-  dispatcher.cc
-  documentation.cc
-  filesystem.cc
-  git.cc
-  grep.cc
-  menu.cc
-  meson.cc
-  project_build.cc
-  snippets.cc
-  source.cc
-  source_base.cc
-  source_clang.cc
-  source_diff.cc
-  source_generic.cc
-  source_language_protocol.cc
-  source_spellcheck.cc
-  terminal.cc
-  tooltips.cc
-  usages_clang.cc
-  utility.cc
+  autocomplete.cpp
+  cmake.cpp
+  compile_commands.cpp
+  ctags.cpp
+  dispatcher.cpp
+  documentation.cpp
+  filesystem.cpp
+  git.cpp
+  grep.cpp
+  menu.cpp
+  meson.cpp
+  project_build.cpp
+  snippets.cpp
+  source.cpp
+  source_base.cpp
+  source_clang.cpp
+  source_diff.cpp
+  source_generic.cpp
+  source_language_protocol.cpp
+  source_spellcheck.cpp
+  terminal.cpp
+  tooltips.cpp
+  usages_clang.cpp
+  utility.cpp
 )
 if(LIBLLDB_FOUND)
-  list(APPEND JUCI_SHARED_FILES debug_lldb.cc)
+  list(APPEND JUCI_SHARED_FILES debug_lldb.cpp)
 endif()
 add_library(juci_shared STATIC ${JUCI_SHARED_FILES})
 target_link_libraries(juci_shared
@@ -42,17 +42,17 @@ target_link_libraries(juci_shared
 )
 
 set(JUCI_FILES
-  config.cc
-  dialogs.cc
-  dialogs_unix.cc
-  directories.cc
-  entrybox.cc
-  info.cc
-  juci.cc
-  notebook.cc
-  project.cc
-  selection_dialog.cc
-  window.cc
+  config.cpp
+  dialogs.cpp
+  dialogs_unix.cpp
+  directories.cpp
+  entrybox.cpp
+  info.cpp
+  juci.cpp
+  notebook.cpp
+  project.cpp
+  selection_dialog.cpp
+  window.cpp
 )
 if(APPLE)
   list(APPEND JUCI_FILES window_macos.m)
