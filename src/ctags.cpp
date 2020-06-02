@@ -28,7 +28,7 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
   }
   else {
     project_path = path.parent_path();
-    command = Config::get().project.ctags_command + fields + " --sort=foldcase -I \"override noexcept\" -f - " + path.string();
+    command = Config::get().project.ctags_command + fields + " --sort=foldcase -I \"override noexcept\" -f - " + filesystem::escape_argument(path.string());
   }
 
   std::stringstream stdin_stream;
