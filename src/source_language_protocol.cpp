@@ -875,7 +875,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                     if(!container.empty())
                       prefix = container + "::";
                   }
-                  methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + prefix + "<b>" + it->second.get<std::string>("name") + "</b>");
+                  methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + Glib::Markup::escape_text(prefix) + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>");
                 }
                 auto children = it->second.get_child_optional("children");
                 if(children)

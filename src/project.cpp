@@ -734,7 +734,7 @@ void Project::LanguageProtocol::show_symbols() {
                 if(container == "null")
                   container.clear();
 
-                auto row = filesystem::get_relative_path(location.file, *project_path).string() + ':' + std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? container + "::" : "") + "<b>" + it->second.get<std::string>("name") + "</b>";
+                auto row = filesystem::get_relative_path(location.file, *project_path).string() + ':' + std::to_string(location.range.start.line + 1) + ": " + (!container.empty() ? Glib::Markup::escape_text(container) + "::" : "") + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>";
 
                 locations->emplace_back(std::make_pair(std::move(location), std::move(row)));
               }
@@ -777,7 +777,7 @@ void Project::LanguageProtocol::show_symbols() {
                 if(!container.empty())
                   prefix = container + "::";
               }
-              auto row = std::to_string(location->range.start.line + 1) + ": " + prefix + "<b>" + it->second.get<std::string>("name") + "</b>";
+              auto row = std::to_string(location->range.start.line + 1) + ": " + Glib::Markup::escape_text(prefix) + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>";
               locations->emplace_back(std::make_pair(std::move(*location), std::move(row)));
               auto children = it->second.get_child_optional("children");
               if(children)
