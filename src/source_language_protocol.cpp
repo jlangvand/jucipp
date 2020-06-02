@@ -421,9 +421,11 @@ void Source::LanguageProtocolView::close() {
   if(initialize_thread.joinable())
     initialize_thread.join();
 
-  autocomplete->state = Autocomplete::State::idle;
-  if(autocomplete->thread.joinable())
-    autocomplete->thread.join();
+  if(autocomplete) {
+    autocomplete->state = Autocomplete::State::idle;
+    if(autocomplete->thread.joinable())
+      autocomplete->thread.join();
+  }
 
   thread_pool.shutdown(true);
 
