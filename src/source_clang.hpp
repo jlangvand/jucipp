@@ -1,6 +1,6 @@
 #pragma once
 #include "autocomplete.hpp"
-#include "clangmm.h"
+#include "clangmm.hpp"
 #include "dispatcher.hpp"
 #include "mutex.hpp"
 #include "source.hpp"

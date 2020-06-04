@@ -1,5 +1,5 @@
 #include "compile_commands.hpp"
-#include "clangmm.h"
+#include "clangmm.hpp"
 #include "config.hpp"
 #include "terminal.hpp"
 #include <algorithm>
