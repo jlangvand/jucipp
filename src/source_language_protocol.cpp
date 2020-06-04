@@ -1417,7 +1417,21 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     return false;
   };
 
-  autocomplete->run_check = [this]() {
+  std::function<bool(const Gtk::TextIter &)> is_possible_jsx_property = [](const Gtk::TextIter &) { return false; };
+  if(language && language->get_id() == "js") {
+    autocomplete->is_restart_key = [](guint keyval) {
+      if(keyval == '.' || keyval == ' ')
+        return true;
+      return false;
+    };
+
+    is_possible_jsx_property = [this](const Gtk::TextIter &iter) {
+      Gtk::TextIter found_iter;
+      return *iter == ' ' && find_open_symbol_backward(iter, found_iter, '<', '>');
+    };
+  }
+
+  autocomplete->run_check = [this, is_possible_jsx_property]() {
     auto iter = get_buffer()->get_insert()->get_iter();
     iter.backward_char();
     if(!is_code_iter(iter))
@@ -1438,6 +1452,11 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         if(!sm.length(2) && !sm.length(4))
           autocomplete_enable_snippets = true;
       }
+      return true;
+    }
+    else if(is_possible_jsx_property(iter)) {
+      LockGuard lock(autocomplete->prefix_mutex);
+      autocomplete->prefix = "";
       return true;
     }
     else if(is_possible_argument()) {
