@@ -1,7 +1,7 @@
 #include "documentation.hpp"
 #include <unordered_map>
 
-std::string Documentation::CppReference::get_header(const std::string &symbol) noexcept {
+std::vector<std::string> Documentation::CppReference::get_headers(const std::string &symbol) noexcept {
   // Extracted from http://upload.cppreference.com/mwiki/images/b/b1/cppreference-doc-20190607.zip
   // Using raw string instead of map to reduce compile time
   // Also added:
@@ -3118,14 +3118,16 @@ std::experimental::filesystem::status_known	experimental/filesystem
         }
       }
     }
-    std::unordered_map<std::string, std::string> map;
+    std::unordered_multimap<std::string, std::string> map;
   };
 
   static SymbolToHeader symbol_to_header(symbol_headers);
-  auto it = symbol_to_header.map.find(symbol);
-  if(it == symbol_to_header.map.end())
-    return std::string();
-  return it->second;
+
+  std::vector<std::string> results;
+  auto range = symbol_to_header.map.equal_range(symbol);
+  for(auto it = range.first; it != range.second; ++it)
+    results.emplace_back(it->second);
+  return results;
 }
 
 std::string Documentation::CppReference::get_url(const std::string &symbol) noexcept {
