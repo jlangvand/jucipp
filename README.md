@@ -1,6 +1,6 @@
 # <img alt="juCi++" src="share/juci.png" />
 
-###### juCi++: a lightweight, platform independent C++-IDE with support for C++11, C++14 and C++17 features depending on libclang version.
+###### juCi++: a lightweight, platform independent C++-IDE with support for C++11, C++14, C++17, and C++20 features depending on libclang version.
 <!--<img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot3.png"/>-->
 ## About
 Current IDEs struggle with C++ support due to the complexity of
@@ -11,25 +11,24 @@ towards libclang with speed, stability, and ease of use in mind.
 * Platform independent
 * Fast, responsive and stable (written extensively using C++11/14 features)
 * Syntax highlighting for more than 100 different file types
-* C++ warnings and errors on the fly
-* C++ Fix-its
+* Warnings and errors on the fly
+* Fix-its, as well as C/C++ standard header include suggestions
 * Integrated Clang-Tidy checks can be enabled in preferences
 * Debug integration, both local and remote, through lldb
-* Supports the following build systems:
+* Supports the following C/C++ build systems directly (other build systems need manually generated compilation databases):
     * CMake
     * Meson
-* Git support through libgit2
-* Fast C++ autocompletion
-* Tooltips showing type information and doxygen documentation (C++)
-* Rename refactoring across files (C++)
-* Highlighting of similar types (C++)
-* Automated documentation search (C++)
-* Go to declaration, implementation, methods and usages (C++)
+* Fast autocompletion
+* Tooltips showing type information and documentation
+* Rename refactoring across files
+* Highlighting of similar types
+* Automated documentation search for C/C++ identifiers
+* Go to declaration, implementation, methods and usages
 * OpenCL and CUDA files are supported and parsed as C++
-* Other file types:
-    * Language server protocol support is enabled if `[language identifier]-language-server` executable is found. This executable can be a symbolic link to one of your installed language server binaries.
-        * For additional instructions, see: [setup of tested language servers](docs/language_servers.md)
-    * otherwise, only keyword and buffer completion supported
+* Non-C/C++ files are supported through the Language Server Protocol, which is enabled if an `[language identifier]-language-server` executable is found. This executable can be a symbolic link to one of your installed language server binaries.
+    * For additional instructions, see: [setup of tested language servers](docs/language_servers.md)
+* Non-C/C++ projects are also supported, such as Python, JavaScript, and Rust projects
+* Git support through libgit2
 * Find symbol through Ctags ([Universal Ctags](https://github.com/universal-ctags/ctags) is recommended)
 * Spell checking depending on file context
 * Run shell commands within juCi++
