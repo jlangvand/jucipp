@@ -1558,10 +1558,10 @@ void Source::View::show_or_hide() {
                 }
               }
               else if(std::none_of(exact.begin(), exact.end(), [&text](const std::string &e) {
-                        return text.compare(0, e.size(), e) == 0;
+                        return starts_with(text, e);
                       }) &&
                       std::none_of(followed_by_non_token_char.begin(), followed_by_non_token_char.end(), [this, &text](const std::string &e) {
-                        return text.compare(0, e.size(), e) == 0 && text.size() > e.size() && !is_token_char(text[e.size()]);
+                        return starts_with(text, e) && text.size() > e.size() && !is_token_char(text[e.size()]);
                       })) {
                 end = get_buffer()->get_iter_at_line(end.get_line());
                 break;
@@ -2411,8 +2411,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
     if(tabs.size() % tab_size == 1 && !start_iter.ends_line() && !is_code_iter(start_iter)) {
       auto end_of_line_iter = start_iter;
       end_of_line_iter.forward_to_line_end();
-      auto line = get_buffer()->get_text(tabs_end_iter, end_of_line_iter);
-      if(!line.empty() && line.raw().compare(0, 2, "*/") == 0) {
+      if(starts_with(get_buffer()->get_text(tabs_end_iter, end_of_line_iter).raw(), "*/")) {
         tabs.pop_back();
         get_buffer()->insert_at_cursor('\n' + tabs);
         scroll_to(get_buffer()->get_insert());

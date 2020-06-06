@@ -2,6 +2,7 @@
 #include "clangmm.hpp"
 #include "config.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <algorithm>
 #include <boost/property_tree/json_parser.hpp>
 #include <regex>
@@ -14,7 +15,7 @@ CompileCommands::FindSystemIncludePaths::FindSystemIncludePaths() {
     return;
   std::string line;
   while(std::getline(stdout_stream, line)) {
-    if(line.compare(0, 34, "#include <...> search starts here:") == 0) {
+    if(starts_with(line, "#include <...> search starts here:")) {
       while(std::getline(stdout_stream, line)) {
         if(!line.empty() && line[0] == ' ') {
 #ifdef _WIN32

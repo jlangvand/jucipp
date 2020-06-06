@@ -1,9 +1,9 @@
+#include "filesystem.hpp"
+#include "utility.hpp"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-
-#include "filesystem.hpp"
 
 //Only use on small files
 std::string filesystem::read(const std::string &path) {
@@ -222,7 +222,7 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
       for(boost::filesystem::directory_iterator it(path), end; it != end; ++it) {
         auto it_path = it->path();
         auto it_path_filename_str = it_path.filename().string();
-        if(!it_path_filename_str.empty() && it_path_filename_str.compare(0, executable_name_str.size(), executable_name_str) == 0) {
+        if(starts_with(it_path_filename_str, executable_name_str)) {
           if(it_path > executable &&
              ((it_path_filename_str.size() > executable_name_str.size() &&
                it_path_filename_str[executable_name_str.size()] >= '0' &&
@@ -295,7 +295,7 @@ std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) {
 boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) {
   std::string encoded;
 
-  if(uri.compare(0, 7, "file://") == 0)
+  if(starts_with(uri, "file://"))
     encoded = uri.substr(7);
   else
     encoded = uri;

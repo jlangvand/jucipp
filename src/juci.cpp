@@ -5,6 +5,7 @@
 #include "menu.hpp"
 #include "notebook.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include "window.hpp"
 #ifndef _WIN32
 #include <csignal>
@@ -70,7 +71,7 @@ void Application::on_activate() {
     else {
       std::string files_in_directory;
       for(auto it = files.begin(); it != files.end();) {
-        if(it->first.generic_string().compare(0, directory.generic_string().size() + 1, directory.generic_string() + '/') == 0) {
+        if(filesystem::file_in_path(it->first, directory)) {
           files_in_directory += " " + filesystem::escape_argument(it->first.string());
           it = files.erase(it);
         }

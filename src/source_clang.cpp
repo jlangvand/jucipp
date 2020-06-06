@@ -13,6 +13,7 @@
 #include "info.hpp"
 #include "selection_dialog.hpp"
 #include "usages_clang.hpp"
+#include "utility.hpp"
 
 const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)");
 
@@ -375,7 +376,7 @@ void Source::ClangViewParse::update_diagnostics() {
           std::string *c_header = nullptr;
           std::string *cpp_header = nullptr;
           for(auto &header : headers) {
-            if(!c_header && header.find(".h") != std::string::npos)
+            if(!c_header && ends_with(header, ".h"))
               c_header = &header;
             else if(!cpp_header)
               cpp_header = &header;
@@ -393,17 +394,17 @@ void Source::ClangViewParse::update_diagnostics() {
           if(token.get_kind() == clangmm::Token::Kind::Identifier) {
             auto &token_offsets = clang_tokens_offsets[c];
             if(static_cast<unsigned int>(line) == token_offsets.first.line - 1 && static_cast<unsigned int>(index) >= token_offsets.first.index - 1 && static_cast<unsigned int>(index) <= token_offsets.second.index - 1) {
-              if(diagnostic.spelling.compare(0, 44, "implicit instantiation of undefined template") == 0) {
+              if(starts_with(diagnostic.spelling, "implicit instantiation of undefined template")) {
                 auto cursor = token.get_cursor();
                 if(cursor.get_referenced()) {
                   auto type_description = cursor.get_type_description();
                   bool has_std = false;
                   if(is_cpp) {
-                    if(type_description.compare(0, 5, "std::") == 0) {
+                    if(starts_with(type_description, "std::")) {
                       has_std = true;
                       type_description.erase(0, 5);
                     }
-                    if(type_description.compare(0, 5, "__1::") == 0)
+                    if(starts_with(type_description, "__1::"))
                       type_description.erase(0, 5);
                     auto pos = type_description.find('<');
                     if(pos != std::string::npos)
@@ -413,13 +414,13 @@ void Source::ClangViewParse::update_diagnostics() {
                   add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), type_description);
                 }
               }
-              if(diagnostic.spelling.compare(0, 17, "unknown type name") == 0 ||
-                 diagnostic.spelling.compare(0, 13, "no type named") == 0 ||
-                 diagnostic.spelling.compare(0, 15, "no member named") == 0 ||
-                 diagnostic.spelling.compare(0, 17, "no template named") == 0 ||
-                 diagnostic.spelling.compare(0, 28, "use of undeclared identifier") == 0 ||
-                 diagnostic.spelling.compare(0, 44, "implicit instantiation of undefined template") == 0 ||
-                 diagnostic.spelling.compare(0, 79, "no viable constructor or deduction guide for deduction of template arguments of") == 0) {
+              if(starts_with(diagnostic.spelling, "unknown type name") ||
+                 starts_with(diagnostic.spelling, "no type named") ||
+                 starts_with(diagnostic.spelling, "no member named") ||
+                 starts_with(diagnostic.spelling, "no template named") ||
+                 starts_with(diagnostic.spelling, "use of undeclared identifier") ||
+                 starts_with(diagnostic.spelling, "implicit instantiation of undefined template") ||
+                 starts_with(diagnostic.spelling, "no viable constructor or deduction guide for deduction of template arguments of")) {
                 bool has_std = false;
                 if(is_cpp) {
                   if(token_string == "std" && c + 2 < clang_tokens->size() && (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Kind::Identifier) {
@@ -876,7 +877,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
               if(kind != clangmm::CompletionChunk_Informative) {
                 auto chunk_cstr = clangmm::String(clang_getCompletionChunkText(result.cx_completion_string, i));
                 if(kind == clangmm::CompletionChunk_TypedText) {
-                  if(strlen(chunk_cstr.c_str) >= prefix.size() && prefix.compare(0, prefix.size(), chunk_cstr.c_str, prefix.size()) == 0)
+                  if(starts_with(chunk_cstr.c_str, prefix))
                     match = true;
                   else
                     break;
@@ -900,7 +901,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         LockGuard lock(snippets_mutex);
         if(snippets) {
           for(auto &snippet : *snippets) {
-            if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
+            if(starts_with(snippet.prefix, prefix)) {
               autocomplete.rows.emplace_back(snippet.prefix);
               completion_strings.emplace_back(nullptr);
               snippet_inserts.emplace(autocomplete.rows.size() - 1, snippet.body);
@@ -929,9 +930,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(!completion_strings[index]) { // Insert snippet instead
       get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 
-      if(!hide_window) {
+      if(!hide_window)
         get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), text);
-      }
       else
         insert_snippet(CompletionDialog::get()->start_mark->get_iter(), snippet_inserts[index]);
       return;
@@ -1231,8 +1231,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
               if(static_cast<int>(source_location.get_offset().line) - 1 <= client_data->line_nr &&
                  filesystem::get_normal_path(source_location.get_path()) == client_data->file_path) {
                 auto included_file_str = clangmm::to_string(clang_getFileName(included_file));
-                if(included_file_str.size() >= client_data->sm_str.size() &&
-                   included_file_str.compare(included_file_str.size() - client_data->sm_str.size(), client_data->sm_str.size(), client_data->sm_str) == 0) {
+                if(ends_with(included_file_str, client_data->sm_str)) {
                   client_data->found_include = included_file_str;
                   break;
                 }
@@ -1784,7 +1783,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
       auto it = data.end();
       do {
         auto token_spelling = cursor.get_token_spelling();
-        if(!token_spelling.empty() && token_spelling != "__1" && token_spelling.compare(0, 5, "__cxx") != 0) {
+        if(!token_spelling.empty() && token_spelling != "__1" && !starts_with(token_spelling, "__cxx")) {
           it = data.emplace(it, token_spelling);
           if(symbol.empty())
             symbol = token_spelling;

@@ -4,6 +4,7 @@
 #include "info.hpp"
 #include "notebook.hpp"
 #include "selection_dialog.hpp"
+#include "utility.hpp"
 #include <algorithm>
 #include <regex>
 
@@ -152,7 +153,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
           if(link.empty())
             link = text;
 
-          if(link.compare(0, 7, "http://") == 0 || link.compare(0, 8, "https://") == 0) {
+          if(starts_with(link, "http://") || starts_with(link, "https://")) {
             Notebook::get().open_uri(link);
             return true;
           }
@@ -477,7 +478,7 @@ void Tooltip::insert_markdown(const std::string &input) {
       auto start = i;
       for(; i < to; i++) {
         if(!unescape(i)) {
-          if(input.compare(i, prefix.size(), prefix) == 0) {
+          if(starts_with(input, i, prefix)) {
             if(i - 1 > from && is_whitespace_character(i - 1)) { // Do not emphasis _test in: _test _test_
               i = i_saved;
               return false;
@@ -507,7 +508,7 @@ void Tooltip::insert_markdown(const std::string &input) {
     };
 
     auto insert_strikethrough = [&] {
-      if(input.compare(i, 2, "~~") == 0) {
+      if(starts_with(input, i, "~~")) {
         insert_with_links_tagged(partial);
         partial.clear();
         auto i_saved = i;
@@ -515,7 +516,7 @@ void Tooltip::insert_markdown(const std::string &input) {
         if(i < to) {
           auto start = i;
           for(; i < to; i++) {
-            if(!unescape(i) && input.compare(i, 2, "~~") == 0)
+            if(!unescape(i) && starts_with(input, i, "~~"))
               break;
           }
           if(i == to) {
@@ -701,13 +702,13 @@ void Tooltip::insert_markdown(const std::string &input) {
 
 
   auto insert_code_block = [&] {
-    if(input.compare(i, 3, "```") == 0) {
+    if(starts_with(input, i, "```")) {
       auto i_saved = i;
       if(forward_to({'\n'})) {
         i++;
         if(i < input.size()) {
           auto start = i;
-          while(i < input.size() && !(input[i - 1] == '\n' && input.compare(i, 3, "```") == 0))
+          while(i < input.size() && !(input[i - 1] == '\n' && starts_with(input, i, "```")))
             i++;
           if(i == input.size()) {
             i = i_saved;
@@ -769,7 +770,7 @@ void Tooltip::insert_markdown(const std::string &input) {
     // Insert paragraph:
     auto start = i;
     for(; forward_to({'\n'}); i++) {
-      if(i + 1 < input.size() && (input[i + 1] == '\n' || input[i + 1] == '#' || input.compare(i + 1, 3, "```") == 0))
+      if(i + 1 < input.size() && (input[i + 1] == '\n' || input[i + 1] == '#' || starts_with(input, i + 1, "```")))
         break;
     }
     insert_text(start, i);

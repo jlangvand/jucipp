@@ -84,3 +84,6 @@ add_executable(tooltips_test tooltips_test.cpp $<TARGET_OBJECTS:test_stubs>)
 target_link_libraries(tooltips_test juci_shared)
 add_test(tooltips_test tooltips_test)
 
+add_executable(utility_test utility_test.cpp $<TARGET_OBJECTS:test_stubs>)
+target_link_libraries(utility_test juci_shared)
+add_test(utility_test utility_test)

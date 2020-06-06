@@ -152,7 +152,7 @@ namespace Source {
     std::vector<Snippets::Snippet> *snippets GUARDED_BY(snippets_mutex) = nullptr;
     std::list<std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, Glib::RefPtr<Gtk::TextBuffer::Mark>>>> snippets_marks;
     Glib::RefPtr<Gtk::TextTag> snippet_argument_tag;
-    void insert_snippet(Gtk::TextIter iter, const Glib::ustring &snippet);
+    void insert_snippet(Gtk::TextIter iter, const std::string &snippet);
     bool select_snippet_argument();
     bool clear_snippet_marks();
   };

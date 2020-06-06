@@ -7,6 +7,7 @@
 #include "filesystem.hpp"
 #include "process.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <boost/filesystem.hpp>
 #include <iostream>
 
@@ -451,7 +452,7 @@ std::string Debug::LLDB::get_value(const std::string &variable, const boost::fil
               if(value_decl_path == file_path) {
                 value.GetDescription(stream);
                 std::string variable_value = stream.GetData();
-                if(variable_value.size() >= 2 && variable_value.compare(variable_value.size() - 2, 2, "\n\n", 2) == 0)
+                if(ends_with(variable_value, "\n\n"))
                   variable_value.pop_back(); // Remove newline at end of string
                 return variable_value;
               }

@@ -4,6 +4,7 @@
 #include "selection_dialog.hpp"
 #include "snippets.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <algorithm>
 
 Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
@@ -260,7 +261,7 @@ void Source::GenericView::setup_autocomplete() {
         prefix = autocomplete.prefix;
       }
       for(auto &keyword : keywords) {
-        if(prefix.compare(0, prefix.size(), keyword, 0, prefix.size()) == 0) {
+        if(starts_with(keyword, prefix)) {
           autocomplete.rows.emplace_back(keyword);
           autocomplete_insert.emplace_back(keyword);
           autocomplete_comment.emplace_back("");
@@ -269,7 +270,8 @@ void Source::GenericView::setup_autocomplete() {
       {
         LockGuard lock(buffer_words_mutex);
         for(auto &buffer_word : buffer_words) {
-          if((show_prefix_buffer_word || buffer_word.first.size() > prefix.size()) && prefix.compare(0, prefix.size(), buffer_word.first, 0, prefix.size()) == 0 &&
+          if((show_prefix_buffer_word || buffer_word.first.size() > prefix.size()) &&
+             starts_with(buffer_word.first, prefix) &&
              keywords.find(buffer_word.first) == keywords.end()) {
             autocomplete.rows.emplace_back(buffer_word.first);
             autocomplete_insert.emplace_back(buffer_word.first);
@@ -280,7 +282,7 @@ void Source::GenericView::setup_autocomplete() {
       LockGuard lock(snippets_mutex);
       if(snippets) {
         for(auto &snippet : *snippets) {
-          if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
+          if(starts_with(snippet.prefix, prefix)) {
             autocomplete.rows.emplace_back(snippet.prefix);
             autocomplete_insert.emplace_back(snippet.body);
             autocomplete_comment.emplace_back(snippet.description);
@@ -300,7 +302,7 @@ void Source::GenericView::setup_autocomplete() {
   };
 
   autocomplete.on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    Glib::ustring insert = hide_window ? autocomplete_insert[index] : text;
+    const auto &insert = hide_window ? autocomplete_insert[index] : text;
 
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 

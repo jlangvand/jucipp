@@ -830,8 +830,6 @@ void Window::set_menu_actions() {
   });
 
   menu.add_action("source_find_pattern", [this]() {
-    std::string excludes = "--exclude-dir=node_modules";
-
     EntryBox::get().clear();
 
     EntryBox::get().entries.emplace_back(last_find_pattern, [this](const std::string &pattern_) {
@@ -845,14 +843,14 @@ void Window::set_menu_actions() {
           return;
         }
 
-        if(auto view = Notebook::get().get_current_view())
+        auto view = Notebook::get().get_current_view();
+        if(view)
           SelectionDialog::create(view, true, true);
         else
           SelectionDialog::create(true, true);
 
         std::string current_path;
         unsigned int current_line = 0;
-        auto view = Notebook::get().get_current_view();
         if(view) {
           current_path = filesystem::get_relative_path(view->file_path, grep->project_path).string();
           current_line = view->get_buffer()->get_insert()->get_iter().get_line();

@@ -3,6 +3,7 @@
 #include "filesystem.hpp"
 #include "project_build.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 
 Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex) {
   auto build = Project::Build::create(path);
@@ -64,7 +65,7 @@ Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, 
   if(color_codes_to_markup) {
     std::string escaped = Glib::Markup::escape_text(line);
     auto decode_escape_sequence = [](const std::string &line, size_t &i) -> bool {
-      if(line.compare(i, 7, "&#x1b;[") != 0)
+      if(!starts_with(line, i, "&#x1b;["))
         return false;
       i += 7;
       for(; i < line.size(); ++i) {

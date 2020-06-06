@@ -3,6 +3,7 @@
 #include "filesystem.hpp"
 #include "project_build.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <climits>
 #include <vector>
 
@@ -60,7 +61,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) c
     return location;
   }
   location.symbol = line.substr(0, symbol_end);
-  if(9 < location.symbol.size() && location.symbol[8] == ' ' && location.symbol.compare(0, 8, "operator") == 0) {
+  if(9 < location.symbol.size() && location.symbol[8] == ' ' && starts_with(location.symbol, "operator")) {
     auto &chr = location.symbol[9];
     if(!((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_'))
       location.symbol.erase(8, 1);
@@ -151,7 +152,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) c
     bool escaped = false;
     for(size_t i = 0; i < location.source.size(); i++) {
       if(!escaped) {
-        if(location.source.compare(i, symbol.size(), symbol) == 0) {
+        if(starts_with(location.source, i, symbol)) {
           location.source.insert(i + symbol.size(), "</b>");
           location.source.insert(i, "<b>");
           i += 7 + symbol.size() - 1;

@@ -4,6 +4,7 @@
 #include "dialogs.hpp"
 #include "filesystem.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <regex>
 
 CMake::CMake(const boost::filesystem::path &path) {
@@ -113,7 +114,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
 
   std::vector<boost::filesystem::path> cmake_executables;
   for(auto &parameter : parameters) {
-    if(parameter.second.size() > 1 && parameter.second[0].size() > 0 && parameter.second[0].compare(0, 2, "${") != 0) {
+    if(parameter.second.size() > 1 && parameter.second[0].size() > 0 && !starts_with(parameter.second[0], "${")) {
       auto executable = (parameter.first.parent_path() / parameter.second[0]).string();
       auto project_path_str = project_path.string();
       size_t pos = executable.find(project_path_str);

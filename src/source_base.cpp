@@ -1035,10 +1035,10 @@ void Source::BaseView::setup_extra_cursor_signals() {
   });
 }
 
-void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &snippet) {
+void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &snippet) {
   std::map<size_t, std::vector<std::pair<size_t, size_t>>> arguments_offsets;
 
-  Glib::ustring insert;
+  std::string insert;
   insert.reserve(snippet.size());
   size_t i = 0;
   int number;
@@ -1058,12 +1058,18 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &s
       return false;
     }
   };
+  auto compare_variable = [&snippet, &i](const char *text) {
+    if(starts_with(snippet, i, text)) {
+      i += strlen(text);
+      return true;
+    }
+    return false;
+  };
   bool erase_line = false, erase_word = false;
-  auto parse_variable = [this, &iter, &snippet, &i, &insert, &erase_line, &erase_word] {
+  auto parse_variable = [this, &iter, &snippet, &i, &insert, &compare_variable, &erase_line, &erase_word] {
     if(i >= snippet.size())
       throw std::out_of_range("unexpected end");
-    if(snippet.compare(i, 16, "TM_SELECTED_TEXT") == 0) {
-      i += 16;
+    if(compare_variable("TM_SELECTED_TEXT")) {
       Gtk::TextIter start, end;
       if(get_buffer()->get_selection_bounds(start, end)) {
         insert += get_buffer()->get_text(start, end);
@@ -1071,16 +1077,14 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &s
       }
       return false;
     }
-    else if(snippet.compare(i, 15, "TM_CURRENT_LINE") == 0) {
-      i += 15;
+    else if(compare_variable("TM_CURRENT_LINE")) {
       auto start = get_buffer()->get_iter_at_line(iter.get_line());
       auto end = get_iter_at_line_end(iter.get_line());
       insert += get_buffer()->get_text(start, end);
       erase_line = true;
       return true;
     }
-    else if(snippet.compare(i, 15, "TM_CURRENT_WORD") == 0) {
-      i += 15;
+    else if(compare_variable("TM_CURRENT_WORD")) {
       if(is_token_char(*iter)) {
         auto token_iters = get_token_iters(iter);
         insert += get_buffer()->get_text(token_iters.first, token_iters.second);
@@ -1089,38 +1093,31 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &s
       }
       return false;
     }
-    else if(snippet.compare(i, 13, "TM_LINE_INDEX") == 0) {
-      i += 13;
+    else if(compare_variable("TM_LINE_INDEX")) {
       insert += std::to_string(iter.get_line());
       return true;
     }
-    else if(snippet.compare(i, 14, "TM_LINE_NUMBER") == 0) {
-      i += 14;
+    else if(compare_variable("TM_LINE_NUMBER")) {
       insert += std::to_string(iter.get_line() + 1);
       return true;
     }
-    else if(snippet.compare(i, 16, "TM_FILENAME_BASE") == 0) {
-      i += 16;
+    else if(compare_variable("TM_FILENAME_BASE")) {
       insert += file_path.stem().string();
       return true;
     }
-    else if(snippet.compare(i, 11, "TM_FILENAME") == 0) {
-      i += 11;
+    else if(compare_variable("TM_FILENAME")) {
       insert += file_path.filename().string();
       return true;
     }
-    else if(snippet.compare(i, 12, "TM_DIRECTORY") == 0) {
-      i += 12;
+    else if(compare_variable("TM_DIRECTORY")) {
       insert += file_path.parent_path().string();
       return true;
     }
-    else if(snippet.compare(i, 11, "TM_FILEPATH") == 0) {
-      i += 11;
+    else if(compare_variable("TM_FILEPATH")) {
       insert += file_path.string();
       return true;
     }
-    else if(snippet.compare(i, 9, "CLIPBOARD") == 0) {
-      i += 9;
+    else if(compare_variable("CLIPBOARD")) {
       insert += Gtk::Clipboard::get()->wait_for_text();
       return true;
     }
@@ -1144,7 +1141,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const Glib::ustring &s
         if(snippet.at(i) == '{') {
           ++i;
           if(parse_number()) {
-            Glib::ustring placeholder;
+            std::string placeholder;
             if(snippet.at(i) == ':') {
               ++i;
               for(; snippet.at(i) != '}'; ++i)

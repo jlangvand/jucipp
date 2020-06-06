@@ -4,6 +4,7 @@
 #include "dialogs.hpp"
 #include "filesystem.hpp"
 #include "terminal.hpp"
+#include "utility.hpp"
 #include <regex>
 
 Meson::Meson(const boost::filesystem::path &path) {
@@ -101,7 +102,7 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
     if(!values.empty()) {
       size_t pos;
       if((pos = values[0].find('@')) != std::string::npos) {
-        if(pos + 1 < values[0].size() && values[0].compare(pos + 1, 3, "exe") == 0) {
+        if(starts_with(values[0], pos + 1, "exe")) {
           auto executable = build_path / values[0].substr(0, pos);
           if(command_file == file_path)
             return executable;

@@ -10,6 +10,7 @@
 #endif
 #include "config.hpp"
 #include "menu.hpp"
+#include "utility.hpp"
 #include <future>
 #include <limits>
 #include <regex>
@@ -194,7 +195,7 @@ void LanguageProtocol::Client::parse_server_message() {
     std::string line;
     while(!header_read && std::getline(server_message_stream, line)) {
       if(!line.empty() && line != "\r") {
-        if(line.compare(0, 16, "Content-Length: ") == 0) {
+        if(starts_with(line, "Content-Length: ")) {
           try {
             server_message_size = static_cast<size_t>(std::stoul(line.substr(16)));
           }
@@ -1607,7 +1608,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   LockGuard lock(autocomplete->prefix_mutex);
                   prefix = autocomplete->prefix;
                 }
-                if(prefix.compare(0, prefix.size(), label, 0, prefix.size()) == 0) {
+                if(starts_with(label, prefix)) {
                   autocomplete->rows.emplace_back(std::move(label));
                   if(!plaintext.empty() && detail != plaintext) {
                     if(!detail.empty())
@@ -1628,7 +1629,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               LockGuard lock(snippets_mutex);
               if(snippets) {
                 for(auto &snippet : *snippets) {
-                  if(prefix.compare(0, prefix.size(), snippet.prefix, 0, prefix.size()) == 0) {
+                  if(starts_with(snippet.prefix, prefix)) {
                     autocomplete->rows.emplace_back(snippet.prefix);
                     autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, snippet.description, {}});
                   }
@@ -1652,7 +1653,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    Glib::ustring insert = hide_window ? autocomplete_rows[index].insert : text;
+    auto insert = hide_window ? autocomplete_rows[index].insert : text;
 
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 
@@ -1660,9 +1661,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     auto iter = get_buffer()->get_insert()->get_iter();
     if(*iter == '(' || *iter == '<') {
       auto bracket_pos = insert.find(*iter);
-      if(bracket_pos != std::string::npos) {
-        insert = insert.substr(0, bracket_pos);
-      }
+      if(bracket_pos != std::string::npos)
+        insert.erase(bracket_pos);
     }
 
     if(hide_window) {

@@ -254,14 +254,9 @@ SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const Glib::RefPtr<Gt
 
   auto activate = [this]() {
     auto it = list_view_text.get_selection()->get_selected();
-    if(on_select && it) {
-      auto index = it->get_value(list_view_text.column_record.index);
-      auto text = it->get_value(list_view_text.column_record.text);
-      hide();
-      on_select(index, text, true);
-    }
-    else
-      hide();
+    if(on_select && it)
+      on_select(it->get_value(list_view_text.column_record.index), it->get_value(list_view_text.column_record.text), true);
+    hide();
   };
   search_entry.signal_activate().connect([activate]() {
     activate();
@@ -390,11 +385,8 @@ void CompletionDialog::select(bool hide_window) {
   row_in_entry = true;
 
   auto it = list_view_text.get_selection()->get_selected();
-  if(on_select && it) {
-    auto index = it->get_value(list_view_text.column_record.index);
-    auto text = it->get_value(list_view_text.column_record.text);
-    on_select(index, text, hide_window);
-  }
+  if(on_select && it)
+    on_select(it->get_value(list_view_text.column_record.index), it->get_value(list_view_text.column_record.text), hide_window);
   if(hide_window)
     hide();
 }
@@ -403,9 +395,8 @@ bool CompletionDialog::on_key_release(GdkEventKey *key) {
   if(key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down || key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up)
     return false;
 
-  if(show_offset > text_view->get_buffer()->get_insert()->get_iter().get_offset()) {
+  if(show_offset > text_view->get_buffer()->get_insert()->get_iter().get_offset())
     hide();
-  }
   else {
     auto text = text_view->get_buffer()->get_text(start_mark->get_iter(), text_view->get_buffer()->get_insert()->get_iter());
     search_entry.set_text(text);
