@@ -1391,7 +1391,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
         name.insert(0, spelling);
         parent = parent.get_semantic_parent();
       }
-      auto ctags_locations = Ctags::get_locations(this->file_path.parent_path(), name, identifier.cursor.get_type_description());
+      auto ctags_locations = Ctags::get_locations(this->file_path.parent_path(), name, identifier.cursor.get_type_description(), is_cpp ? "C++,C" : "C");
       if(!ctags_locations.empty()) {
         for(auto &ctags_location : ctags_locations) {
           Offset offset;

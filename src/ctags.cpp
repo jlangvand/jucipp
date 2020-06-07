@@ -6,7 +6,7 @@
 #include <climits>
 #include <vector>
 
-Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable_kind) : enable_scope(enable_scope), enable_kind(enable_kind) {
+Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable_kind, const std::string &languages) : enable_scope(enable_scope), enable_kind(enable_kind) {
   std::string fields(" --fields=n");
   if(enable_scope)
     fields += 's';
@@ -24,7 +24,8 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
     }
     else
       project_path = path;
-    command = Config::get().project.ctags_command + exclude + fields + " --sort=foldcase -I \"override noexcept\" -f - -R *";
+    auto extra = !languages.empty() ? " --languages=" + languages : std::string();
+    command = Config::get().project.ctags_command + exclude + fields + extra + " --sort=foldcase -I \"override noexcept\" -f - -R *";
   }
   else {
     project_path = path.parent_path();
@@ -203,8 +204,8 @@ std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
   return parts;
 }
 
-std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type) {
-  Ctags ctags(path, true);
+std::vector<Ctags::Location> Ctags::get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type, const std::string &languages) {
+  Ctags ctags(path, true, false, languages);
   if(!ctags)
     return {};
 

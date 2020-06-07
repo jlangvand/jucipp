@@ -18,7 +18,7 @@ public:
     operator bool() const { return !file_path.empty(); }
   };
 
-  Ctags(const boost::filesystem::path &path, bool enable_scope = false, bool enable_kind = false);
+  Ctags(const boost::filesystem::path &path, bool enable_scope = false, bool enable_kind = false, const std::string &languages = {});
 
   operator bool();
 
@@ -27,7 +27,7 @@ public:
   boost::filesystem::path project_path;
   std::stringstream output;
 
-  static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type);
+  static std::vector<Location> get_locations(const boost::filesystem::path &path, const std::string &name, const std::string &type, const std::string &languages = {});
 
 private:
   bool enable_scope, enable_kind;
