@@ -252,10 +252,11 @@ void Project::Base::show_symbols() {
     boost::system::error_code ec;
     if(!boost::filesystem::is_regular_file(full_path, ec))
       return;
-    Notebook::get().open(full_path);
-    auto view = Notebook::get().get_current_view();
-    view->place_cursor_at_line_index(offset.line, offset.index);
-    view->scroll_to_cursor_delayed(true, false);
+    if(Notebook::get().open(full_path)) {
+      auto view = Notebook::get().get_current_view();
+      view->place_cursor_at_line_index(offset.line, offset.index);
+      view->scroll_to_cursor_delayed(true, false);
+    }
   };
   if(view)
     view->hide_tooltips();
@@ -458,10 +459,11 @@ void Project::LLDB::debug_start() {
             debug_update_stop();
 
             if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
-              Notebook::get().open(stop_path);
-              auto view = Notebook::get().get_current_view();
-              view->place_cursor_at_line_index(stop_line, stop_column);
-              view->scroll_to_cursor_delayed(true, false);
+              if(Notebook::get().open(stop_path)) {
+                auto view = Notebook::get().get_current_view();
+                view->place_cursor_at_line_index(stop_line, stop_column);
+                view->scroll_to_cursor_delayed(true, false);
+              }
             }
             else if(auto view = Notebook::get().get_current_view())
               view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
@@ -558,10 +560,9 @@ void Project::LLDB::debug_backtrace() {
         return;
       auto frame = rows[index];
       if(!frame.file_path.empty()) {
-        Notebook::get().open(frame.file_path);
-        if(auto view = Notebook::get().get_current_view()) {
+        if(Notebook::get().open(frame.file_path)) {
           Debug::LLDB::get().select_frame(frame.index);
-
+          auto view = Notebook::get().get_current_view();
           view->place_cursor_at_line_index(frame.line_nr - 1, frame.line_index - 1);
           view->scroll_to_cursor_delayed(true, true);
         }
@@ -601,8 +602,8 @@ void Project::LLDB::debug_show_variables() {
       auto variable = (*rows)[index];
       Debug::LLDB::get().select_frame(variable.frame_index, variable.thread_index_id);
       if(!variable.file_path.empty()) {
-        Notebook::get().open(variable.file_path);
-        if(auto view = Notebook::get().get_current_view()) {
+        if(Notebook::get().open(variable.file_path)) {
+          auto view = Notebook::get().get_current_view();
           view->place_cursor_at_line_index(variable.line_nr - 1, variable.line_index - 1);
           view->scroll_to_cursor_delayed(true, true);
         }
@@ -805,10 +806,11 @@ void Project::LanguageProtocol::show_symbols() {
     boost::system::error_code ec;
     if(!boost::filesystem::is_regular_file(location.file, ec))
       return;
-    Notebook::get().open(location.file);
-    auto view = Notebook::get().get_current_view();
-    view->place_cursor_at_line_offset(location.range.start.line, location.range.start.character);
-    view->scroll_to_cursor_delayed(true, false);
+    if(Notebook::get().open(location.file)) {
+      auto view = Notebook::get().get_current_view();
+      view->place_cursor_at_line_offset(location.range.start.line, location.range.start.character);
+      view->scroll_to_cursor_delayed(true, false);
+    }
   };
 
   if(view)
@@ -964,11 +966,13 @@ void Project::Clang::recreate_build() {
 
 
 void Project::Markdown::compile_and_run() {
-  auto command = Config::get().project.markdown_command + ' ' + filesystem::escape_argument(filesystem::get_short_path(Notebook::get().get_current_view()->file_path).string());
-  Terminal::get().async_process(command, "", [command](int exit_status) {
-    if(exit_status == 127)
-      Terminal::get().async_print("Error: executable not found: " + command + "\n", true);
-  }, true);
+  if(auto view = Notebook::get().get_current_view()) {
+    auto command = Config::get().project.markdown_command + ' ' + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
+    Terminal::get().async_process(command, "", [command](int exit_status) {
+      if(exit_status == 127)
+        Terminal::get().async_print("Error: executable not found: " + command + "\n", true);
+    }, true);
+  }
 }
 
 void Project::Python::compile_and_run() {
@@ -1035,8 +1039,8 @@ void Project::HTML::compile_and_run() {
       Terminal::get().async_print(command + " returned: " + std::to_string(exit_status) + '\n');
     });
   }
-  else
-    Notebook::get().open_uri(std::string("file://") + Notebook::get().get_current_view()->file_path.string());
+  else if(auto view = Notebook::get().get_current_view())
+    Notebook::get().open_uri(std::string("file://") + view->file_path.string());
 }
 
 std::pair<std::string, std::string> Project::Rust::get_run_arguments() {

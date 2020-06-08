@@ -35,7 +35,7 @@ public:
   std::vector<Source::View *> &get_views();
 
   enum class Position { left, right, infer, split };
-  void open(const boost::filesystem::path &file_path, Position position = Position::infer);
+  bool open(const boost::filesystem::path &file_path, Position position = Position::infer);
   void open_uri(const std::string &uri);
   void configure(size_t index);
   bool save(size_t index);

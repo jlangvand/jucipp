@@ -88,9 +88,9 @@ void Application::on_activate() {
   }
 
   for(size_t i = 0; i < files.size(); ++i) {
-    Notebook::get().open(files[i].first, files[i].second == 0 ? Notebook::Position::left : Notebook::Position::right);
-    if(i < file_offsets.size()) {
-      if(auto view = Notebook::get().get_current_view()) {
+    if(Notebook::get().open(files[i].first, files[i].second == 0 ? Notebook::Position::left : Notebook::Position::right)) {
+      if(i < file_offsets.size()) {
+        auto view = Notebook::get().get_current_view();
         view->place_cursor_at_line_offset(file_offsets[i].first, file_offsets[i].second);
         view->scroll_to_cursor_delayed(true, false);
       }
@@ -101,8 +101,8 @@ void Application::on_activate() {
     Terminal::get().print(error, true);
 
   if(!current_file.empty()) {
-    Notebook::get().open(current_file);
-    if(auto view = Notebook::get().get_current_view()) {
+    if(Notebook::get().open(current_file)) {
+      auto view = Notebook::get().get_current_view();
       auto iter = view->get_buffer()->get_insert()->get_iter();
       // To update cursor history
       view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());

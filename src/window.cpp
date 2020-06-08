@@ -486,7 +486,7 @@ void Window::set_menu_actions() {
           if(!Directories::get().path.empty())
             Directories::get().update();
           Notebook::get().open(path);
-          Terminal::get().print("File saved to: " + Notebook::get().get_current_view()->file_path.string() + "\n");
+          Terminal::get().print("File saved to: " + filesystem::get_short_path(filesystem::get_normal_path(path)).string() + "\n");
         }
         else
           Terminal::get().print("Error saving file\n", true);
@@ -740,8 +740,8 @@ void Window::set_menu_actions() {
         if(pos != std::string::npos)
           postfix = diff_details.substr(0, pos + 2);
       }
-      Notebook::get().open(view->file_path.string() + postfix + ".diff");
-      if(auto new_view = Notebook::get().get_current_view()) {
+      if(Notebook::get().open(view->file_path.string() + postfix + ".diff")) {
+        auto new_view = Notebook::get().get_current_view();
         if(new_view->get_buffer()->get_text().empty()) {
           new_view->get_source_buffer()->begin_not_undoable_action();
           new_view->get_buffer()->set_text(diff_details);
@@ -873,10 +873,11 @@ void Window::set_menu_actions() {
         }
         SelectionDialog::get()->on_select = [grep](unsigned int index, const std::string &text, bool hide_window) {
           auto location = grep->get_location(text, false, true);
-          Notebook::get().open(grep->project_path / location.file_path);
-          auto view = Notebook::get().get_current_view();
-          view->place_cursor_at_line_offset(location.line, location.offset);
-          view->scroll_to_cursor_delayed(true, false);
+          if(Notebook::get().open(grep->project_path / location.file_path)) {
+            auto view = Notebook::get().get_current_view();
+            view->place_cursor_at_line_offset(location.line, location.offset);
+            view->scroll_to_cursor_delayed(true, false);
+          }
         };
         SelectionDialog::get()->show();
       }
@@ -956,9 +957,10 @@ void Window::set_menu_actions() {
     SelectionDialog::get()->on_select = [paths = std::move(paths)](unsigned int index, const std::string &text, bool hide_window) {
       if(index >= paths.size())
         return;
-      Notebook::get().open(paths[index]);
-      if(auto view = Notebook::get().get_current_view())
+      if(Notebook::get().open(paths[index])) {
+        auto view = Notebook::get().get_current_view();
         view->hide_tooltips();
+      }
     };
 
     if(view)
@@ -982,14 +984,15 @@ void Window::set_menu_actions() {
           boost::system::error_code ec;
           if(!boost::filesystem::is_regular_file(offset.file_path, ec))
             return;
-          Notebook::get().open(offset.file_path);
-          auto view = Notebook::get().get_current_view();
-          auto iter = view->get_iter_at_line_pos(offset.line, offset.index);
-          view->get_buffer()->insert(iter, std::get<1>(documentation_template));
-          iter = view->get_iter_at_line_pos(offset.line, offset.index);
-          iter.forward_chars(std::get<2>(documentation_template));
-          view->get_buffer()->place_cursor(iter);
-          view->scroll_to_cursor_delayed(true, false);
+          if(Notebook::get().open(offset.file_path)) {
+            auto view = Notebook::get().get_current_view();
+            auto iter = view->get_iter_at_line_pos(offset.line, offset.index);
+            view->get_buffer()->insert(iter, std::get<1>(documentation_template));
+            iter = view->get_iter_at_line_pos(offset.line, offset.index);
+            iter.forward_chars(std::get<2>(documentation_template));
+            view->get_buffer()->place_cursor(iter);
+            view->scroll_to_cursor_delayed(true, false);
+          }
         }
       }
     }
@@ -1041,12 +1044,13 @@ void Window::set_menu_actions() {
           boost::system::error_code ec;
           if(!boost::filesystem::is_regular_file(location.file_path, ec))
             return;
-          Notebook::get().open(location.file_path);
-          auto view = Notebook::get().get_current_view();
-          auto line = static_cast<int>(location.line);
-          auto index = static_cast<int>(location.index);
-          view->place_cursor_at_line_pos(line, index);
-          view->scroll_to_cursor_delayed(true, false);
+          if(Notebook::get().open(location.file_path)) {
+            auto view = Notebook::get().get_current_view();
+            auto line = static_cast<int>(location.line);
+            auto index = static_cast<int>(location.index);
+            view->place_cursor_at_line_pos(line, index);
+            view->scroll_to_cursor_delayed(true, false);
+          }
         }
       }
     }
@@ -1059,12 +1063,13 @@ void Window::set_menu_actions() {
           boost::system::error_code ec;
           if(!boost::filesystem::is_regular_file(location.file_path, ec))
             return;
-          Notebook::get().open(location.file_path);
-          auto view = Notebook::get().get_current_view();
-          auto line = static_cast<int>(location.line);
-          auto index = static_cast<int>(location.index);
-          view->place_cursor_at_line_pos(line, index);
-          view->scroll_to_cursor_delayed(true, false);
+          if(Notebook::get().open(location.file_path)) {
+            auto view = Notebook::get().get_current_view();
+            auto line = static_cast<int>(location.line);
+            auto index = static_cast<int>(location.index);
+            view->place_cursor_at_line_pos(line, index);
+            view->scroll_to_cursor_delayed(true, false);
+          }
         }
       }
     }
@@ -1094,12 +1099,13 @@ void Window::set_menu_actions() {
         boost::system::error_code ec;
         if(!boost::filesystem::is_regular_file(location.file_path, ec))
           return;
-        Notebook::get().open(location.file_path);
-        auto view = Notebook::get().get_current_view();
-        auto line = static_cast<int>(location.line);
-        auto index = static_cast<int>(location.index);
-        view->place_cursor_at_line_pos(line, index);
-        view->scroll_to_cursor_delayed(true, false);
+        if(Notebook::get().open(location.file_path)) {
+          auto view = Notebook::get().get_current_view();
+          auto line = static_cast<int>(location.line);
+          auto index = static_cast<int>(location.index);
+          view->place_cursor_at_line_pos(line, index);
+          view->scroll_to_cursor_delayed(true, false);
+        }
         return;
       }
       SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
@@ -1109,10 +1115,11 @@ void Window::set_menu_actions() {
         boost::system::error_code ec;
         if(!boost::filesystem::is_regular_file(location.file_path, ec))
           return;
-        Notebook::get().open(location.file_path);
-        auto view = Notebook::get().get_current_view();
-        view->place_cursor_at_line_pos(location.line, location.index);
-        view->scroll_to_cursor_delayed(true, false);
+        if(Notebook::get().open(location.file_path)) {
+          auto view = Notebook::get().get_current_view();
+          view->place_cursor_at_line_pos(location.line, location.index);
+          view->scroll_to_cursor_delayed(true, false);
+        }
       };
       view->hide_tooltips();
       SelectionDialog::get()->show();
@@ -1168,10 +1175,11 @@ void Window::set_menu_actions() {
             boost::system::error_code ec;
             if(!boost::filesystem::is_regular_file(offset.file_path, ec))
               return;
-            Notebook::get().open(offset.file_path);
-            auto view = Notebook::get().get_current_view();
-            view->place_cursor_at_line_pos(offset.line, offset.index);
-            view->scroll_to_cursor_delayed(true, false);
+            if(Notebook::get().open(offset.file_path)) {
+              auto view = Notebook::get().get_current_view();
+              view->place_cursor_at_line_pos(offset.line, offset.index);
+              view->scroll_to_cursor_delayed(true, false);
+            }
           };
           view->hide_tooltips();
           SelectionDialog::get()->show();
@@ -1182,7 +1190,7 @@ void Window::set_menu_actions() {
   menu.add_action("source_goto_method", []() {
     if(auto view = Notebook::get().get_current_view()) {
       if(view->get_methods) {
-        auto methods = Notebook::get().get_current_view()->get_methods();
+        auto methods = view->get_methods();
         if(!methods.empty()) {
           SelectionDialog::create(view, true, true);
           std::vector<Source::Offset> rows;
@@ -1257,10 +1265,11 @@ void Window::set_menu_actions() {
         for(auto &fix_it : fix_its) {
           auto view = current_view;
           if(fix_it.path != current_view->file_path) {
-            Notebook::get().open(fix_it.path);
-            view = Notebook::get().get_current_view();
-            if(CompileCommands::is_header(view->file_path))
-              header_views.emplace(view);
+            if(Notebook::get().open(fix_it.path)) {
+              view = Notebook::get().get_current_view();
+              if(CompileCommands::is_header(view->file_path))
+                header_views.emplace(view);
+            }
           }
           auto start_iter = view->get_iter_at_line_pos(fix_it.offsets.first.line, fix_it.offsets.first.index);
           auto end_iter = view->get_iter_at_line_pos(fix_it.offsets.second.line, fix_it.offsets.second.index);
@@ -1557,10 +1566,11 @@ void Window::set_menu_actions() {
     SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
       if(index >= rows.size())
         return;
-      Notebook::get().open(rows[index].file_path);
-      auto view = Notebook::get().get_current_view();
-      view->place_cursor_at_line_pos(rows[index].line, rows[index].index);
-      view->scroll_to_cursor_delayed(true, false);
+      if(Notebook::get().open(rows[index].file_path)) {
+        auto view = Notebook::get().get_current_view();
+        view->place_cursor_at_line_pos(rows[index].line, rows[index].index);
+        view->scroll_to_cursor_delayed(true, false);
+      }
     };
 
     SelectionDialog::get()->show();
@@ -1568,10 +1578,10 @@ void Window::set_menu_actions() {
   menu.add_action("debug_goto_stop", []() {
     if(Project::debugging) {
       if(!Project::debug_stop.first.empty()) {
-        Notebook::get().open(Project::debug_stop.first);
-        if(auto view = Notebook::get().get_current_view()) {
+        if(Notebook::get().open(Project::debug_stop.first)) {
           int line = Project::debug_stop.second.first;
           int index = Project::debug_stop.second.second;
+          auto view = Notebook::get().get_current_view();
           view->place_cursor_at_line_index(line, index);
           view->scroll_to_cursor_delayed(true, true);
         }
@@ -1600,10 +1610,11 @@ void Window::set_menu_actions() {
 
     auto iter = view->get_buffer()->get_insert()->get_iter();
 
-    Notebook::get().open(view->file_path, Notebook::Position::split);
-    auto new_view = Notebook::get().get_current_view();
-    new_view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
-    new_view->scroll_to_cursor_delayed(true, false);
+    if(Notebook::get().open(view->file_path, Notebook::Position::split)) {
+      auto new_view = Notebook::get().get_current_view();
+      new_view->place_cursor_at_line_offset(iter.get_line(), iter.get_line_offset());
+      new_view->scroll_to_cursor_delayed(true, false);
+    }
   });
   menu.add_action("window_toggle_full_screen", [this] {
     if(this->get_window()->get_state() & Gdk::WindowState::WINDOW_STATE_FULLSCREEN)

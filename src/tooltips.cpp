@@ -167,11 +167,11 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
             boost::system::error_code ec;
             if(boost::filesystem::is_regular_file(path, ec)) {
-              Notebook::get().open(path);
-              if(auto view = Notebook::get().get_current_view()) {
+              if(Notebook::get().open(path)) {
                 try {
                   auto line = std::stoi(sm[2].str()) - 1;
                   auto offset = std::stoi(sm[3].str()) - 1;
+                  auto view = Notebook::get().get_current_view();
                   view->place_cursor_at_line_offset(line, offset);
                   view->scroll_to_cursor_delayed(true, false);
                 }
@@ -186,10 +186,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
           if(auto view = dynamic_cast<Source::View *>(text_view))
             path = filesystem::get_normal_path(view->file_path.parent_path() / path);
           boost::system::error_code ec;
-          if(boost::filesystem::is_regular_file(path, ec)) {
-            Notebook::get().open(path);
+          if(boost::filesystem::is_regular_file(path, ec) && Notebook::get().open(path))
             return true;
-          }
           Info::get().print("Could not open: " + link);
         }
       }

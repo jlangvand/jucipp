@@ -102,11 +102,11 @@ std::vector<Source::View *> &Notebook::get_views() {
   return source_views;
 }
 
-void Notebook::open(const boost::filesystem::path &file_path_, Position position) {
+bool Notebook::open(const boost::filesystem::path &file_path_, Position position) {
   boost::system::error_code ec;
   if(file_path_.empty() || (boost::filesystem::exists(file_path_, ec) && !boost::filesystem::is_regular_file(file_path_, ec))) {
     Terminal::get().print("Error: could not open " + file_path_.string() + "\n", true);
-    return;
+    return false;
   }
 
   auto file_path = filesystem::get_normal_path(file_path_);
@@ -127,7 +127,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
         auto notebook_page = get_notebook_page(c);
         notebooks[notebook_page.first].set_current_page(notebook_page.second);
         focus_view(source_views[c]);
-        return;
+        return true;
       }
     }
   }
@@ -136,7 +136,7 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
     std::ifstream can_read(file_path.string());
     if(!can_read) {
       Terminal::get().print("Error: could not open " + file_path.string() + "\n", true);
-      return;
+      return false;
     }
     can_read.close();
   }
@@ -451,6 +451,8 @@ void Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   set_focus_child(*source_views.back());
   focus_view(view);
+
+  return true;
 }
 
 void Notebook::open_uri(const std::string &uri) {
