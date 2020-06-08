@@ -5,7 +5,6 @@
 #include <atomic>
 #include <gtkmm.h>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -79,6 +78,7 @@ private:
 
   std::unordered_map<std::string, DirectoryData> directories;
 
+  Glib::ThreadPool thread_pool;
   Dispatcher dispatcher;
 
   Gtk::Menu menu;

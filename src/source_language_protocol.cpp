@@ -384,7 +384,7 @@ void Source::LanguageProtocolView::initialize() {
     update_status_state(this);
 
   set_editable(false);
-  initialize_thread = std::thread([this] {
+  thread_pool.push([this] {
     auto capabilities = client->initialize(this);
 
     dispatcher.post([this, capabilities] {
@@ -418,9 +418,6 @@ void Source::LanguageProtocolView::initialize() {
 void Source::LanguageProtocolView::close() {
   autocomplete_delayed_show_arguments_connection.disconnect();
   update_type_coverage_connection.disconnect();
-
-  if(initialize_thread.joinable())
-    initialize_thread.join();
 
   if(autocomplete) {
     autocomplete->state = Autocomplete::State::idle;

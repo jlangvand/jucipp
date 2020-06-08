@@ -82,8 +82,6 @@ namespace Project {
 
   class LLDB : public virtual Base {
   public:
-    ~LLDB() override { dispatcher.disconnect(); }
-
 #ifdef JUCI_ENABLE_DEBUG
     std::pair<std::string, std::string> debug_get_run_arguments() override;
     Project::DebugOptions *debug_get_options() override;

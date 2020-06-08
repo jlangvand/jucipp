@@ -489,7 +489,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
 }
 
 Directories::~Directories() {
-  dispatcher.disconnect();
+  thread_pool.shutdown(true);
 }
 
 void Directories::open(const boost::filesystem::path &dir_path) {
@@ -795,7 +795,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
 
   if(it != directories.end() && it->second.repository) {
     auto repository = it->second.repository;
-    std::thread git_status_thread([this, dir_path, repository, include_parent_paths] {
+    thread_pool.push([this, dir_path, repository, include_parent_paths] {
       Git::Repository::Status status;
       try {
         status = repository->get_status();
@@ -868,6 +868,5 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
         } while(it != directories.end());
       });
     });
-    git_status_thread.detach();
   }
 }
