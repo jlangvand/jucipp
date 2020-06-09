@@ -387,58 +387,59 @@ void Source::ClangViewParse::update_diagnostics() {
             diagnostic.fix_its.emplace_back(clangmm::Diagnostic::FixIt{"#include <" + *cpp_header + ">\n", file_path.string(), get_new_include_offsets()});
         }
       };
-      if(diagnostic.fix_its.empty() && diagnostic.severity >= clangmm::Diagnostic::Severity::Error && is_token_char(*start)) {
-        auto token_string = get_token(start);
+      if(diagnostic.fix_its.empty() && diagnostic.severity >= clangmm::Diagnostic::Severity::Error) {
         for(size_t c = 0; c < clang_tokens->size(); c++) {
           auto &token = (*clang_tokens)[c];
-          if(token.get_kind() == clangmm::Token::Kind::Identifier) {
-            auto &token_offsets = clang_tokens_offsets[c];
-            if(static_cast<unsigned int>(line) == token_offsets.first.line - 1 && static_cast<unsigned int>(index) >= token_offsets.first.index - 1 && static_cast<unsigned int>(index) <= token_offsets.second.index - 1) {
-              if(starts_with(diagnostic.spelling, "implicit instantiation of undefined template")) {
-                auto cursor = token.get_cursor();
-                if(cursor.get_referenced()) {
-                  auto type_description = cursor.get_type_description();
+          auto &token_offsets = clang_tokens_offsets[c];
+          if(static_cast<unsigned int>(line) == token_offsets.first.line - 1 && static_cast<unsigned int>(index) >= token_offsets.first.index - 1 && static_cast<unsigned int>(index) <= token_offsets.second.index - 1) {
+            if(starts_with(diagnostic.spelling, "implicit instantiation of undefined template")) {
+              size_t start = 44 + 2;
+              if(start < diagnostic.spelling.size()) {
+                auto end = diagnostic.spelling.find('<', start);
+                if(end == std::string::npos)
+                  end = diagnostic.spelling.find('\'', start);
+                if(end != std::string::npos) {
+                  auto type = diagnostic.spelling.substr(start, end - start);
                   bool has_std = false;
                   if(is_cpp) {
-                    if(starts_with(type_description, "std::")) {
+                    if(starts_with(type, "std::")) {
                       has_std = true;
-                      type_description.erase(0, 5);
+                      type.erase(0, 5);
                     }
-                    if(starts_with(type_description, "__1::"))
-                      type_description.erase(0, 5);
-                    auto pos = type_description.find('<');
-                    if(pos != std::string::npos)
-                      type_description.erase(pos);
+                    if(starts_with(type, "__1::"))
+                      type.erase(0, 5);
                   }
-
-                  add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), type_description);
+                  add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), type);
+                  break;
                 }
               }
-              if(starts_with(diagnostic.spelling, "unknown type name") ||
-                 starts_with(diagnostic.spelling, "no type named") ||
-                 starts_with(diagnostic.spelling, "no member named") ||
-                 starts_with(diagnostic.spelling, "no template named") ||
-                 starts_with(diagnostic.spelling, "use of undeclared identifier") ||
-                 starts_with(diagnostic.spelling, "implicit instantiation of undefined template") ||
-                 starts_with(diagnostic.spelling, "no viable constructor or deduction guide for deduction of template arguments of")) {
-                bool has_std = false;
-                if(is_cpp) {
-                  if(token_string == "std" && c + 2 < clang_tokens->size() && (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Kind::Identifier) {
-                    token_string = (*clang_tokens)[c + 2].get_spelling();
-                    has_std = true;
-                  }
-                  else if(c >= 2 &&
-                          (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
-                          (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
-                          (*clang_tokens)[c - 1].get_spelling() == "::" &&
-                          (*clang_tokens)[c - 2].get_spelling() == "std")
-                    has_std = true;
-                }
-
-                add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), token_string);
-              }
-              break;
             }
+            if(is_token_char(*start) && token.get_kind() == clangmm::Token::Kind::Identifier &&
+               (starts_with(diagnostic.spelling, "unknown type name") ||
+                starts_with(diagnostic.spelling, "no type named") ||
+                starts_with(diagnostic.spelling, "no member named") ||
+                starts_with(diagnostic.spelling, "no template named") ||
+                starts_with(diagnostic.spelling, "use of undeclared identifier") ||
+                starts_with(diagnostic.spelling, "implicit instantiation of undefined template") ||
+                starts_with(diagnostic.spelling, "no viable constructor or deduction guide for deduction of template arguments of"))) {
+              auto token_string = get_token(start);
+              bool has_std = false;
+              if(is_cpp) {
+                if(token_string == "std" && c + 2 < clang_tokens->size() && (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Kind::Identifier) {
+                  token_string = (*clang_tokens)[c + 2].get_spelling();
+                  has_std = true;
+                }
+                else if(c >= 2 &&
+                        (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
+                        (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
+                        (*clang_tokens)[c - 1].get_spelling() == "::" &&
+                        (*clang_tokens)[c - 2].get_spelling() == "std")
+                  has_std = true;
+              }
+
+              add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), token_string);
+            }
+            break;
           }
         }
       }
