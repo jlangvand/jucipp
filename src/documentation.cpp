@@ -5,6 +5,9 @@ std::vector<std::string> Documentation::CppReference::get_headers(const std::str
   // Extracted from http://upload.cppreference.com/mwiki/images/b/b1/cppreference-doc-20190607.zip
   // Using raw string instead of map to reduce compile time
   // Also added:
+  // std::ranges	ranges
+  // std::execution	execution
+  // std::this_thread	thread
   // std::filesystem	filesystem
   // to simplify header include fixit code
   const static std::string symbol_headers = R"(size_t	stddef.h
@@ -1542,6 +1545,7 @@ std::size	iterator
 std::ssize	iterator
 std::empty	iterator
 std::data	iterator
+std::ranges	ranges
 std::ranges::begin	ranges
 std::ranges::cbegin	ranges
 operator new	new
@@ -1771,6 +1775,7 @@ SIGTERM	csignal
 std::longjmp	csetjmp
 setjmp	csetjmp
 std::jmp_buf	csetjmp
+std::chrono	chrono
 std::chrono::time_point	chrono
 std::chrono::duration	chrono
 std::chrono::nanoseconds	chrono
@@ -2306,6 +2311,7 @@ std::ratio_greater	ratio
 std::ratio_greater_v	ratio
 std::ratio_greater_equal	ratio
 std::ratio_greater_equal_v	ratio
+std::execution	execution
 std::execution::sequenced_policy	execution
 std::execution::parallel_policy	execution
 std::execution::parallel_unsequenced_policy	execution
@@ -2824,6 +2830,7 @@ std::atomic_intmax_t	atomic
 std::atomic_uintmax_t	atomic
 std::thread	thread
 std::thread::id	thread
+std::this_thread	thread
 std::this_thread::get_id	thread
 std::this_thread::sleep_for	thread
 std::this_thread::sleep_until	thread
