@@ -6,6 +6,15 @@ ScopeGuard::~ScopeGuard() {
     on_exit();
 }
 
+size_t utf8_character_count(const std::string &text) noexcept {
+  size_t count = 0;
+  for(auto chr : text) {
+    if(static_cast<unsigned char>(chr) <= 0b01111111 || static_cast<unsigned char>(chr) >= 0b11000000)
+      ++count;
+  }
+  return count;
+}
+
 bool starts_with(const char *str, const std::string &test) noexcept {
   for(size_t i = 0; i < test.size(); ++i) {
     if(*str == '\0')

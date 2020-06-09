@@ -1151,7 +1151,8 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
             if(snippet.at(i) != '}')
               throw std::logic_error("closing } not found");
             ++i;
-            arguments_offsets[number].emplace_back(insert.size(), insert.size() + placeholder.size());
+            auto insert_character_count = utf8_character_count(insert);
+            arguments_offsets[number].emplace_back(insert_character_count, insert_character_count + utf8_character_count(placeholder));
             insert += placeholder;
           }
           else {
@@ -1170,8 +1171,10 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
             ++i;
           }
         }
-        else if(parse_number())
-          arguments_offsets[number].emplace_back(insert.size(), insert.size());
+        else if(parse_number()) {
+          auto insert_character_count = utf8_character_count(insert);
+          arguments_offsets[number].emplace_back(insert_character_count, insert_character_count);
+        }
         else
           parse_variable();
       }

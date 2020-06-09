@@ -11,6 +11,11 @@ int main() {
   }
   g_assert(scope_exit);
 
+  g_assert(utf8_character_count("") == 0);
+  g_assert(utf8_character_count("test") == 4);
+  g_assert(utf8_character_count("æøå") == 3);
+  g_assert(utf8_character_count("æøåtest") == 7);
+
   std::string empty;
   std::string test("test");
   std::string testtest("testtest");
