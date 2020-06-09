@@ -180,8 +180,12 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   snippet_argument_tag->property_background_set() = true;
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
-    if(mark->get_name() == "insert")
+    if(mark->get_name() == "insert") {
       keep_clipboard = false;
+
+      if(!keep_snippet_marks)
+        clear_snippet_marks();
+    }
   });
 
   get_buffer()->signal_changed().connect([this] {
@@ -952,9 +956,6 @@ void Source::BaseView::setup_extra_cursor_signals() {
     }
 
     if(mark->get_name() == "insert") {
-      if(!keep_snippet_marks)
-        clear_snippet_marks();
-
       if(enable_multiple_cursors) {
         enable_multiple_cursors = false;
         auto offset_diff = mark->get_iter().get_offset() - last_insert->get_iter().get_offset();
