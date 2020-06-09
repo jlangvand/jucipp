@@ -173,11 +173,11 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 
   set_snippets();
 
-  snippet_argument_tag = get_buffer()->create_tag();
+  snippet_parameter_tag = get_buffer()->create_tag();
   Gdk::RGBA rgba;
   rgba.set_rgba(0.5, 0.5, 0.5, 0.4);
-  snippet_argument_tag->property_background_rgba() = rgba;
-  snippet_argument_tag->property_background_set() = true;
+  snippet_parameter_tag->property_background_rgba() = rgba;
+  snippet_parameter_tag->property_background_set() = true;
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
@@ -949,8 +949,8 @@ void Source::BaseView::setup_extra_cursor_signals() {
   auto last_insert = get_buffer()->create_mark(get_buffer()->get_insert()->get_iter(), false);
   get_buffer()->signal_mark_set().connect([this, last_insert](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) mutable {
     for(auto &extra_cursor : extra_cursors) {
-      if(extra_cursor.first == mark && !iter.ends_line()) {
-        extra_cursor.second = std::max(extra_cursor.second, iter.get_line_offset());
+      if(extra_cursor.mark == mark && !iter.ends_line()) {
+        extra_cursor.offset = std::max(extra_cursor.offset, iter.get_line_offset());
         break;
       }
     }
@@ -961,14 +961,14 @@ void Source::BaseView::setup_extra_cursor_signals() {
         auto offset_diff = mark->get_iter().get_offset() - last_insert->get_iter().get_offset();
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
-            auto iter = extra_cursor.first->get_iter();
+            auto iter = extra_cursor.mark->get_iter();
             iter.forward_chars(offset_diff);
-            get_buffer()->move_mark(extra_cursor.first, iter);
+            get_buffer()->move_mark(extra_cursor.mark, iter);
           }
           for(auto &extra_cursor : extra_snippet_cursors) {
-            auto iter = extra_cursor->get_iter();
+            auto iter = extra_cursor.mark->get_iter();
             iter.forward_chars(offset_diff);
-            get_buffer()->move_mark(extra_cursor, iter);
+            get_buffer()->move_mark(extra_cursor.mark, iter);
           }
         }
         enable_multiple_cursors = true;
@@ -984,15 +984,15 @@ void Source::BaseView::setup_extra_cursor_signals() {
       if(offset > 0)
         offset -= text.size();
       for(auto &extra_cursor : extra_cursors) {
-        auto iter = extra_cursor.first->get_iter();
+        auto iter = extra_cursor.mark->get_iter();
         iter.forward_chars(offset);
         get_buffer()->insert(iter, text);
-        auto extra_cursor_iter = extra_cursor.first->get_iter();
+        auto extra_cursor_iter = extra_cursor.mark->get_iter();
         if(!extra_cursor_iter.ends_line())
-          extra_cursor.second = extra_cursor_iter.get_line_offset();
+          extra_cursor.offset = extra_cursor_iter.get_line_offset();
       }
       for(auto &extra_cursor : extra_snippet_cursors) {
-        auto iter = extra_cursor->get_iter();
+        auto iter = extra_cursor.mark->get_iter();
         iter.forward_chars(offset);
         get_buffer()->insert(iter, text);
       }
@@ -1013,20 +1013,27 @@ void Source::BaseView::setup_extra_cursor_signals() {
     if(enable_multiple_cursors && (*erase_backward_length != 0 || *erase_forward_length != 0)) {
       enable_multiple_cursors = false;
       for(auto &extra_cursor : extra_cursors) {
-        auto start_iter = extra_cursor.first->get_iter();
+        auto start_iter = extra_cursor.mark->get_iter();
         auto end_iter = start_iter;
         start_iter.backward_chars(*erase_backward_length);
         end_iter.forward_chars(*erase_forward_length);
         get_buffer()->erase(start_iter, end_iter);
-        auto extra_cursor_iter = extra_cursor.first->get_iter();
+        auto extra_cursor_iter = extra_cursor.mark->get_iter();
         if(!extra_cursor_iter.ends_line())
-          extra_cursor.second = extra_cursor_iter.get_line_offset();
+          extra_cursor.offset = extra_cursor_iter.get_line_offset();
       }
       for(auto &extra_cursor : extra_snippet_cursors) {
-        auto start_iter = extra_cursor->get_iter();
+        auto start_iter = extra_cursor.mark->get_iter();
         auto end_iter = start_iter;
-        start_iter.backward_chars(*erase_backward_length);
-        end_iter.forward_chars(*erase_forward_length);
+        if(extra_cursor.parameter_size != std::numeric_limits<int>::max()) { // In case of different sized placeholders
+          if(*erase_backward_length == 0)
+            end_iter.forward_chars(extra_cursor.parameter_size);
+          extra_cursor.parameter_size = std::numeric_limits<int>::max();
+        }
+        else {
+          start_iter.backward_chars(*erase_backward_length);
+          end_iter.forward_chars(*erase_forward_length);
+        }
         get_buffer()->erase(start_iter, end_iter);
       }
       enable_multiple_cursors = true;
@@ -1037,13 +1044,16 @@ void Source::BaseView::setup_extra_cursor_signals() {
 }
 
 void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &snippet) {
-  std::map<size_t, std::vector<std::pair<size_t, size_t>>> arguments_offsets;
+  std::map<size_t, std::vector<std::pair<size_t, size_t>>> parameter_offsets_and_sizes_map;
 
   std::string insert;
   insert.reserve(snippet.size());
+
+  bool erase_line = false, erase_word = false;
+
   size_t i = 0;
-  int number;
-  auto parse_number = [&snippet, &i, &number]() {
+
+  auto parse_number = [&](int &number) {
     if(i >= snippet.size())
       throw std::out_of_range("unexpected end");
     std::string str;
@@ -1059,15 +1069,14 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
       return false;
     }
   };
-  auto compare_variable = [&snippet, &i](const char *text) {
+  auto compare_variable = [&](const char *text) {
     if(starts_with(snippet, i, text)) {
       i += strlen(text);
       return true;
     }
     return false;
   };
-  bool erase_line = false, erase_word = false;
-  auto parse_variable = [this, &iter, &snippet, &i, &insert, &compare_variable, &erase_line, &erase_word] {
+  auto parse_variable = [&] {
     if(i >= snippet.size())
       throw std::out_of_range("unexpected end");
     if(compare_variable("TM_SELECTED_TEXT")) {
@@ -1125,41 +1134,46 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
     // TODO: support other variables
     return false;
   };
-  try {
-    bool escape = false;
-    while(i < snippet.size()) {
-      if(escape) {
-        insert += snippet[i];
-        escape = false;
-        ++i;
-      }
-      else if(snippet[i] == '\\') {
-        escape = true;
-        ++i;
+
+  std::function<void(bool)> parse_snippet = [&](bool stop_at_curly_end) {
+    int number;
+    for(; i < snippet.size() && !(stop_at_curly_end && snippet[i] == '}');) {
+      if(snippet[i] == '\\') {
+        if(i + 1 < snippet.size() &&
+           (snippet[i + 1] == '$' || snippet[i + 1] == '`' || (stop_at_curly_end && snippet[i + 1] == '}'))) {
+          insert += snippet[i + 1];
+          i += 2;
+        }
+        else {
+          insert += '\\';
+          ++i;
+        }
       }
       else if(snippet[i] == '$') {
         ++i;
         if(snippet.at(i) == '{') {
           ++i;
-          if(parse_number()) {
+          int number;
+          if(parse_number(number)) {
             std::string placeholder;
             if(snippet.at(i) == ':') {
               ++i;
-              for(; snippet.at(i) != '}'; ++i)
-                placeholder += snippet[i];
+              auto pos = insert.size();
+              parse_snippet(true);
+              placeholder = insert.substr(pos);
             }
             if(snippet.at(i) != '}')
               throw std::logic_error("closing } not found");
             ++i;
-            auto insert_character_count = utf8_character_count(insert);
-            arguments_offsets[number].emplace_back(insert_character_count, insert_character_count + utf8_character_count(placeholder));
-            insert += placeholder;
+            auto placeholder_character_count = utf8_character_count(placeholder);
+            parameter_offsets_and_sizes_map[number].emplace_back(utf8_character_count(insert) - placeholder_character_count, placeholder_character_count);
           }
           else {
             if(!parse_variable()) {
               if(snippet.at(i) == ':') { // Use default value
                 ++i;
-                parse_variable();
+                if(!parse_variable())
+                  parse_snippet(true);
               }
             }
             else if(snippet.at(i) == ':') { // Skip default value
@@ -1171,28 +1185,31 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
             ++i;
           }
         }
-        else if(parse_number()) {
-          auto insert_character_count = utf8_character_count(insert);
-          arguments_offsets[number].emplace_back(insert_character_count, insert_character_count);
-        }
+        else if(parse_number(number))
+          parameter_offsets_and_sizes_map[number].emplace_back(utf8_character_count(insert), 0);
         else
           parse_variable();
       }
-      else
-        insert += snippet[i++];
+      else {
+        insert += snippet[i];
+        ++i;
+      }
     }
+  };
+  try {
+    parse_snippet(false);
   }
   catch(...) {
     Terminal::get().print("Error: could not parse snippet: " + snippet + '\n', true);
     return;
   }
 
-  // $0 should be last argument
-  auto it = arguments_offsets.find(0);
-  if(it != arguments_offsets.end()) {
-    auto rit = arguments_offsets.rbegin();
-    arguments_offsets.emplace(rit->first + 1, std::move(it->second));
-    arguments_offsets.erase(it);
+  // $0 should be last parameter
+  auto it = parameter_offsets_and_sizes_map.find(0);
+  if(it != parameter_offsets_and_sizes_map.end()) {
+    auto rit = parameter_offsets_and_sizes_map.rbegin();
+    parameter_offsets_and_sizes_map.emplace(rit->first + 1, std::move(it->second));
+    parameter_offsets_and_sizes_map.erase(it);
   }
 
   auto mark = get_buffer()->create_mark(iter);
@@ -1219,53 +1236,59 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
 
   iter = mark->get_iter();
   get_buffer()->delete_mark(mark);
-  for(auto arguments_offsets_it = arguments_offsets.rbegin(); arguments_offsets_it != arguments_offsets.rend(); ++arguments_offsets_it) {
-    snippets_marks.emplace_front();
-    for(auto &offsets : arguments_offsets_it->second) {
+  for(auto it = parameter_offsets_and_sizes_map.rbegin(); it != parameter_offsets_and_sizes_map.rend(); ++it) {
+    snippet_parameters_list.emplace_front();
+    for(auto &offsets : it->second) {
       auto start = iter;
-      auto end = start;
       start.forward_chars(offsets.first);
+      auto end = start;
       end.forward_chars(offsets.second);
-      snippets_marks.front().emplace_back(get_buffer()->create_mark(start, false), get_buffer()->create_mark(end, false));
-      get_buffer()->apply_tag(snippet_argument_tag, start, end);
+      snippet_parameters_list.front().emplace_back(SnippetParameter{get_buffer()->create_mark(start, false), get_buffer()->create_mark(end, false), end.get_offset() - start.get_offset()});
     }
   }
 
-  if(!arguments_offsets.empty())
-    select_snippet_argument();
+  if(!parameter_offsets_and_sizes_map.empty())
+    select_snippet_parameter();
 }
 
-bool Source::BaseView::select_snippet_argument() {
+bool Source::BaseView::select_snippet_parameter() {
   if(!extra_snippet_cursors.empty()) {
     for(auto &extra_cursor : extra_snippet_cursors) {
-      extra_cursor->set_visible(false);
-      get_buffer()->delete_mark(extra_cursor);
+      extra_cursor.mark->set_visible(false);
+      get_buffer()->delete_mark(extra_cursor.mark);
     }
     extra_snippet_cursors.clear();
   }
 
-  if(!snippets_marks.empty()) {
-    auto snippets_marks_it = snippets_marks.begin();
+  get_buffer()->remove_tag(snippet_parameter_tag, get_buffer()->begin(), get_buffer()->end());
+  if(!snippet_parameters_list.empty()) {
+    auto snippet_parameters_it = snippet_parameters_list.begin();
     bool first = true;
-    for(auto &marks : *snippets_marks_it) {
-      auto start = marks.first->get_iter();
-      auto end = marks.second->get_iter();
+    for(auto &snippet_parameter : *snippet_parameters_it) {
+      auto start = snippet_parameter.start->get_iter();
+      auto end = snippet_parameter.end->get_iter();
       if(first) {
+        if(snippet_parameter.size > 0 && end.get_offset() - start.get_offset() == 0) { // If the parameter has been erased
+          snippet_parameters_list.erase(snippet_parameters_it);
+          return select_snippet_parameter();
+        }
         keep_snippet_marks = true;
         get_buffer()->select_range(start, end);
         keep_snippet_marks = false;
         first = false;
       }
       else {
-        extra_snippet_cursors.emplace_back(get_buffer()->create_mark(start, false));
-        extra_snippet_cursors.back()->set_visible(true);
+        extra_snippet_cursors.emplace_back(ExtraSnippetCursor{get_buffer()->create_mark(start, false), end.get_offset() - start.get_offset()});
+        extra_snippet_cursors.back().mark->set_visible(true);
+
+        get_buffer()->apply_tag(snippet_parameter_tag, start, end);
 
         setup_extra_cursor_signals();
       }
-      get_buffer()->delete_mark(marks.first);
-      get_buffer()->delete_mark(marks.second);
+      get_buffer()->delete_mark(snippet_parameter.start);
+      get_buffer()->delete_mark(snippet_parameter.end);
     }
-    snippets_marks.erase(snippets_marks_it);
+    snippet_parameters_list.erase(snippet_parameters_it);
     return true;
   }
   return false;
@@ -1274,27 +1297,27 @@ bool Source::BaseView::select_snippet_argument() {
 bool Source::BaseView::clear_snippet_marks() {
   bool cleared = false;
 
-  if(!snippets_marks.empty()) {
-    for(auto &snippet_marks : snippets_marks) {
-      for(auto &pair : snippet_marks) {
-        get_buffer()->delete_mark(pair.first);
-        get_buffer()->delete_mark(pair.second);
+  if(!snippet_parameters_list.empty()) {
+    for(auto &snippet_parameters : snippet_parameters_list) {
+      for(auto &snippet_parameter : snippet_parameters) {
+        get_buffer()->delete_mark(snippet_parameter.start);
+        get_buffer()->delete_mark(snippet_parameter.end);
       }
     }
-    snippets_marks.clear();
+    snippet_parameters_list.clear();
     cleared = true;
   }
 
   if(!extra_snippet_cursors.empty()) {
     for(auto &extra_cursor : extra_snippet_cursors) {
-      extra_cursor->set_visible(false);
-      get_buffer()->delete_mark(extra_cursor);
+      extra_cursor.mark->set_visible(false);
+      get_buffer()->delete_mark(extra_cursor.mark);
     }
     extra_snippet_cursors.clear();
     cleared = true;
   }
 
-  get_buffer()->remove_tag(snippet_argument_tag, get_buffer()->begin(), get_buffer()->end());
+  get_buffer()->remove_tag(snippet_parameter_tag, get_buffer()->begin(), get_buffer()->end());
 
   return cleared;
 }

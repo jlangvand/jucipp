@@ -141,19 +141,31 @@ namespace Source {
 
     bool enable_multiple_cursors = false;
 
-    std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, int>> extra_cursors;
-    std::vector<Glib::RefPtr<Gtk::TextBuffer::Mark>> extra_snippet_cursors;
+    struct ExtraCursor {
+      Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
+      int offset;
+    };
+    std::vector<ExtraCursor> extra_cursors;
+    struct ExtraSnippetCursor {
+      Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
+      int parameter_size;
+    };
+    std::vector<ExtraSnippetCursor> extra_snippet_cursors;
     void setup_extra_cursor_signals();
     bool extra_cursors_signals_set = false;
 
-    /// After inserting a snippet, one can use tab to select the next argument
+    /// After inserting a snippet, one can use tab to select the next parameter
     bool keep_snippet_marks = false;
     Mutex snippets_mutex;
     std::vector<Snippets::Snippet> *snippets GUARDED_BY(snippets_mutex) = nullptr;
-    std::list<std::vector<std::pair<Glib::RefPtr<Gtk::TextBuffer::Mark>, Glib::RefPtr<Gtk::TextBuffer::Mark>>>> snippets_marks;
-    Glib::RefPtr<Gtk::TextTag> snippet_argument_tag;
+    struct SnippetParameter {
+      Glib::RefPtr<Gtk::TextBuffer::Mark> start, end;
+      int size;
+    };
+    std::list<std::vector<SnippetParameter>> snippet_parameters_list;
+    Glib::RefPtr<Gtk::TextTag> snippet_parameter_tag;
     void insert_snippet(Gtk::TextIter iter, const std::string &snippet);
-    bool select_snippet_argument();
+    bool select_snippet_parameter();
     bool clear_snippet_marks();
   };
 } // namespace Source

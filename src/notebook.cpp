@@ -337,7 +337,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       }
     }
     if(!mark_moved) {
-      if(current_cursor_location != static_cast<size_t>(-1)) {
+      if(current_cursor_location != static_cast<size_t>(-1) && current_cursor_location + 1 < cursor_locations.size()) {
         for(auto it = cursor_locations.begin() + current_cursor_location + 1; it != cursor_locations.end();) {
           it->view->get_buffer()->delete_mark(it->mark);
           it = cursor_locations.erase(it);
@@ -348,7 +348,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     }
 
     // Combine adjacent cursor histories that are similar
-    if(!cursor_locations.empty()) {
+    if(cursor_locations.size() > 1) {
       size_t cursor_locations_index = 1;
       auto last_it = cursor_locations.begin();
       for(auto it = cursor_locations.begin() + 1; it != cursor_locations.end();) {
