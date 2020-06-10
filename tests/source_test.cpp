@@ -675,5 +675,26 @@ int main() {
       g_assert(buffer->get_text() == "\\begin{te}\n  \n\\end{te}");
       g_assert(buffer->get_insert()->get_iter().get_offset() == 13);
     }
+    {
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "\\$");
+      g_assert(buffer->get_text() == "$");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "\\\\${0:test}");
+      g_assert(buffer->get_text() == "\\test");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "te{s}t");
+      g_assert(buffer->get_text() == "te{s}t");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "${0:te{s\\}t}");
+      g_assert(buffer->get_text() == "te{s}t");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "\\test\\");
+      g_assert(buffer->get_text() == "\\test\\");
+    }
   }
 }

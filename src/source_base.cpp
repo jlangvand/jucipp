@@ -1140,7 +1140,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
     for(; i < snippet.size() && !(stop_at_curly_end && snippet[i] == '}');) {
       if(snippet[i] == '\\') {
         if(i + 1 < snippet.size() &&
-           (snippet[i + 1] == '$' || snippet[i + 1] == '`' || (stop_at_curly_end && snippet[i + 1] == '}'))) {
+           (snippet[i + 1] == '$' || snippet[i + 1] == '`' || snippet[i + 1] == '\\' || (stop_at_curly_end && snippet[i + 1] == '}'))) {
           insert += snippet[i + 1];
           i += 2;
         }
@@ -1261,6 +1261,11 @@ bool Source::BaseView::select_snippet_parameter() {
   }
 
   get_buffer()->remove_tag(snippet_parameter_tag, get_buffer()->begin(), get_buffer()->end());
+  for(auto &parameters : snippet_parameters_list) {
+    for(auto &parameter : parameters)
+      get_buffer()->apply_tag(snippet_parameter_tag, parameter.start->get_iter(), parameter.end->get_iter());
+  }
+
   if(!snippet_parameters_list.empty()) {
     auto snippet_parameters_it = snippet_parameters_list.begin();
     bool first = true;
@@ -1280,8 +1285,6 @@ bool Source::BaseView::select_snippet_parameter() {
       else {
         extra_snippet_cursors.emplace_back(ExtraSnippetCursor{get_buffer()->create_mark(start, false), end.get_offset() - start.get_offset()});
         extra_snippet_cursors.back().mark->set_visible(true);
-
-        get_buffer()->apply_tag(snippet_parameter_tag, start, end);
 
         setup_extra_cursor_signals();
       }
