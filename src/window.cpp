@@ -773,46 +773,54 @@ void Window::set_menu_actions() {
       view->scroll_to_cursor_delayed(true, false);
   });
   menu.add_action("source_cursor_history_back", []() {
-    if(Notebook::get().cursor_locations.size() == 0)
+    auto &current_cursor_location = Notebook::get().current_cursor_location;
+    if(current_cursor_location == Notebook::get().cursor_locations.end())
       return;
-    if(Notebook::get().current_cursor_location == static_cast<size_t>(-1))
-      Notebook::get().current_cursor_location = Notebook::get().cursor_locations.size() - 1;
 
-    auto cursor_location = &Notebook::get().cursor_locations.at(Notebook::get().current_cursor_location);
-    // Move to current position if current position's view is not current view
-    // (in case one is looking at a new file but has not yet placed the cursor within the file)
-    if(cursor_location->view != Notebook::get().get_current_view())
-      Notebook::get().open(cursor_location->view->file_path);
+    if(current_cursor_location->view != Notebook::get().get_current_view()) {
+      // Move to current position if current position's view is not current view
+      // (for instance, in case one is looking at a new file but has not yet placed the cursor within the file)
+      if(!Notebook::get().open(current_cursor_location->view->file_path))
+        return;
+    }
     else {
-      if(Notebook::get().cursor_locations.size() <= 1)
-        return;
-      if(Notebook::get().current_cursor_location == 0)
+      if(current_cursor_location == Notebook::get().cursor_locations.begin())
         return;
 
-      --Notebook::get().current_cursor_location;
-      cursor_location = &Notebook::get().cursor_locations.at(Notebook::get().current_cursor_location);
-      if(Notebook::get().get_current_view() != cursor_location->view)
-        Notebook::get().open(cursor_location->view->file_path);
+      --current_cursor_location;
+      if(current_cursor_location->view != Notebook::get().get_current_view()) {
+        if(!Notebook::get().open(current_cursor_location->view->file_path))
+          return;
+      }
     }
     Notebook::get().disable_next_update_cursor_locations = true;
-    cursor_location->view->get_buffer()->place_cursor(cursor_location->mark->get_iter());
-    cursor_location->view->scroll_to_cursor_delayed(true, false);
+    current_cursor_location->view->get_buffer()->place_cursor(current_cursor_location->mark->get_iter());
+    current_cursor_location->view->scroll_to_cursor_delayed(true, false);
   });
   menu.add_action("source_cursor_history_forward", []() {
-    if(Notebook::get().cursor_locations.size() <= 1)
-      return;
-    if(Notebook::get().current_cursor_location == static_cast<size_t>(-1))
-      Notebook::get().current_cursor_location = Notebook::get().cursor_locations.size() - 1;
-    if(Notebook::get().current_cursor_location == Notebook::get().cursor_locations.size() - 1)
+    auto &current_cursor_location = Notebook::get().current_cursor_location;
+    if(current_cursor_location == Notebook::get().cursor_locations.end())
       return;
 
-    ++Notebook::get().current_cursor_location;
-    auto &cursor_location = Notebook::get().cursor_locations.at(Notebook::get().current_cursor_location);
-    if(Notebook::get().get_current_view() != cursor_location.view)
-      Notebook::get().open(cursor_location.view->file_path);
+    if(current_cursor_location->view != Notebook::get().get_current_view()) {
+      // Move to current position if current position's view is not current view
+      // (for instance, in case one is looking at a new file but has not yet placed the cursor within the file)
+      if(!Notebook::get().open(current_cursor_location->view->file_path))
+        return;
+    }
+    else {
+      if(std::next(current_cursor_location) == Notebook::get().cursor_locations.end())
+        return;
+
+      ++current_cursor_location;
+      if(current_cursor_location->view != Notebook::get().get_current_view()) {
+        if(!Notebook::get().open(current_cursor_location->view->file_path))
+          return;
+      }
+    }
     Notebook::get().disable_next_update_cursor_locations = true;
-    cursor_location.view->get_buffer()->place_cursor(cursor_location.mark->get_iter());
-    cursor_location.view->scroll_to_cursor_delayed(true, false);
+    current_cursor_location->view->get_buffer()->place_cursor(current_cursor_location->mark->get_iter());
+    current_cursor_location->view->scroll_to_cursor_delayed(true, false);
   });
 
   menu.add_action("source_show_completion", [] {

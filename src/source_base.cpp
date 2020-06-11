@@ -1273,7 +1273,7 @@ bool Source::BaseView::select_snippet_parameter() {
       auto start = snippet_parameter.start->get_iter();
       auto end = snippet_parameter.end->get_iter();
       if(first) {
-        if(snippet_parameter.size > 0 && end.get_offset() - start.get_offset() == 0) { // If the parameter has been erased
+        if(snippet_parameter.size > 0 && start == end) { // If the parameter has been erased
           snippet_parameters_list.erase(snippet_parameters_it);
           return select_snippet_parameter();
         }

@@ -320,75 +320,89 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   };
   view->update_tab_label(view);
 
-  //Add star on tab label when the page is not saved:
+  // Add star on tab label when the page is not saved:
   view->get_buffer()->signal_modified_changed().connect([view]() {
     if(view->update_tab_label)
       view->update_tab_label(view);
   });
 
-  //Cursor history
-  auto update_cursor_locations = [this, view](const Gtk::TextBuffer::iterator &iter) {
-    bool mark_moved = false;
-    if(current_cursor_location != static_cast<size_t>(-1)) {
-      auto &cursor_location = cursor_locations.at(current_cursor_location);
-      if(cursor_location.view == view && abs(cursor_location.mark->get_iter().get_line() - iter.get_line()) <= 2) {
-        view->get_buffer()->move_mark(cursor_location.mark, iter);
-        mark_moved = true;
+  // Cursor history
+  auto update_cursor_locations = [this, view]() {
+    auto iter = view->get_buffer()->get_insert()->get_iter();
+
+    if(current_cursor_location != cursor_locations.end()) {
+      bool moved = false;
+      if(current_cursor_location->view == view && abs(current_cursor_location->mark->get_iter().get_line() - iter.get_line()) <= 2) {
+        current_cursor_location->view->get_buffer()->move_mark(current_cursor_location->mark, iter); // Move current cursor
+        moved = true;
       }
-    }
-    if(!mark_moved) {
-      if(current_cursor_location != static_cast<size_t>(-1) && current_cursor_location + 1 < cursor_locations.size()) {
-        for(auto it = cursor_locations.begin() + current_cursor_location + 1; it != cursor_locations.end();) {
+
+      // Combine cursor histories adjacent and similar to current cursor
+      auto it = std::next(current_cursor_location);
+      if(it != cursor_locations.end()) {
+        if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2) {
           it->view->get_buffer()->delete_mark(it->mark);
-          it = cursor_locations.erase(it);
+          cursor_locations.erase(it);
         }
       }
-      cursor_locations.emplace_back(view, view->get_buffer()->create_mark(iter));
-      current_cursor_location = cursor_locations.size() - 1;
-    }
-
-    // Combine adjacent cursor histories that are similar
-    if(cursor_locations.size() > 1) {
-      size_t cursor_locations_index = 1;
-      auto last_it = cursor_locations.begin();
-      for(auto it = cursor_locations.begin() + 1; it != cursor_locations.end();) {
-        if(last_it->view == it->view && abs(last_it->mark->get_iter().get_line() - it->mark->get_iter().get_line()) <= 2) {
-          last_it->view->get_buffer()->delete_mark(last_it->mark);
-          last_it->mark = it->mark;
-          it = cursor_locations.erase(it);
-          if(current_cursor_location != static_cast<size_t>(-1) && current_cursor_location > cursor_locations_index)
-            --current_cursor_location;
-        }
-        else {
-          ++it;
-          ++last_it;
-          ++cursor_locations_index;
+      if(current_cursor_location != cursor_locations.begin()) {
+        it = std::prev(current_cursor_location);
+        if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2) {
+          it->view->get_buffer()->delete_mark(it->mark);
+          cursor_locations.erase(it);
         }
       }
-    }
 
-    // Remove start of cache if cache limit is exceeded
-    while(cursor_locations.size() > 10) {
-      cursor_locations.begin()->view->get_buffer()->delete_mark(cursor_locations.begin()->mark);
-      cursor_locations.erase(cursor_locations.begin());
-      if(current_cursor_location != static_cast<size_t>(-1))
-        --current_cursor_location;
-    }
+      if(moved)
+        return;
 
-    if(current_cursor_location >= cursor_locations.size())
-      current_cursor_location = cursor_locations.size() - 1;
+      // Remove history newer than current (create new history branch)
+      for(auto it = std::next(current_cursor_location); it != cursor_locations.end();) {
+        it->view->get_buffer()->delete_mark(it->mark);
+        it = cursor_locations.erase(it);
+      }
+    }
+    current_cursor_location = cursor_locations.emplace(cursor_locations.end(), view, view->get_buffer()->create_mark(iter, false));
+    if(cursor_locations.size() > 10) {
+      auto it = cursor_locations.begin();
+      it->view->get_buffer()->delete_mark(it->mark);
+      cursor_locations.erase(it);
+    }
   };
-  view->get_buffer()->signal_mark_set().connect([this, update_cursor_locations](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  view->get_buffer()->signal_mark_set().connect([this, update_cursor_locations](const Gtk::TextBuffer::iterator & /*iter*/, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
       if(disable_next_update_cursor_locations) {
         disable_next_update_cursor_locations = false;
         return;
       }
-      update_cursor_locations(iter);
+      update_cursor_locations();
     }
   });
-  view->get_buffer()->signal_changed().connect([view, update_cursor_locations] {
-    update_cursor_locations(view->get_buffer()->get_insert()->get_iter());
+  view->get_buffer()->signal_changed().connect([this, update_cursor_locations] {
+    update_cursor_locations();
+
+    // Combine adjacent cursor histories that are similar
+    if(cursor_locations.size() > 1) {
+      auto prev_it = cursor_locations.begin();
+      for(auto it = std::next(prev_it); it != cursor_locations.end();) {
+        if(prev_it->view == it->view && abs(prev_it->mark->get_iter().get_line() - it->mark->get_iter().get_line()) <= 2) {
+          if(current_cursor_location == it) {
+            prev_it->view->get_buffer()->delete_mark(prev_it->mark);
+            cursor_locations.erase(prev_it);
+            prev_it = it;
+            ++it;
+          }
+          else {
+            it->view->get_buffer()->delete_mark(it->mark);
+            it = cursor_locations.erase(it);
+          }
+        }
+        else {
+          ++it;
+          ++prev_it;
+        }
+      }
+    }
   });
 
 #ifdef JUCI_ENABLE_DEBUG
@@ -552,21 +566,29 @@ bool Notebook::close(size_t index) {
 }
 
 void Notebook::delete_cursor_locations(Source::View *view) {
-  size_t cursor_locations_index = 0;
   for(auto it = cursor_locations.begin(); it != cursor_locations.end();) {
     if(it->view == view) {
-      view->get_buffer()->delete_mark(it->mark);
+      if(current_cursor_location != cursor_locations.end() && current_cursor_location->view == view)
+        current_cursor_location = cursor_locations.end();
+      it->view->get_buffer()->delete_mark(it->mark);
       it = cursor_locations.erase(it);
-      if(current_cursor_location != static_cast<size_t>(-1) && current_cursor_location > cursor_locations_index)
-        --current_cursor_location;
     }
-    else {
+    else
       ++it;
-      ++cursor_locations_index;
+  }
+
+  // Update current location
+  if(current_cursor_location == cursor_locations.end()) {
+    if(auto current_view = get_current_view()) {
+      auto iter = current_view->get_buffer()->get_insert()->get_iter();
+      for(auto it = cursor_locations.begin(); it != cursor_locations.end(); ++it) {
+        if(it->view == current_view && it->mark->get_iter() == iter) {
+          current_cursor_location = it;
+          break;
+        }
+      }
     }
   }
-  if(current_cursor_location >= cursor_locations.size())
-    current_cursor_location = cursor_locations.size() - 1;
 }
 
 bool Notebook::close_current() {

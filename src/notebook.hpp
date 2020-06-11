@@ -2,9 +2,11 @@
 #include "source.hpp"
 #include <gtkmm.h>
 #include <iostream>
+#include <list>
 #include <map>
 #include <sigc++/sigc++.h>
 #include <type_traits>
+#include <vector>
 
 class Notebook : public Gtk::Paned {
   class TabLabel : public Gtk::EventBox {
@@ -62,8 +64,8 @@ public:
   std::function<void(Source::View *)> on_close_page;
 
   /// Cursor history
-  std::vector<CursorLocation> cursor_locations;
-  size_t current_cursor_location = -1;
+  std::list<CursorLocation> cursor_locations;
+  std::list<CursorLocation>::iterator current_cursor_location = cursor_locations.end();
   bool disable_next_update_cursor_locations = false;
   void delete_cursor_locations(Source::View *view);
 
