@@ -866,14 +866,14 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                     if(container == "null")
                       container.clear();
                     if(!container.empty())
-                      prefix = container + "::";
+                      prefix = container;
                   }
                   else {
                     range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
                     if(!container.empty())
-                      prefix = container + "::";
+                      prefix = container;
                   }
-                  methods.emplace_back(Offset(range->start.line, range->start.character), std::to_string(range->start.line + 1) + ": " + Glib::Markup::escape_text(prefix) + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>");
+                  methods.emplace_back(Offset(range->start.line, range->start.character), (!prefix.empty() ? Glib::Markup::escape_text(prefix) + ':' : "") + std::to_string(range->start.line + 1) + ": " + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>");
                 }
                 auto children = it->second.get_child_optional("children");
                 if(children)
