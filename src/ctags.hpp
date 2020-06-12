@@ -22,7 +22,7 @@ public:
 
   operator bool();
 
-  Location get_location(const std::string &line, bool add_markup = false) const;
+  Location get_location(const std::string &line, bool add_markup = false, bool symbol_ends_with_open_parenthesis = false) const;
 
   boost::filesystem::path project_path;
   std::stringstream output;

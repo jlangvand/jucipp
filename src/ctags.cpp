@@ -30,7 +30,7 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
   }
   else {
     project_path = path.parent_path();
-    command = Config::get().project.ctags_command + fields + " --sort=foldcase -I \"override noexcept\" -f - " + filesystem::escape_argument(path.string());
+    command = Config::get().project.ctags_command + fields + " --c-kinds=+p --c++-kinds=+p --sort=foldcase -I \"override noexcept\" -f - " + filesystem::escape_argument(path.string());
   }
 
   std::stringstream stdin_stream;
@@ -45,7 +45,7 @@ Ctags::operator bool() {
   return true;
 }
 
-Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) const {
+Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, bool symbol_ends_with_open_parenthesis) const {
   Location location;
 
 #ifdef _WIN32
@@ -148,6 +148,8 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup) c
   if(add_markup) {
     location.source = Glib::Markup::escape_text(location.source);
     std::string symbol = Glib::Markup::escape_text(location.symbol);
+    if(symbol_ends_with_open_parenthesis)
+      symbol += '(';
     bool first = true;
     bool escaped = false;
     for(size_t i = 0; i < location.source.size(); i++) {

@@ -313,8 +313,9 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
     boost::filesystem::path file_path;
     boost::system::error_code ec;
     bool use_tmp_file = false;
+    bool is_cpp_standard_header = is_cpp && this->file_path.extension().empty();
 
-    if(this->get_buffer()->get_modified()) {
+    if(this->get_buffer()->get_modified() || is_cpp_standard_header) {
       use_tmp_file = true;
       file_path = boost::filesystem::temp_directory_path(ec);
       if(ec) {
@@ -327,13 +328,13 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         Terminal::get().print("Error: could not create temporary folder\n", true);
         return methods;
       }
-      file_path /= this->file_path.filename();
+      file_path /= this->file_path.filename().string() + (is_cpp_standard_header ? ".hpp" : "");
       filesystem::write(file_path, this->get_buffer()->get_text().raw());
     }
     else
       file_path = this->file_path;
 
-    Ctags ctags(file_path, false, true);
+    Ctags ctags(file_path, true, true);
     if(use_tmp_file)
       boost::filesystem::remove_all(file_path.parent_path(), ec);
     if(!ctags) {
@@ -343,7 +344,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
 
     std::string line;
     while(std::getline(ctags.output, line)) {
-      auto location = ctags.get_location(line, true);
+      auto location = ctags.get_location(line, true, is_cpp);
       std::transform(location.kind.begin(), location.kind.end(), location.kind.begin(),
                      [](char c) { return std::tolower(c); });
       std::vector<std::string> ignore_kinds = {"variable", "local", "constant", "global", "property", "member", "enum",
@@ -352,8 +353,15 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
                                                "typedef", "using", "alias",
                                                "project", "option"};
       if(std::none_of(ignore_kinds.begin(), ignore_kinds.end(), [&location](const std::string &e) { return location.kind.find(e) != std::string::npos; }) &&
-         location.source.find("<b>") != std::string::npos)
-        methods.emplace_back(Offset(location.line, location.index), std::to_string(location.line + 1) + ": " + location.source);
+         location.source.find("<b>") != std::string::npos) {
+        std::string scope = !location.scope.empty() ? Glib::Markup::escape_text(location.scope) : "";
+        if(is_cpp && !scope.empty()) { // Remove namespace from location.source in C++ source files
+          auto pos = location.source.find(scope + "::<b>");
+          if(pos != std::string::npos)
+            location.source.erase(pos, scope.size() + 2);
+        }
+        methods.emplace_back(Offset(location.line, location.index), (!scope.empty() ? scope + ":" : "") + std::to_string(location.line + 1) + ": " + location.source);
+      }
     }
     std::sort(methods.begin(), methods.end(), [](const std::pair<Offset, std::string> &e1, const std::pair<Offset, std::string> &e2) {
       return e1.first < e2.first;
