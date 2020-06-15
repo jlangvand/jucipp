@@ -1232,7 +1232,8 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
               if(static_cast<int>(source_location.get_offset().line) - 1 <= client_data->line_nr &&
                  filesystem::get_normal_path(source_location.get_path()) == client_data->file_path) {
                 auto included_file_str = clangmm::to_string(clang_getFileName(included_file));
-                if(ends_with(included_file_str, client_data->sm_str)) {
+                if(ends_with(included_file_str, client_data->sm_str) &&
+                   boost::filesystem::path(included_file_str).filename() == boost::filesystem::path(client_data->sm_str).filename()) {
                   client_data->found_include = included_file_str;
                   break;
                 }
