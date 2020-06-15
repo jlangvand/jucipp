@@ -165,7 +165,7 @@ bool Terminal::on_motion_notify_event(GdkEventMotion *event) {
   return Gtk::TextView::on_motion_notify_event(event);
 }
 
-std::tuple<size_t, size_t, std::string, std::string, std::string> Terminal::find_link(const std::string &line) {
+boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
   const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                      // C/C++ compile warning/error/rename usages
                                      "^  --> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                    // Rust
                                      "^Assertion failed: .*file ([A-Z]:)?([^:]+), line ([0-9]+)\\.$|" // clang assert()
@@ -173,26 +173,30 @@ std::tuple<size_t, size_t, std::string, std::string, std::string> Terminal::find
                                      "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                          // g_assert (glib.h)
                                      "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
                                      "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$");         // Python
-  size_t start_position = -1, end_position = -1;
-  std::string path, line_number, line_offset;
   std::smatch sm;
   if(std::regex_match(line, sm, link_regex)) {
     for(size_t sub = 1; sub < link_regex.mark_count();) {
       size_t subs = sub == 1 || sub == 5 ? 4 : 3;
       if(sm.length(sub + 1)) {
-        start_position = sm.position(sub + 1) - sm.length(sub);
-        end_position = sm.position(sub + subs - 1) + sm.length(sub + subs - 1);
+        auto start_pos = static_cast<int>(sm.position(sub + 1) - sm.length(sub));
+        auto end_pos = static_cast<int>(sm.position(sub + subs - 1) + sm.length(sub + subs - 1));
+        std::string path;
         if(sm.length(sub))
-          path += sm[sub].str();
+          path = sm[sub].str();
         path += sm[sub + 1].str();
-        line_number = sm[sub + 2].str();
-        line_offset = subs == 4 ? sm[sub + 3].str() : "1";
-        break;
+        try {
+          auto line_number = std::stoi(sm[sub + 2].str());
+          auto line_offset = std::stoi(subs == 4 ? sm[sub + 3].str() : "1");
+          return Link{start_pos, end_pos, path, line_number, line_offset};
+        }
+        catch(...) {
+          return {};
+        }
       }
       sub += subs;
     }
   }
-  return std::make_tuple(start_position, end_position, path, line_number, line_offset);
+  return {};
 }
 
 void Terminal::apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
@@ -224,11 +228,11 @@ void Terminal::apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextI
           line.replace(c, 1, "a");
       }
       auto link = find_link(line.raw());
-      if(std::get<0>(link) != static_cast<size_t>(-1)) {
+      if(link) {
         auto link_start = line_start;
         auto link_end = line_start;
-        link_start.forward_chars(std::get<0>(link));
-        link_end.forward_chars(std::get<1>(link));
+        link_start.forward_chars(link->start_pos);
+        link_end.forward_chars(link->end_pos);
         get_buffer()->apply_tag(link_tag, link_start, link_end);
       }
       line_start_set = false;
@@ -356,10 +360,8 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
       while(!end_iter.ends_line() && end_iter.forward_char()) {
       }
       auto link = find_link(get_buffer()->get_text(start_iter, end_iter).raw());
-      if(std::get<0>(link) != static_cast<size_t>(-1)) {
-        auto path = filesystem::get_long_path(std::get<2>(link));
-        std::string line = std::get<3>(link);
-        std::string index = std::get<4>(link);
+      if(link) {
+        auto path = filesystem::get_long_path(link->path);
 
         if(path.is_relative()) {
           if(Project::current) {
@@ -379,16 +381,10 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
         boost::system::error_code ec;
         if(boost::filesystem::is_regular_file(path, ec)) {
           if(Notebook::get().open(path)) {
-            try {
-              int line_int = std::stoi(line) - 1;
-              int index_int = std::stoi(index) - 1;
-              auto view = Notebook::get().get_current_view();
-              view->place_cursor_at_line_index(line_int, index_int);
-              view->scroll_to_cursor_delayed(true, true);
-              return true;
-            }
-            catch(...) {
-            }
+            auto view = Notebook::get().get_current_view();
+            view->place_cursor_at_line_index(link->line - 1, link->line_index - 1);
+            view->scroll_to_cursor_delayed(true, true);
+            return true;
           }
         }
       }

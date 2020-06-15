@@ -4,6 +4,7 @@
 #include "process.hpp"
 #include "source_base.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <functional>
 #include <gtkmm.h>
 #include <iostream>
@@ -45,7 +46,12 @@ private:
   Glib::RefPtr<Gdk::Cursor> default_mouse_cursor;
   size_t deleted_lines = 0;
 
-  std::tuple<size_t, size_t, std::string, std::string, std::string> find_link(const std::string &line);
+  struct Link {
+    int start_pos, end_pos;
+    std::string path;
+    int line, line_index;
+  };
+  boost::optional<Link> find_link(const std::string &line);
   void apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter);
 
   Mutex processes_mutex;

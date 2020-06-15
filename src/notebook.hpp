@@ -1,5 +1,6 @@
 #pragma once
 #include "source.hpp"
+#include <boost/optional.hpp>
 #include <gtkmm.h>
 #include <iostream>
 #include <list>
@@ -70,10 +71,15 @@ public:
   void delete_cursor_locations(Source::View *view);
 
 private:
-  size_t get_index(Source::View *view);
+  /// Throws on out of bounds arguments
   Source::View *get_view(size_t notebook_index, int page);
   void focus_view(Source::View *view);
+  /// Throws if view is not found
+  size_t get_index(Source::View *view);
+  /// Throws on out of bounds index
   std::pair<size_t, int> get_notebook_page(size_t index);
+  /// Throws if view is not found
+  std::pair<size_t, int> get_notebook_page(Source::View *view);
 
   std::vector<Gtk::Notebook> notebooks;
   std::vector<Source::View *> source_views; //Is NOT freed in destructor, this is intended for quick program exit.
@@ -83,7 +89,7 @@ private:
   std::vector<std::unique_ptr<TabLabel>> tab_labels;
 
   bool split = false;
-  size_t last_index = -1;
+  boost::optional<size_t> last_index;
 
   void set_current_view(Source::View *view);
   Source::View *current_view = nullptr;

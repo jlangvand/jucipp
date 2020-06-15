@@ -150,7 +150,7 @@ void SelectionDialogBase::cursor_changed() {
   if(!is_visible())
     return;
   auto it = list_view_text.get_selection()->get_selected();
-  auto index = static_cast<unsigned int>(-1);
+  boost::optional<unsigned int> index;
   if(it)
     index = it->get_value(list_view_text.column_record.index);
   if(last_index == index)
@@ -159,7 +159,7 @@ void SelectionDialogBase::cursor_changed() {
     std::string text;
     if(it)
       text = it->get_value(list_view_text.column_record.text);
-    on_changed(index, text);
+    on_changed(index.value_or(-1), text);
   }
   last_index = index;
 }
@@ -208,7 +208,7 @@ void SelectionDialogBase::hide() {
   if(on_hide)
     on_hide();
   list_view_text.clear();
-  last_index = static_cast<unsigned int>(-1);
+  last_index.reset();
 }
 
 std::unique_ptr<SelectionDialog> SelectionDialog::instance;

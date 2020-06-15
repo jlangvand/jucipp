@@ -129,7 +129,7 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(0));
 
   signal_focus_in_event().connect([this](GdkEventFocus *event) {
-    if(this->last_write_time != static_cast<std::time_t>(-1))
+    if(last_write_time)
       check_last_write_time();
     return false;
   });
@@ -202,7 +202,7 @@ bool Source::BaseView::load(bool not_undoable_action) {
   boost::system::error_code ec;
   last_write_time = boost::filesystem::last_write_time(file_path, ec);
   if(ec)
-    last_write_time = static_cast<std::time_t>(-1);
+    last_write_time.reset();
 
   disable_spellcheck = true;
   if(not_undoable_action)
@@ -312,7 +312,7 @@ void Source::BaseView::rename(const boost::filesystem::path &path) {
   boost::system::error_code ec;
   last_write_time = boost::filesystem::last_write_time(file_path, ec);
   if(ec)
-    last_write_time = static_cast<std::time_t>(-1);
+    last_write_time.reset();
   monitor_file();
 
   if(update_status_file_path)
@@ -325,7 +325,7 @@ void Source::BaseView::monitor_file() {
 #ifdef __APPLE__ // TODO: Gio file monitor is bugged on MacOS
   class Recursive {
   public:
-    static void f(BaseView *view, std::time_t previous_last_write_time = static_cast<std::time_t>(-1), bool check_called = false) {
+    static void f(BaseView *view, boost::optional<std::time_t> previous_last_write_time = {}, bool check_called = false) {
       view->delayed_monitor_changed_connection.disconnect();
       view->delayed_monitor_changed_connection = Glib::signal_timeout().connect([view, previous_last_write_time, check_called]() {
         boost::system::error_code ec;
@@ -346,10 +346,10 @@ void Source::BaseView::monitor_file() {
     }
   };
   delayed_monitor_changed_connection.disconnect();
-  if(last_write_time != static_cast<std::time_t>(-1))
+  if(last_write_time)
     Recursive::f(this);
 #else
-  if(this->last_write_time != static_cast<std::time_t>(-1)) {
+  if(last_write_time) {
     monitor = Gio::File::create_for_path(file_path.string())->monitor_file(Gio::FileMonitorFlags::FILE_MONITOR_NONE);
     monitor_changed_connection.disconnect();
     monitor_changed_connection = monitor->signal_changed().connect([this](const Glib::RefPtr<Gio::File> &file,
@@ -367,13 +367,13 @@ void Source::BaseView::monitor_file() {
 #endif
 }
 
-void Source::BaseView::check_last_write_time(std::time_t last_write_time_) {
-  if(this->last_write_time == static_cast<std::time_t>(-1))
+void Source::BaseView::check_last_write_time(boost::optional<std::time_t> last_write_time_) {
+  if(!this->last_write_time)
     return;
 
   if(Config::get().source.auto_reload_changed_files && !get_buffer()->get_modified()) {
     boost::system::error_code ec;
-    auto last_write_time = last_write_time_ != static_cast<std::time_t>(-1) ? last_write_time_ : boost::filesystem::last_write_time(file_path, ec);
+    auto last_write_time = last_write_time_.value_or(boost::filesystem::last_write_time(file_path, ec));
     if(!ec && last_write_time != this->last_write_time) {
       if(load())
         return;
@@ -381,7 +381,7 @@ void Source::BaseView::check_last_write_time(std::time_t last_write_time_) {
   }
   else if(has_focus()) {
     boost::system::error_code ec;
-    auto last_write_time = last_write_time_ != static_cast<std::time_t>(-1) ? last_write_time_ : boost::filesystem::last_write_time(file_path, ec);
+    auto last_write_time = last_write_time_.value_or(boost::filesystem::last_write_time(file_path, ec));
     if(!ec && last_write_time != this->last_write_time)
       Info::get().print("Caution: " + file_path.filename().string() + " was changed outside of juCi++");
   }
@@ -820,7 +820,7 @@ void Source::BaseView::paste() {
   size_t end_line = 0;
   bool paste_line = false;
   bool first_paste_line = true;
-  size_t paste_line_tabs = -1;
+  auto paste_line_tabs = static_cast<size_t>(-1);
   bool first_paste_line_has_tabs = false;
   for(size_t c = 0; c < text.size(); c++) {
     if(text[c] == '\n') {
@@ -1161,7 +1161,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
           extra_cursor.offset = extra_cursor_iter.get_line_offset();
       }
       for(auto &extra_cursor : extra_snippet_cursors) {
-        extra_cursor.initial_forward_erase_size = std::numeric_limits<int>::max();
+        extra_cursor.initial_forward_erase_size.reset();
         auto iter = extra_cursor.mark->get_iter();
         iter.forward_chars(offset);
         get_buffer()->insert(iter, text);
@@ -1196,9 +1196,9 @@ void Source::BaseView::setup_extra_cursor_signals() {
         auto start_iter = extra_cursor.mark->get_iter();
         auto end_iter = start_iter;
         start_iter.backward_chars(*erase_backward_length);
-        if(extra_cursor.initial_forward_erase_size != std::numeric_limits<int>::max()) { // In case of different sized placeholders
-          end_iter.forward_chars(extra_cursor.initial_forward_erase_size);
-          extra_cursor.initial_forward_erase_size = std::numeric_limits<int>::max();
+        if(extra_cursor.initial_forward_erase_size) { // In case of different sized placeholders
+          end_iter.forward_chars(*extra_cursor.initial_forward_erase_size);
+          extra_cursor.initial_forward_erase_size.reset();
         }
         else
           end_iter.forward_chars(*erase_forward_length);

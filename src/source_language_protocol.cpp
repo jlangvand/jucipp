@@ -189,9 +189,6 @@ void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
 
 void LanguageProtocol::Client::parse_server_message() {
   if(!header_read) {
-    server_message_size = static_cast<size_t>(-1);
-    server_message_stream.seekg(0, std::ios::beg);
-
     std::string line;
     while(!header_read && std::getline(server_message_stream, line)) {
       if(!line.empty() && line != "\r") {
@@ -203,9 +200,9 @@ void LanguageProtocol::Client::parse_server_message() {
           }
         }
       }
-      else if(server_message_size != static_cast<size_t>(-1)) {
+      else if(server_message_size) {
         server_message_content_pos = server_message_stream.tellg();
-        server_message_size += server_message_content_pos;
+        *server_message_size += server_message_content_pos;
         header_read = true;
       }
     }
@@ -215,11 +212,11 @@ void LanguageProtocol::Client::parse_server_message() {
     server_message_stream.seekg(0, std::ios::end);
     size_t read_size = server_message_stream.tellg();
     std::stringstream tmp;
-    if(read_size >= server_message_size) {
-      if(read_size > server_message_size) {
-        server_message_stream.seekg(server_message_size, std::ios::beg);
-        server_message_stream.seekp(server_message_size, std::ios::beg);
-        for(size_t c = server_message_size; c < read_size; ++c) {
+    if(read_size >= *server_message_size) {
+      if(read_size > *server_message_size) {
+        server_message_stream.seekg(*server_message_size, std::ios::beg);
+        server_message_stream.seekp(*server_message_size, std::ios::beg);
+        for(size_t c = *server_message_size; c < read_size; ++c) {
           tmp.put(server_message_stream.get());
           server_message_stream.put(' ');
         }
@@ -279,13 +276,13 @@ void LanguageProtocol::Client::parse_server_message() {
       }
 
       server_message_stream = std::stringstream();
+      server_message_size.reset();
       header_read = false;
-      server_message_size = static_cast<size_t>(-1);
 
       tmp.seekg(0, std::ios::end);
       if(tmp.tellg() > 0) {
-        tmp.seekg(0, std::ios::beg);
-        server_message_stream << tmp.rdbuf();
+        server_message_stream = std::move(tmp);
+        server_message_stream.seekg(0, std::ios::beg);
         parse_server_message();
       }
     }

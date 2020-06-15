@@ -1,6 +1,10 @@
 #include "documentation.hpp"
 #include <unordered_map>
 
+// For both get_headers and get_url:
+// - Removed " (utility)" from "std::move (utility)"
+// - Removed lines with "move (algorithm)"
+
 std::vector<std::string> Documentation::CppReference::get_headers(const std::string &symbol) noexcept {
   // Extracted from http://upload.cppreference.com/mwiki/images/b/b1/cppreference-doc-20190607.zip
   // Using raw string instead of map to reduce compile time
@@ -1908,7 +1912,7 @@ std::ignore	tuple
 std::ranges::swap	concepts
 std::forward	utility
 std::exchange	utility
-std::move (utility)	utility
+std::move	utility
 std::move_if_noexcept	utility
 std::declval	utility
 std::as_const	utility
@@ -2342,7 +2346,6 @@ std::copy	algorithm
 std::copy_if	algorithm
 std::copy_n	algorithm
 std::copy_backward	algorithm
-std::move (algorithm)	algorithm
 std::move_backward	algorithm
 std::fill	algorithm
 std::fill_n	algorithm
@@ -5939,7 +5942,7 @@ std::ignore	cpp/utility/tuple/ignore
 std::ranges::swap	cpp/utility/ranges/swap
 std::forward	cpp/utility/forward
 std::exchange	cpp/utility/exchange
-std::move (utility)	cpp/utility/move
+std::move	cpp/utility/move
 std::move_if_noexcept	cpp/utility/move_if_noexcept
 std::declval	cpp/utility/declval
 std::as_const	cpp/utility/as_const
@@ -9073,7 +9076,6 @@ std::copy	cpp/algorithm/copy
 std::copy_if	cpp/algorithm/copy
 std::copy_n	cpp/algorithm/copy_n
 std::copy_backward	cpp/algorithm/copy_backward
-std::move (algorithm)	cpp/algorithm/move
 std::move_backward	cpp/algorithm/move_backward
 std::fill	cpp/algorithm/fill
 std::fill_n	cpp/algorithm/fill_n

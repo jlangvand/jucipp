@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/optional.hpp>
 #include <functional>
 #include <gtkmm.h>
 #include <unordered_map>
@@ -65,7 +66,7 @@ protected:
   SearchEntry search_entry;
   bool show_search_entry;
 
-  unsigned int last_index = static_cast<unsigned int>(-1);
+  boost::optional<unsigned int> last_index;
 };
 
 class SelectionDialog : public SelectionDialogBase {

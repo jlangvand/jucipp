@@ -235,7 +235,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         --line_end;
       bool lines_commented = true;
       bool extra_spaces = true;
-      int min_indentation = -1;
+      boost::optional<int> min_indentation;
       for(auto line = line_start; line <= line_end; ++line) {
         auto iter = get_buffer()->get_iter_at_line(line);
         bool line_added = false;
@@ -281,7 +281,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         if(line_added) {
           lines_commented &= line_commented;
           extra_spaces &= extra_space;
-          if(min_indentation == -1 || indentation < min_indentation)
+          if(!min_indentation || indentation < min_indentation)
             min_indentation = indentation;
         }
       }
@@ -290,7 +290,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         get_buffer()->begin_user_action();
         for(auto &line : lines) {
           auto iter = get_buffer()->get_iter_at_line(line);
-          iter.forward_chars(min_indentation);
+          iter.forward_chars(min_indentation.value_or(0));
           if(lines_commented) {
             auto end_iter = iter;
             end_iter.forward_chars(comment_characters.size() + static_cast<int>(extra_spaces));
@@ -420,7 +420,7 @@ bool Source::View::save() {
   boost::system::error_code ec;
   last_write_time = boost::filesystem::last_write_time(file_path, ec);
   if(ec)
-    last_write_time = static_cast<std::time_t>(-1);
+    last_write_time.reset();
   // Remonitor file in case it did not exist before
   monitor_file();
   get_buffer()->set_modified(false);
@@ -578,9 +578,7 @@ void Source::View::setup_signals() {
     if(on_motion_last_x != event->x || on_motion_last_y != event->y) {
       delayed_tooltips_connection.disconnect();
       if((event->state & GDK_BUTTON1_MASK) == 0) {
-        gdouble x = event->x;
-        gdouble y = event->y;
-        delayed_tooltips_connection = Glib::signal_timeout().connect([this, x, y]() {
+        delayed_tooltips_connection = Glib::signal_timeout().connect([this, x = event->x, y = event->y]() {
           type_tooltips.hide();
           diagnostic_tooltips.hide();
           Tooltips::init();
@@ -610,8 +608,8 @@ void Source::View::setup_signals() {
         }, 100);
       }
 
-      auto last_mouse_pos = std::make_pair(on_motion_last_x, on_motion_last_y);
-      auto mouse_pos = std::make_pair(event->x, event->y);
+      auto last_mouse_pos = std::make_pair<int, int>(on_motion_last_x, on_motion_last_y);
+      auto mouse_pos = std::make_pair<int, int>(event->x, event->y);
       type_tooltips.hide(last_mouse_pos, mouse_pos);
       diagnostic_tooltips.hide(last_mouse_pos, mouse_pos);
     }
@@ -1350,7 +1348,7 @@ void Source::View::extend_selection() {
     if(!select_matching_brackets) {
       bool select_end_block = language->get_id() == "cmake" || language->get_id() == "meson";
 
-      auto get_tabs = [this](Gtk::TextIter iter) {
+      auto get_tabs = [this](Gtk::TextIter iter) -> boost::optional<int> {
         iter = get_buffer()->get_iter_at_line(iter.get_line());
         int tabs = 0;
         while(!iter.ends_line() && (*iter == ' ' || *iter == '\t')) {
@@ -1359,7 +1357,7 @@ void Source::View::extend_selection() {
             break;
         }
         if(iter.ends_line())
-          return -1;
+          return {};
         return tabs;
       };
 
@@ -1380,19 +1378,18 @@ void Source::View::extend_selection() {
         end.forward_to_line_end();
 
       // Try select block that starts at cursor
-      auto end_tabs = get_tabs(end);
       auto iter = end;
-      if(end_tabs >= 0) {
+      if(auto end_tabs = get_tabs(end)) {
         bool can_select_end_block = false;
         while(iter.forward_char()) {
           auto tabs = get_tabs(iter);
-          if(tabs < 0 || tabs > end_tabs || (select_end_block && can_select_end_block && tabs == end_tabs)) {
+          if(!tabs || tabs > end_tabs || (select_end_block && can_select_end_block && tabs == end_tabs)) {
             if(!iter.ends_line())
               iter.forward_to_line_end();
             end = iter;
             if(tabs > end_tabs)
               can_select_end_block = true;
-            if(tabs == end_tabs)
+            else if(tabs == end_tabs)
               break;
             continue;
           }
@@ -3072,7 +3069,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Insert ''
-    else if(key->keyval == GDK_KEY_apostrophe && allow_insertion(iter) && symbol_count(iter, '\'', -1) % 2 == 0) {
+    else if(key->keyval == GDK_KEY_apostrophe && allow_insertion(iter) && symbol_count(iter, '\'') % 2 == 0) {
       get_buffer()->insert_at_cursor("''");
       auto iter = get_buffer()->get_insert()->get_iter();
       iter.backward_char();
@@ -3081,7 +3078,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       return true;
     }
     // Insert ""
-    else if(key->keyval == GDK_KEY_quotedbl && allow_insertion(iter) && symbol_count(iter, '"', -1) % 2 == 0) {
+    else if(key->keyval == GDK_KEY_quotedbl && allow_insertion(iter) && symbol_count(iter, '"') % 2 == 0) {
       get_buffer()->insert_at_cursor("\"\"");
       auto iter = get_buffer()->get_insert()->get_iter();
       iter.backward_char();

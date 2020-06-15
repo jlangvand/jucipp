@@ -13,31 +13,38 @@ int main() {
 
   {
     auto link = Terminal::get().find_link("~/test/test.cc:7:41: error: expected ';' after expression.");
-    assert(std::get<0>(link) == 0);
-    assert(std::get<1>(link) == 19);
-    assert(std::get<2>(link) == "~/test/test.cc");
-    assert(std::get<3>(link) == "7");
-    assert(std::get<4>(link) == "41");
+    assert(link);
+    assert(link->start_pos == 0);
+    assert(link->end_pos == 19);
+    assert(link->path == "~/test/test.cc");
+    assert(link->line == 7);
+    assert(link->line_index == 41);
   }
   {
     auto link = Terminal::get().find_link("Assertion failed: (false), function main, file ~/test/test.cc, line 15.");
-    assert(std::get<0>(link) == 47);
-    assert(std::get<1>(link) == 70);
-    assert(std::get<2>(link) == "~/test/test.cc");
-    assert(std::get<3>(link) == "15");
+    assert(link);
+    assert(link->start_pos == 47);
+    assert(link->end_pos == 70);
+    assert(link->path == "~/test/test.cc");
+    assert(link->line == 15);
+    assert(link->line_index == 1);
   }
   {
     auto link = Terminal::get().find_link("test: ~/examples/main.cpp:17: int main(int, char**): Assertion `false' failed.");
-    assert(std::get<0>(link) == 6);
-    assert(std::get<1>(link) == 28);
-    assert(std::get<2>(link) == "~/examples/main.cpp");
-    assert(std::get<3>(link) == "17");
+    assert(link);
+    assert(link->start_pos == 6);
+    assert(link->end_pos == 28);
+    assert(link->path == "~/examples/main.cpp");
+    assert(link->line == 17);
+    assert(link->line_index == 1);
   }
   {
     auto link = Terminal::get().find_link("ERROR:~/test/test.cc:36:int main(): assertion failed: (false)");
-    assert(std::get<0>(link) == 6);
-    assert(std::get<1>(link) == 23);
-    assert(std::get<2>(link) == "~/test/test.cc");
-    assert(std::get<3>(link) == "36");
+    assert(link);
+    assert(link->start_pos == 6);
+    assert(link->end_pos == 23);
+    assert(link->path == "~/test/test.cc");
+    assert(link->line == 36);
+    assert(link->line_index == 1);
   }
 }

@@ -287,14 +287,14 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
   shown = true;
 }
 
-void Tooltip::hide(const std::pair<int, int> &last_mouse_pos, const std::pair<int, int> &mouse_pos) {
+void Tooltip::hide(const boost::optional<std::pair<int, int>> &last_mouse_pos, const boost::optional<std::pair<int, int>> &mouse_pos) {
   // Keep tooltip if mouse is moving towards it
   // Calculated using dot product between the mouse_pos vector and the corners of the tooltip window
-  if(text_view && window && shown && last_mouse_pos.first != -1 && last_mouse_pos.second != -1 && mouse_pos.first != -1 && mouse_pos.second != -1) {
+  if(text_view && window && shown && last_mouse_pos && mouse_pos) {
     static int root_x, root_y;
-    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(last_mouse_pos.first, last_mouse_pos.second, root_x, root_y);
-    int diff_x = mouse_pos.first - last_mouse_pos.first;
-    int diff_y = mouse_pos.second - last_mouse_pos.second;
+    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(last_mouse_pos->first, last_mouse_pos->second, root_x, root_y);
+    int diff_x = mouse_pos->first - last_mouse_pos->first;
+    int diff_y = mouse_pos->second - last_mouse_pos->second;
     class Corner {
     public:
       Corner(int x, int y) : x(x - root_x), y(y - root_y) {}
@@ -792,7 +792,7 @@ void Tooltips::show(const Gdk::Rectangle &rectangle, bool disregard_drawn) {
     if(rectangle.intersects(tooltip.activation_rectangle))
       tooltip.show(disregard_drawn, on_motion);
     else
-      tooltip.hide();
+      tooltip.hide({}, {});
   }
 }
 
@@ -803,7 +803,7 @@ void Tooltips::show(bool disregard_drawn) {
   }
 }
 
-void Tooltips::hide(const std::pair<int, int> &last_mouse_pos, const std::pair<int, int> &mouse_pos) {
+void Tooltips::hide(boost::optional<std::pair<int, int>> last_mouse_pos, boost::optional<std::pair<int, int>> mouse_pos) {
   for(auto &tooltip : tooltip_list)
     tooltip.hide(last_mouse_pos, mouse_pos);
 }

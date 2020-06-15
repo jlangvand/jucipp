@@ -1,6 +1,7 @@
 #pragma once
 #include "mutex.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <giomm.h>
 #include <git2.h>
 #include <iostream>
@@ -98,7 +99,7 @@ private:
   ///Call initialize in public static methods
   static void initialize() noexcept REQUIRES(mutex);
 
-  static boost::filesystem::path path(const char *cpath, size_t cpath_length = static_cast<size_t>(-1)) noexcept REQUIRES(mutex);
+  static boost::filesystem::path path(const char *cpath, boost::optional<size_t> cpath_length = {}) noexcept REQUIRES(mutex);
 
 public:
   static std::shared_ptr<Repository> get_repository(const boost::filesystem::path &path);

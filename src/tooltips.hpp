@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/optional.hpp>
 #include <functional>
 #include <gtkmm.h>
 #include <list>
@@ -14,7 +15,7 @@ public:
 
   void update();
   void show(bool disregard_drawn = false, const std::function<void()> &on_motion = nullptr);
-  void hide(const std::pair<int, int> &last_mouse_pos = {-1, -1}, const std::pair<int, int> &mouse_pos = {-1, -1});
+  void hide(const boost::optional<std::pair<int, int>> &last_mouse_pos, const boost::optional<std::pair<int, int>> &mouse_pos);
 
   Gdk::Rectangle activation_rectangle;
   Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark;
@@ -61,7 +62,7 @@ public:
 
   void show(const Gdk::Rectangle &rectangle, bool disregard_drawn = false);
   void show(bool disregard_drawn = false);
-  void hide(const std::pair<int, int> &last_mouse_pos = {-1, -1}, const std::pair<int, int> &mouse_pos = {-1, -1});
+  void hide(boost::optional<std::pair<int, int>> last_mouse_pos = {}, boost::optional<std::pair<int, int>> mouse_pos = {});
   void clear() { tooltip_list.clear(); };
 
   template <typename... Ts>

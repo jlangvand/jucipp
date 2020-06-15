@@ -42,7 +42,6 @@ Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool
   std::string command = Config::get().project.grep_command + " -R " + flags + " --color=always --binary-files=without-match " + exclude + " -n " + escaped_pattern + " *";
 
   std::stringstream stdin_stream;
-  //TODO: when debian stable gets newer g++ version that supports move on streams, remove unique_ptr below
   Terminal::get().process(stdin_stream, output, command, project_path);
 }
 

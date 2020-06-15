@@ -5,6 +5,7 @@
 #include "filesystem.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
+#include <boost/optional.hpp>
 #include <regex>
 
 CMake::CMake(const boost::filesystem::path &path) {
@@ -141,7 +142,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
     }
   }
 
-  size_t best_match_size = -1;
+  boost::optional<size_t> best_match_size;
   boost::filesystem::path best_match_executable;
 
   for(auto &cmake_executable : cmake_executables) {
@@ -154,7 +155,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
         auto command_file_directory = command_file.parent_path();
         if(filesystem::file_in_path(file_path, command_file_directory)) {
           auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
-          if(best_match_size == static_cast<size_t>(-1) || best_match_size < size) {
+          if(best_match_size < size) {
             best_match_size = size;
             best_match_executable = maybe_executable;
           }
@@ -173,7 +174,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
     auto command_file_directory = command_file.parent_path();
     if(filesystem::file_in_path(file_path, command_file_directory)) {
       auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
-      if(best_match_size == static_cast<size_t>(-1) || best_match_size < size) {
+      if(!best_match_size || best_match_size < size) {
         best_match_size = size;
         best_match_executable = maybe_executable;
       }

@@ -3,6 +3,7 @@
 #include "mutex.hpp"
 #include "snippets.hpp"
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <gtksourceviewmm.h>
 #include <list>
 #include <regex>
@@ -96,9 +97,9 @@ namespace Source {
     bool keep_clipboard = false;
 
   protected:
-    std::time_t last_write_time;
+    boost::optional<std::time_t> last_write_time;
     void monitor_file();
-    void check_last_write_time(std::time_t last_write_time_ = static_cast<std::time_t>(-1));
+    void check_last_write_time(boost::optional<std::time_t> last_write_time_ = {});
 
     bool is_bracket_language = false;
 
@@ -148,7 +149,7 @@ namespace Source {
     std::vector<ExtraCursor> extra_cursors;
     struct ExtraSnippetCursor {
       Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
-      int initial_forward_erase_size;
+      boost::optional<int> initial_forward_erase_size;
     };
     bool on_key_press_event_extra_cursors(GdkEventKey *key);
 

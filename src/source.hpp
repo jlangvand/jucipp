@@ -134,7 +134,7 @@ namespace Source {
     Gtk::TextIter get_start_of_expression(Gtk::TextIter iter);
     bool find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
     bool find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
-    long symbol_count(Gtk::TextIter iter, unsigned int positive_char, unsigned int negative_char);
+    long symbol_count(Gtk::TextIter iter, unsigned int positive_char, unsigned int negative_char = 0);
     bool is_templated_function(Gtk::TextIter iter, Gtk::TextIter &parenthesis_end_iter);
     /// If insert is at an possible argument. Also based on last key press.
     bool is_possible_argument();

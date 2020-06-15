@@ -252,11 +252,10 @@ std::shared_ptr<Git::Repository> Git::get_repository(const boost::filesystem::pa
   return instance;
 }
 
-boost::filesystem::path Git::path(const char *cpath, size_t cpath_length) noexcept {
+boost::filesystem::path Git::path(const char *cpath, boost::optional<size_t> cpath_length_) noexcept {
   if(cpath == nullptr)
     return boost::filesystem::path();
-  if(cpath_length == static_cast<size_t>(-1))
-    cpath_length = strlen(cpath);
+  auto cpath_length = cpath_length_.value_or(strlen(cpath));
   if(cpath_length > 0 && (cpath[cpath_length - 1] == '/' || cpath[cpath_length - 1] == '\\'))
     return std::string(cpath, cpath_length - 1);
   else

@@ -4,6 +4,7 @@
 #include "process.hpp"
 #include "source.hpp"
 #include <atomic>
+#include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <list>
 #include <map>
@@ -118,7 +119,7 @@ namespace LanguageProtocol {
     std::unique_ptr<TinyProcessLib::Process> process GUARDED_BY(read_write_mutex);
 
     std::stringstream server_message_stream;
-    size_t server_message_size = static_cast<size_t>(-1);
+    boost::optional<size_t> server_message_size;
     size_t server_message_content_pos;
     bool header_read = false;
 

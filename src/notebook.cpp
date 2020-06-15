@@ -52,7 +52,7 @@ Notebook::Notebook() : Gtk::Paned(), notebooks(2) {
           break;
         }
       }
-      last_index = -1;
+      last_index.reset();
     });
     notebook.signal_page_added().connect([this](Gtk::Widget *widget, guint) {
       auto hbox = dynamic_cast<Gtk::Box *>(widget);
@@ -171,7 +171,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     auto previous_view = get_current_view();
     if(previous_view) {
       view->replace_text(previous_view->get_buffer()->get_text());
-      position = get_notebook_page(get_index(previous_view)).first == 0 ? Position::right : Position::left;
+      position = get_notebook_page(previous_view).first == 0 ? Position::right : Position::left;
     }
   }
 
@@ -299,9 +299,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   //Set up tab label
   tab_labels.emplace_back(new TabLabel([this, view]() {
-    auto index = get_index(view);
-    if(index != static_cast<size_t>(-1))
-      close(index);
+    close(get_index(view));
   }));
   view->update_tab_label = [this](Source::BaseView *view) {
     std::string title = view->file_path.filename().string();
@@ -311,9 +309,8 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       title += ' ';
     for(size_t c = 0; c < size(); ++c) {
       if(source_views[c] == view) {
-        auto &tab_label = tab_labels.at(c);
-        tab_label->label.set_text(title);
-        tab_label->set_tooltip_text(filesystem::get_short_path(view->file_path).string());
+        tab_labels[c]->label.set_text(title);
+        tab_labels[c]->set_tooltip_text(filesystem::get_short_path(view->file_path).string());
         return;
       }
     }
@@ -446,7 +443,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     else if(notebooks[1].get_n_pages() == 0)
       position = Position::right;
     else if(last_view)
-      position = get_notebook_page(get_index(last_view)).first == 0 ? Position::left : Position::right;
+      position = get_notebook_page(last_view).first == 0 ? Position::left : Position::right;
   }
   size_t notebook_index = position == Position::right ? 1 : 0;
   auto &notebook = notebooks[notebook_index];
@@ -458,11 +455,10 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   show_all_children();
 
   notebook.set_current_page(notebook.get_n_pages() - 1);
-  last_index = -1;
+  last_index.reset();
   if(last_view) {
     auto index = get_index(last_view);
-    auto notebook_page = get_notebook_page(index);
-    if(notebook_page.first == notebook_index)
+    if(get_notebook_page(index).first == notebook_index)
       last_index = index;
   }
 
@@ -517,17 +513,17 @@ bool Notebook::close(size_t index) {
     }
     if(view == get_current_view()) {
       bool focused = false;
-      if(last_index != static_cast<size_t>(-1)) {
-        auto notebook_page = get_notebook_page(last_index);
-        if(notebook_page.first == get_notebook_page(get_index(view)).first) {
-          focus_view(source_views[last_index]);
-          notebooks[notebook_page.first].set_current_page(notebook_page.second);
-          last_index = -1;
+      if(last_index) {
+        auto last_notebook_page = get_notebook_page(*last_index);
+        if(get_notebook_page(view).first == last_notebook_page.first) {
+          focus_view(source_views[*last_index]);
+          notebooks[last_notebook_page.first].set_current_page(last_notebook_page.second);
+          last_index.reset();
           focused = true;
         }
       }
       if(!focused) {
-        auto notebook_page = get_notebook_page(get_index(view));
+        auto notebook_page = get_notebook_page(view);
         if(notebook_page.second > 0)
           focus_view(get_view(notebook_page.first, notebook_page.second - 1));
         else {
@@ -540,9 +536,9 @@ bool Notebook::close(size_t index) {
       }
     }
     else if(index == last_index)
-      last_index = -1;
-    else if(index < last_index && last_index != static_cast<size_t>(-1))
-      last_index--;
+      last_index.reset();
+    else if(index < last_index)
+      (*last_index)--;
 
     auto notebook_page = get_notebook_page(index);
     notebooks[notebook_page.first].remove_page(notebook_page.second);
@@ -600,7 +596,7 @@ bool Notebook::close_current() {
 
 void Notebook::next() {
   if(auto view = get_current_view()) {
-    auto notebook_page = get_notebook_page(get_index(view));
+    auto notebook_page = get_notebook_page(view);
     int page = notebook_page.second + 1;
     if(page >= notebooks[notebook_page.first].get_n_pages())
       notebooks[notebook_page.first].set_current_page(0);
@@ -611,7 +607,7 @@ void Notebook::next() {
 
 void Notebook::previous() {
   if(auto view = get_current_view()) {
-    auto notebook_page = get_notebook_page(get_index(view));
+    auto notebook_page = get_notebook_page(view);
     int page = notebook_page.second - 1;
     if(page < 0)
       notebooks[notebook_page.first].set_current_page(notebooks[notebook_page.first].get_n_pages() - 1);
@@ -634,8 +630,7 @@ void Notebook::toggle_split() {
   }
   else {
     for(size_t c = size() - 1; c != static_cast<size_t>(-1); --c) {
-      auto notebook_index = get_notebook_page(c).first;
-      if(notebook_index == 1 && !close(c))
+      if(get_notebook_page(c).first == 1 && !close(c))
         return;
     }
     remove(notebooks[1]);
@@ -651,10 +646,8 @@ void Notebook::toggle_tabs() {
 std::vector<std::pair<size_t, Source::View *>> Notebook::get_notebook_views() {
   std::vector<std::pair<size_t, Source::View *>> notebook_views;
   for(size_t notebook_index = 0; notebook_index < notebooks.size(); ++notebook_index) {
-    for(int page = 0; page < notebooks[notebook_index].get_n_pages(); ++page) {
-      if(auto view = get_view(notebook_index, page))
-        notebook_views.emplace_back(notebook_index, view);
-    }
+    for(int page = 0; page < notebooks[notebook_index].get_n_pages(); ++page)
+      notebook_views.emplace_back(notebook_index, get_view(notebook_index, page));
   }
   return notebook_views;
 }
@@ -680,19 +673,13 @@ void Notebook::clear_status() {
   status_state.set_text("");
 }
 
-size_t Notebook::get_index(Source::View *view) {
-  for(size_t c = 0; c < size(); ++c) {
-    if(source_views[c] == view)
-      return c;
-  }
-  return -1;
-}
-
 Source::View *Notebook::get_view(size_t notebook_index, int page) {
-  if(notebook_index == static_cast<size_t>(-1) || notebook_index >= notebooks.size() ||
-     page < 0 || page >= notebooks[notebook_index].get_n_pages())
-    return nullptr;
-  auto hbox = dynamic_cast<Gtk::Box *>(notebooks[notebook_index].get_nth_page(page));
+  if(notebook_index >= notebooks.size())
+    throw "notebook index out of bounds";
+  auto widget = notebooks[notebook_index].get_nth_page(page);
+  if(!widget)
+    throw "page number out of bounds";
+  auto hbox = dynamic_cast<Gtk::Box *>(widget);
   auto scrolled_window = dynamic_cast<Gtk::ScrolledWindow *>(hbox->get_children()[0]);
   return dynamic_cast<Source::View *>(scrolled_window->get_children()[0]);
 }
@@ -702,15 +689,30 @@ void Notebook::focus_view(Source::View *view) {
   view->grab_focus();
 }
 
+size_t Notebook::get_index(Source::View *view) {
+  for(size_t c = 0; c < size(); ++c) {
+    if(source_views[c] == view)
+      return c;
+  }
+  throw "view not found";
+}
+
 std::pair<size_t, int> Notebook::get_notebook_page(size_t index) {
-  if(index >= hboxes.size())
-    return {-1, -1};
   for(size_t c = 0; c < notebooks.size(); ++c) {
     auto page_num = notebooks[c].page_num(*hboxes[index]);
     if(page_num >= 0)
       return {c, page_num};
   }
-  return {-1, -1};
+  throw "index out of bounds";
+}
+
+std::pair<size_t, int> Notebook::get_notebook_page(Source::View *view) {
+  try {
+    return get_notebook_page(get_index(view));
+  }
+  catch(...) {
+    throw "view not found";
+  }
 }
 
 void Notebook::set_current_view(Source::View *view) {
