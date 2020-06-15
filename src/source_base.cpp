@@ -1161,6 +1161,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
           extra_cursor.offset = extra_cursor_iter.get_line_offset();
       }
       for(auto &extra_cursor : extra_snippet_cursors) {
+        extra_cursor.initial_forward_erase_size = std::numeric_limits<int>::max();
         auto iter = extra_cursor.mark->get_iter();
         iter.forward_chars(offset);
         get_buffer()->insert(iter, text);
@@ -1194,15 +1195,13 @@ void Source::BaseView::setup_extra_cursor_signals() {
       for(auto &extra_cursor : extra_snippet_cursors) {
         auto start_iter = extra_cursor.mark->get_iter();
         auto end_iter = start_iter;
-        if(extra_cursor.parameter_size != std::numeric_limits<int>::max()) { // In case of different sized placeholders
-          if(*erase_backward_length == 0)
-            end_iter.forward_chars(extra_cursor.parameter_size);
-          extra_cursor.parameter_size = std::numeric_limits<int>::max();
+        start_iter.backward_chars(*erase_backward_length);
+        if(extra_cursor.initial_forward_erase_size != std::numeric_limits<int>::max()) { // In case of different sized placeholders
+          end_iter.forward_chars(extra_cursor.initial_forward_erase_size);
+          extra_cursor.initial_forward_erase_size = std::numeric_limits<int>::max();
         }
-        else {
-          start_iter.backward_chars(*erase_backward_length);
+        else
           end_iter.forward_chars(*erase_forward_length);
-        }
         get_buffer()->erase(start_iter, end_iter);
       }
       enable_multiple_cursors = true;

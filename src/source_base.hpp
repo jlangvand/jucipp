@@ -148,7 +148,7 @@ namespace Source {
     std::vector<ExtraCursor> extra_cursors;
     struct ExtraSnippetCursor {
       Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
-      int parameter_size;
+      int initial_forward_erase_size;
     };
     bool on_key_press_event_extra_cursors(GdkEventKey *key);
 
