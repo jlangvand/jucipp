@@ -165,7 +165,5 @@ namespace Source {
 
     bool keep_previous_extended_selections = false;
     std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> previous_extended_selections;
-
-    bool on_key_press_event_extra_cursors(GdkEventKey *key);
   };
 } // namespace Source
