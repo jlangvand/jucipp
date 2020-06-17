@@ -21,19 +21,6 @@ std::string filesystem::read(const std::string &path) {
 }
 
 //Only use on small files
-std::vector<std::string> filesystem::read_lines(const std::string &path) {
-  std::vector<std::string> res;
-  std::ifstream input(path, std::ofstream::binary);
-  if(input) {
-    std::string line;
-    while(std::getline(input, line))
-      res.emplace_back(std::move(line));
-    input.close();
-  }
-  return res;
-}
-
-//Only use on small files
 bool filesystem::write(const std::string &path, const std::string &new_content) {
   std::ofstream output(path, std::ofstream::binary);
   if(output)

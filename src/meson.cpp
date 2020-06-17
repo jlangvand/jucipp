@@ -10,11 +10,15 @@
 
 Meson::Meson(const boost::filesystem::path &path) {
   const auto find_project = [](const boost::filesystem::path &file_path) {
-    for(auto &line : filesystem::read_lines(file_path)) {
-      const static std::regex project_regex(R"(^ *project *\(.*\r?$)", std::regex::icase);
-      std::smatch sm;
-      if(std::regex_match(line, sm, project_regex))
-        return true;
+    std::ifstream input(file_path.string(), std::ofstream::binary);
+    if(input) {
+      std::string line;
+      while(std::getline(input, line)) {
+        const static std::regex project_regex("^ *project *\\(.*", std::regex::icase);
+        std::smatch sm;
+        if(std::regex_match(line, sm, project_regex))
+          return true;
+      }
     }
     return false;
   };
