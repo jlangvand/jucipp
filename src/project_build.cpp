@@ -112,10 +112,8 @@ boost::filesystem::path Project::CMakeBuild::get_executable(const boost::filesys
   if(executable.empty()) {
     auto src_path = project_path / "src";
     boost::system::error_code ec;
-    if(boost::filesystem::is_directory(src_path, ec)) {
-      auto cmake = CMake(src_path); // ignore cache in this->cmake
-      executable = cmake.get_executable(default_path, src_path);
-    }
+    if(boost::filesystem::is_directory(src_path, ec))
+      executable = CMake(src_path).get_executable(default_path, src_path);
   }
   return executable;
 }

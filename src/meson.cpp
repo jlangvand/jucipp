@@ -114,7 +114,7 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
           auto command_file_directory = command_file.parent_path();
           if(filesystem::file_in_path(file_path, command_file_directory)) {
             auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
-            if(best_match_size < size) {
+            if(size > best_match_size) {
               best_match_size = size;
               best_match_executable = executable;
             }

@@ -5,6 +5,7 @@
 #include "filesystem.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
+#include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 #include <regex>
 
@@ -115,21 +116,6 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
   // Therefore, executables are first attempted found in the cmake files. These executables
   // are then used to identify if a file in compile_commands.json is part of an executable or not
 
-  auto parameters = get_functions_parameters("add_executable");
-
-  std::vector<boost::filesystem::path> cmake_executables;
-  for(auto &parameter : parameters) {
-    if(parameter.second.size() > 1 && parameter.second[0].size() > 0 && !starts_with(parameter.second[0], "${")) {
-      auto executable = (parameter.first.parent_path() / parameter.second[0]).string();
-      auto project_path_str = project_path.string();
-      size_t pos = executable.find(project_path_str);
-      if(pos != std::string::npos)
-        executable.replace(pos, project_path_str.size(), build_path.string());
-      cmake_executables.emplace_back(executable);
-    }
-  }
-
-
   CompileCommands compile_commands(build_path);
   std::vector<std::pair<boost::filesystem::path, boost::filesystem::path>> command_files_and_maybe_executables;
   for(auto &command : compile_commands.commands) {
@@ -146,6 +132,25 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
     }
   }
 
+  std::vector<boost::filesystem::path> cmake_executables;
+
+  // Parse cmake files
+  std::map<std::string, std::list<std::string>> variables;
+  for(auto &path : paths) {
+    parse_file(filesystem::read(path), variables, [this, &build_path, &cmake_executables, &path](Function function) {
+      if(function.name == "add_executable") {
+        if(!function.parameters.empty() && !function.parameters.front().empty()) {
+          auto executable = (path.parent_path() / function.parameters.front()).string();
+          auto project_path_str = project_path.string();
+          size_t pos = executable.find(project_path_str);
+          if(pos != std::string::npos)
+            executable.replace(pos, project_path_str.size(), build_path.string());
+          cmake_executables.emplace_back(executable);
+        }
+      }
+    });
+  }
+
   boost::optional<size_t> best_match_size;
   boost::filesystem::path best_match_executable;
 
@@ -159,7 +164,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
         auto command_file_directory = command_file.parent_path();
         if(filesystem::file_in_path(file_path, command_file_directory)) {
           auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
-          if(best_match_size < size) {
+          if(size > best_match_size) {
             best_match_size = size;
             best_match_executable = maybe_executable;
           }
@@ -178,7 +183,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
     auto command_file_directory = command_file.parent_path();
     if(filesystem::file_in_path(file_path, command_file_directory)) {
       auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
-      if(!best_match_size || best_match_size < size) {
+      if(size > best_match_size) {
         best_match_size = size;
         best_match_executable = maybe_executable;
       }
@@ -187,202 +192,126 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
   return best_match_executable;
 }
 
-void CMake::read_files() {
-  for(auto &path : paths)
-    files.emplace_back(filesystem::read(path));
-}
+void CMake::parse_file(const std::string &src, std::map<std::string, std::list<std::string>> &variables, std::function<void(Function &&)> &&on_function) {
+  size_t i = 0;
 
-void CMake::remove_tabs() {
-  for(auto &file : files) {
-    for(auto &chr : file) {
-      if(chr == '\t')
-        chr = ' ';
+  auto parse_comment = [&] {
+    if(src[i] == '#') {
+      while(i < src.size() && src[i] != '\n')
+        ++i;
+      return true;
     }
-  }
-}
+    return false;
+  };
 
-void CMake::remove_comments() {
-  for(auto &file : files) {
-    size_t pos = 0;
-    size_t comment_start;
-    bool inside_comment = false;
-    while(pos < file.size()) {
-      if(!inside_comment && file[pos] == '#') {
-        comment_start = pos;
-        inside_comment = true;
-      }
-      if(inside_comment && file[pos] == '\n') {
-        file.erase(comment_start, pos - comment_start);
-        pos -= pos - comment_start;
-        inside_comment = false;
-      }
-      pos++;
-    }
-    if(inside_comment)
-      file.erase(comment_start);
-  }
-}
+  auto is_whitespace = [&] {
+    return src[i] == ' ' || src[i] == '\t' || src[i] == '\r' || src[i] == '\n';
+  };
 
-void CMake::remove_newlines_inside_parentheses() {
-  for(auto &file : files) {
-    size_t pos = 0;
-    bool inside_para = false;
-    bool inside_quote = false;
-    char last_char = 0;
-    while(pos < file.size()) {
-      if(!inside_quote && file[pos] == '"' && last_char != '\\')
-        inside_quote = true;
-      else if(inside_quote && file[pos] == '"' && last_char != '\\')
-        inside_quote = false;
+  auto forward_passed_whitespace = [&] {
+    while(i < src.size() && is_whitespace())
+      ++i;
+    return i < src.size();
+  };
 
-      else if(!inside_quote && file[pos] == '(')
-        inside_para = true;
-      else if(!inside_quote && file[pos] == ')')
-        inside_para = false;
-
-      else if(inside_para && file[pos] == '\n')
-        file.replace(pos, 1, 1, ' ');
-      last_char = file[pos];
-      pos++;
-    }
-  }
-}
-
-void CMake::parse_variable_parameters(std::string &data) {
-  size_t pos = 0;
-  bool inside_quote = false;
-  char last_char = 0;
-  while(pos < data.size()) {
-    if(!inside_quote && data[pos] == '"' && last_char != '\\') {
-      inside_quote = true;
-      data.erase(pos, 1); //TODO: instead remove quote-mark if pasted into a quote, for instance: "test${test}test"<-remove quotes from ${test}
-      pos--;
-    }
-    else if(inside_quote && data[pos] == '"' && last_char != '\\') {
-      inside_quote = false;
-      data.erase(pos, 1); //TODO: instead remove quote-mark if pasted into a quote, for instance: "test${test}test"<-remove quotes from ${test}
-      pos--;
-    }
-    else if(!inside_quote && data[pos] == ' ' && pos + 1 < data.size() && data[pos + 1] == ' ') {
-      data.erase(pos, 1);
-      pos--;
-    }
-
-    if(pos != static_cast<size_t>(-1))
-      last_char = data[pos];
-    pos++;
-  }
-  for(auto &var : variables) {
-    auto pos = data.find("${" + var.first + '}');
-    while(pos != std::string::npos) {
-      data.replace(pos, var.first.size() + 3, var.second);
-      pos = data.find("${" + var.first + '}');
-    }
-  }
-
-  //Remove variables we do not know:
-  pos = data.find("${");
-  auto pos_end = data.find('}', pos + 2);
-  while(pos != std::string::npos && pos_end != std::string::npos) {
-    data.erase(pos, pos_end - pos + 1);
-    pos = data.find("${");
-    pos_end = data.find('}', pos + 2);
-  }
-}
-
-void CMake::parse() {
-  read_files();
-  remove_tabs();
-  remove_comments();
-  remove_newlines_inside_parentheses();
-  parsed = true;
-}
-
-std::vector<std::string> CMake::get_function_parameters(std::string &data) {
-  std::vector<std::string> parameters;
-  size_t pos = 0;
-  size_t parameter_pos = 0;
-  bool inside_quote = false;
-  char last_char = 0;
-  while(pos < data.size()) {
-    if(!inside_quote && data[pos] == '"' && last_char != '\\') {
-      inside_quote = true;
-      data.erase(pos, 1);
-      pos--;
-    }
-    else if(inside_quote && data[pos] == '"' && last_char != '\\') {
-      inside_quote = false;
-      data.erase(pos, 1);
-      pos--;
-    }
-    else if(!inside_quote && pos + 1 < data.size() && data[pos] == ' ' && data[pos + 1] == ' ') {
-      data.erase(pos, 1);
-      pos--;
-    }
-    else if(!inside_quote && data[pos] == ' ') {
-      parameters.emplace_back(data.substr(parameter_pos, pos - parameter_pos));
-      if(pos + 1 < data.size())
-        parameter_pos = pos + 1;
-    }
-
-    if(pos != static_cast<size_t>(-1))
-      last_char = data[pos];
-    pos++;
-  }
-  parameters.emplace_back(data.substr(parameter_pos));
-  for(auto &var : variables) {
-    for(auto &parameter : parameters) {
-      auto pos = parameter.find("${" + var.first + '}');
-      while(pos != std::string::npos) {
-        parameter.replace(pos, var.first.size() + 3, var.second);
-        pos = parameter.find("${" + var.first + '}');
+  auto parse_variable_name = [&]() -> boost::optional<std::string> {
+    if(src[i] == '$' && i + 1 < src.size() && src[i + 1] == '{') {
+      auto start = i + 2;
+      auto end = src.find('}', start);
+      if(end != std::string::npos) {
+        i = end;
+        auto variable_name = src.substr(start, end - start);
+        boost::algorithm::to_upper(variable_name);
+        return variable_name;
       }
     }
-  }
-  return parameters;
-}
+    return {};
+  };
 
-std::vector<std::pair<boost::filesystem::path, std::vector<std::string>>> CMake::get_functions_parameters(const std::string &name) {
-  const std::regex function_regex("^ *" + name + R"( *\( *(.*)\) *\r?$)", std::regex::icase);
-  variables.clear();
-  if(!parsed)
-    parse();
-  std::vector<std::pair<boost::filesystem::path, std::vector<std::string>>> functions;
-  for(size_t c = 0; c < files.size(); ++c) {
-    size_t pos = 0;
-    while(pos < files[c].size()) {
-      auto start_line = pos;
-      auto end_line = files[c].find('\n', start_line);
-      if(end_line == std::string::npos)
-        end_line = files[c].size();
-      if(end_line > start_line) {
-        auto line = files[c].substr(start_line, end_line - start_line);
-        std::smatch sm;
-        const static std::regex set_regex(R"(^ *set *\( *([A-Za-z_][A-Za-z_0-9]*) +(.*)\) *\r?$)", std::regex::icase);
-        const static std::regex project_regex(R"(^ *project *\( *([^ ]+).*\) *\r?$)", std::regex::icase);
-        if(std::regex_match(line, sm, set_regex)) {
-          auto data = sm[2].str();
-          while(data.size() > 0 && data.back() == ' ')
-            data.pop_back();
-          parse_variable_parameters(data);
-          variables[sm[1].str()] = data;
-        }
-        else if(std::regex_match(line, sm, project_regex)) {
-          auto data = sm[1].str();
-          parse_variable_parameters(data);
-          variables["CMAKE_PROJECT_NAME"] = data; //TODO: is this variable deprecated/non-standard?
-          variables["PROJECT_NAME"] = data;
-        }
-        if(std::regex_match(line, sm, function_regex)) {
-          auto data = sm[1].str();
-          while(data.size() > 0 && data.back() == ' ')
-            data.pop_back();
-          auto parameters = get_function_parameters(data);
-          functions.emplace_back(paths[c], parameters);
+  auto parse_function = [&]() -> boost::optional<Function> {
+    Function function;
+    if((src[i] >= 'A' && src[i] <= 'Z') || (src[i] >= 'a' && src[i] <= 'z') || src[i] == '_') {
+      function.name += src[i++];
+      while(i < src.size() && ((src[i] >= 'A' && src[i] <= 'Z') || (src[i] >= 'a' && src[i] <= 'z') || (src[i] >= '0' && src[i] <= '9') || src[i] == '_'))
+        function.name += src[i++];
+      if(forward_passed_whitespace() && src[i] == '(') {
+        ++i;
+        // Parse parameters
+        for(; forward_passed_whitespace(); ++i) {
+          if(src[i] == ')')
+            return function;
+          else if(src[i] == '"') { // Parse parameter within ""
+            std::string parameter;
+            ++i;
+            for(; i < src.size(); ++i) {
+              if(src[i] == '\\' && i + 1 < src.size())
+                parameter += src[++i];
+              else if(src[i] == '"')
+                break;
+              else if(auto variable_name = parse_variable_name()) {
+                auto it = variables.find(*variable_name);
+                if(it != variables.end()) {
+                  bool first = true;
+                  for(auto &value : it->second) {
+                    parameter += (first ? "" : ";") + value;
+                    first = false;
+                  }
+                }
+              }
+              else
+                parameter += src[i];
+            }
+            function.parameters.emplace_back(std::move(parameter));
+          }
+          else { // Parse parameter not within ""
+            auto parameter_it = function.parameters.end();
+            for(; i < src.size() && !is_whitespace() && src[i] != ')'; ++i) {
+              if(parameter_it == function.parameters.end())
+                parameter_it = function.parameters.emplace(parameter_it);
+              if(src[i] == '\\' && i + 1 < src.size())
+                *parameter_it += src[++i];
+              else if(auto variable_name = parse_variable_name()) {
+                auto variable_it = variables.find(*variable_name);
+                if(variable_it != variables.end()) {
+                  if(variable_it->second.size() == 1)
+                    *parameter_it += variable_it->second.front();
+                  else if(variable_it->second.size() > 1) {
+                    *parameter_it += variable_it->second.front();
+                    function.parameters.insert(function.parameters.end(), std::next(variable_it->second.begin()), variable_it->second.end());
+                    parameter_it = std::prev(function.parameters.end());
+                  }
+                }
+              }
+              else
+                *parameter_it += src[i];
+            }
+            if(src[i] == ')')
+              return function;
+          }
         }
       }
-      pos = end_line + 1;
+    }
+    return {};
+  };
+
+  for(; forward_passed_whitespace(); ++i) {
+    if(parse_comment())
+      continue;
+    if(auto function = parse_function()) {
+      boost::algorithm::to_lower(function->name);
+      if(function->name == "set" && !function->parameters.empty() && !function->parameters.front().empty()) {
+        auto variable_name = std::move(function->parameters.front());
+        boost::algorithm::to_upper(variable_name);
+        function->parameters.erase(function->parameters.begin());
+        variables.emplace(std::move(variable_name), std::move(function->parameters));
+      }
+      else if(function->name == "project") {
+        if(!function->parameters.empty()) {
+          variables.emplace("CMAKE_PROJECT_NAME", function->parameters);
+          variables.emplace("PROJECT_NAME", function->parameters);
+        }
+      }
+      on_function(std::move(*function));
     }
   }
-  return functions;
 }

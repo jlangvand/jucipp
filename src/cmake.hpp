@@ -1,7 +1,7 @@
 #pragma once
 #include <boost/filesystem.hpp>
-#include <unordered_map>
-#include <unordered_set>
+#include <list>
+#include <map>
 #include <vector>
 
 class CMake {
@@ -16,15 +16,10 @@ public:
 
 private:
   std::vector<boost::filesystem::path> paths;
-  std::vector<std::string> files;
-  std::unordered_map<std::string, std::string> variables;
-  void read_files();
-  void remove_tabs();
-  void remove_comments();
-  void remove_newlines_inside_parentheses();
-  void parse_variable_parameters(std::string &data);
-  void parse();
-  std::vector<std::string> get_function_parameters(std::string &data);
-  std::vector<std::pair<boost::filesystem::path, std::vector<std::string>>> get_functions_parameters(const std::string &name);
-  bool parsed = false;
+
+  struct Function {
+    std::string name;
+    std::list<std::string> parameters;
+  };
+  static void parse_file(const std::string &src, std::map<std::string, std::list<std::string>> &variables, std::function<void(Function &&)> &&on_function);
 };

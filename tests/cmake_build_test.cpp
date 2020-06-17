@@ -5,10 +5,369 @@
 #include <boost/filesystem.hpp>
 #include <glib.h>
 
-#include <iostream>
-using namespace std;
-
 int main() {
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("", variables, [&called](CMake::Function && /*function*/) {
+      called = true;
+    });
+    g_assert(!called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("project(", variables, [&called](CMake::Function && /*function*/) {
+      called = true;
+    });
+    g_assert(!called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("project(test", variables, [&called](CMake::Function && /*function*/) {
+      called = true;
+    });
+    g_assert(!called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("project(test)", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "project");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "test");
+    });
+    g_assert(variables.size() == 2);
+    auto it = variables.begin();
+    g_assert(it->first == "CMAKE_PROJECT_NAME");
+    g_assert(it->second == std::list<std::string>{"test"});
+    ++it;
+    g_assert(it->first == "PROJECT_NAME");
+    g_assert(it->second == std::list<std::string>{"test"});
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("project(\"test\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "project");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "test");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("project(\"te\\\"st\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "project");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "te\"st");
+    });
+    g_assert(called);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST testing)\nadd_executable(${TEST} test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "testing");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(${})", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"${}\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test($TEST)", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "$TEST");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(${TEST})", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"$TEST\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "$TEST");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"${TEST}\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 1);
+      g_assert(function.parameters.front() == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(${TEST} ${TEST})", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"${TEST}\" \"${TEST}\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(${TEST} \"${TEST}\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"${TEST}\" ${TEST})", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(\"\" \"\")", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test(    \"\"   \"\"    )", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    bool called = false;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("test\n(\n\"\"\n\"\"\n)", variables, [&called](CMake::Function &&function) {
+      called = true;
+      g_assert(function.name == "test");
+      g_assert(function.parameters.size() == 2);
+      auto it = function.parameters.begin();
+      g_assert(*it == "");
+      g_assert(*(++it) == "");
+    });
+    g_assert(called);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST testing)\nadd_executable(test${TEST}test test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "testtestingtest");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST testing)\nadd_executable(\"${TEST}\" test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "testing");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST testing)\nadd_executable(\"test${TEST}test\" test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "testtestingtest");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST 1 2 3)\nadd_executable(\"${TEST}\" test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "1;2;3");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST 1 2 3)\nadd_executable(\"aaa${TEST}bbb\" test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 2);
+        auto it = function.parameters.begin();
+        g_assert(*it == "aaa1;2;3bbb");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST 1 2 3)\nadd_executable(${TEST} test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 4);
+        auto it = function.parameters.begin();
+        g_assert(*it == "1");
+        g_assert(*(++it) == "2");
+        g_assert(*(++it) == "3");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+  {
+    int called = 0;
+    std::map<std::string, std::list<std::string>> variables;
+    CMake::parse_file("set(TEST 1 2 3)\nadd_executable(aaa${TEST}bbb test.cpp)", variables, [&called](CMake::Function &&function) {
+      called++;
+      if(called == 1)
+        g_assert(function.name == "set");
+      else {
+        g_assert(function.name == "add_executable");
+        g_assert(function.parameters.size() == 4);
+        auto it = function.parameters.begin();
+        g_assert(*it == "aaa1");
+        g_assert(*(++it) == "2");
+        g_assert(*(++it) == "3bbb");
+        g_assert(*(++it) == "test.cpp");
+      }
+    });
+    g_assert(called == 2);
+  }
+
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
   {
     auto project_path = boost::filesystem::canonical(tests_path / "..");
@@ -32,9 +391,6 @@ int main() {
       CMake cmake(tests_path);
 
       g_assert(cmake.project_path == project_path);
-
-      auto functions_parameters = cmake.get_functions_parameters("project");
-      g_assert(functions_parameters.at(0).second.at(0) == "juci");
 
       g_assert(cmake.get_executable(project_path / "build", tests_path).parent_path() == project_path / "build" / "tests");
       g_assert(cmake.get_executable(project_path / "build", tests_path / "cmake_build_test.cpp") == project_path / "build" / "tests" / "cmake_build_test");

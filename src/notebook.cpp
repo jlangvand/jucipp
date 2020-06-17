@@ -675,10 +675,10 @@ void Notebook::clear_status() {
 
 Source::View *Notebook::get_view(size_t notebook_index, int page) {
   if(notebook_index >= notebooks.size())
-    throw "notebook index out of bounds";
+    throw std::out_of_range("notebook index out of bounds");
   auto widget = notebooks[notebook_index].get_nth_page(page);
   if(!widget)
-    throw "page number out of bounds";
+    throw std::out_of_range("page number out of bounds");
   auto hbox = dynamic_cast<Gtk::Box *>(widget);
   auto scrolled_window = dynamic_cast<Gtk::ScrolledWindow *>(hbox->get_children()[0]);
   return dynamic_cast<Source::View *>(scrolled_window->get_children()[0]);
@@ -694,7 +694,7 @@ size_t Notebook::get_index(Source::View *view) {
     if(source_views[c] == view)
       return c;
   }
-  throw "view not found";
+  throw std::out_of_range("view not found");
 }
 
 std::pair<size_t, int> Notebook::get_notebook_page(size_t index) {
@@ -703,16 +703,11 @@ std::pair<size_t, int> Notebook::get_notebook_page(size_t index) {
     if(page_num >= 0)
       return {c, page_num};
   }
-  throw "index out of bounds";
+  throw std::out_of_range("index out of bounds");
 }
 
 std::pair<size_t, int> Notebook::get_notebook_page(Source::View *view) {
-  try {
-    return get_notebook_page(get_index(view));
-  }
-  catch(...) {
-    throw "view not found";
-  }
+  return get_notebook_page(get_index(view));
 }
 
 void Notebook::set_current_view(Source::View *view) {
