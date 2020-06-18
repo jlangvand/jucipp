@@ -141,19 +141,21 @@ namespace Source {
     void cleanup_whitespace_characters(const Gtk::TextIter &iter);
 
     bool enable_multiple_cursors = false;
+    Glib::RefPtr<Gtk::TextTag> extra_cursor_selection;
 
     bool on_key_press_event(GdkEventKey *key) override;
     bool on_key_press_event_extra_cursors(GdkEventKey *key);
 
     struct ExtraCursor {
       Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
-      int offset;
+      /// Used when moving cursor up/down lines
+      int line_offset;
     };
     std::vector<ExtraCursor> extra_cursors;
 
     struct ExtraSnippetCursor {
-      Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
-      boost::optional<int> initial_forward_erase_size;
+      Glib::RefPtr<Gtk::TextBuffer::Mark> insert;
+      Glib::RefPtr<Gtk::TextBuffer::Mark> selection_bound;
     };
     std::vector<ExtraSnippetCursor> extra_snippet_cursors;
 
@@ -166,6 +168,7 @@ namespace Source {
     std::vector<Snippets::Snippet> *snippets GUARDED_BY(snippets_mutex) = nullptr;
     struct SnippetParameter {
       Glib::RefPtr<Gtk::TextBuffer::Mark> start, end;
+      /// Used to check if the parameter has been deleted, and should be passed on next tab
       int size;
     };
     std::list<std::vector<SnippetParameter>> snippet_parameters_list;

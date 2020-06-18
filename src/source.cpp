@@ -499,6 +499,16 @@ void Source::View::configure() {
   }
   //TODO: clear tag_class and param_spec?
 
+  style = scheme->get_style("selection");
+  if(style && style->property_foreground_set())
+    extra_cursor_selection->property_foreground() = style->property_foreground().get_value();
+  else
+    extra_cursor_selection->property_foreground_rgba() = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_SELECTED);
+  if(style && style->property_background_set())
+    extra_cursor_selection->property_background() = style->property_background().get_value();
+  else
+    extra_cursor_selection->property_background_rgba() = get_style_context()->get_background_color(Gtk::StateFlags::STATE_FLAG_SELECTED);
+
   if(Config::get().menu.keys["source_show_completion"].empty()) {
     get_completion()->unblock_interactive();
     interactive_completion = true;
