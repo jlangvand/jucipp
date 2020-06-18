@@ -142,18 +142,21 @@ namespace Source {
 
     bool enable_multiple_cursors = false;
 
+    bool on_key_press_event(GdkEventKey *key) override;
+    bool on_key_press_event_extra_cursors(GdkEventKey *key);
+
     struct ExtraCursor {
       Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
       int offset;
     };
     std::vector<ExtraCursor> extra_cursors;
+
     struct ExtraSnippetCursor {
       Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
       boost::optional<int> initial_forward_erase_size;
     };
-    bool on_key_press_event_extra_cursors(GdkEventKey *key);
-
     std::vector<ExtraSnippetCursor> extra_snippet_cursors;
+
     void setup_extra_cursor_signals();
     bool extra_cursors_signals_set = false;
 

@@ -2032,72 +2032,6 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
     }
   }
 
-  //Move cursor one paragraph down
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && (key->state & GDK_CONTROL_MASK) > 0) {
-    auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
-    auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
-    bool empty_line = false;
-    bool text_found = false;
-    for(;;) {
-      if(!iter)
-        break;
-      if(iter.starts_line())
-        empty_line = true;
-      if(empty_line && !iter.ends_line() && *iter != ' ' && *iter != '\t')
-        empty_line = false;
-      if(!text_found && !iter.ends_line() && *iter != ' ' && *iter != '\t')
-        text_found = true;
-      if(empty_line && text_found && iter.ends_line())
-        break;
-      iter.forward_char();
-    }
-    iter = get_buffer()->get_iter_at_line(iter.get_line());
-    if((key->state & GDK_SHIFT_MASK) > 0)
-      get_buffer()->select_range(iter, selection_start_iter);
-    else
-      get_buffer()->place_cursor(iter);
-    scroll_to(get_buffer()->get_insert());
-    return true;
-  }
-  //Move cursor one paragraph up
-  else if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && (key->state & GDK_CONTROL_MASK) > 0) {
-    auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
-    auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
-    iter.backward_char();
-    bool empty_line = false;
-    bool text_found = false;
-    bool move_to_start = false;
-    for(;;) {
-      if(!iter)
-        break;
-      if(iter.ends_line())
-        empty_line = true;
-      if(empty_line && !iter.ends_line() && *iter != ' ' && *iter != '\t')
-        empty_line = false;
-      if(!text_found && !iter.ends_line() && *iter != ' ' && *iter != '\t')
-        text_found = true;
-      if(empty_line && text_found && iter.starts_line())
-        break;
-      if(iter.is_start()) {
-        move_to_start = true;
-        break;
-      }
-      iter.backward_char();
-    }
-    if(empty_line && !move_to_start) {
-      iter = get_iter_at_line_end(iter.get_line());
-      iter.forward_char();
-      if(!iter.starts_line()) // For CR+LF
-        iter.forward_char();
-    }
-    if((key->state & GDK_SHIFT_MASK) > 0)
-      get_buffer()->select_range(iter, selection_start_iter);
-    else
-      get_buffer()->place_cursor(iter);
-    scroll_to(get_buffer()->get_insert());
-    return true;
-  }
-
   get_buffer()->begin_user_action();
 
   // Shift+enter: go to end of line and enter
@@ -2128,7 +2062,7 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
   }
   else {
     get_buffer()->end_user_action();
-    return Gsv::View::on_key_press_event(key);
+    return BaseView::on_key_press_event(key);
   }
 }
 
