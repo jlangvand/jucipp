@@ -2025,9 +2025,7 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
 
   if((key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab) && (key->state & GDK_SHIFT_MASK) == 0 && select_snippet_parameter())
     return true;
-  else if(key->keyval == GDK_KEY_Escape && clear_snippet_marks())
-    return true;
-  else if(Config::get().source.enable_multiple_cursors && on_key_press_event_extra_cursors(key))
+  if(on_key_press_event_extra_cursors(key))
     return true;
 
   {
@@ -2245,23 +2243,6 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
       get_buffer()->erase(insert_iter, iter);
       return true;
     }
-  }
-  // Smart Home/End-keys
-  else if((key->keyval == GDK_KEY_Home || key->keyval == GDK_KEY_KP_Home) && (key->state & GDK_CONTROL_MASK) == 0) {
-    if((key->state & GDK_SHIFT_MASK) > 0)
-      get_buffer()->move_mark_by_name("insert", get_smart_home_iter(iter));
-    else
-      get_buffer()->place_cursor(get_smart_home_iter(iter));
-    scroll_to(get_buffer()->get_insert());
-    return true;
-  }
-  else if((key->keyval == GDK_KEY_End || key->keyval == GDK_KEY_KP_End) && (key->state & GDK_CONTROL_MASK) == 0) {
-    if((key->state & GDK_SHIFT_MASK) > 0)
-      get_buffer()->move_mark_by_name("insert", get_smart_end_iter(iter));
-    else
-      get_buffer()->place_cursor(get_smart_end_iter(iter));
-    scroll_to(get_buffer()->get_insert());
-    return true;
   }
 
   // Workaround for TextView::on_key_press_event bug sometimes causing segmentation faults

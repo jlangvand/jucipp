@@ -146,18 +146,25 @@ namespace Source {
     bool on_key_press_event(GdkEventKey *key) override;
     bool on_key_press_event_extra_cursors(GdkEventKey *key);
 
-    struct ExtraCursor {
-      Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
-      /// Used when moving cursor up/down lines
-      int line_offset;
-    };
-    std::vector<ExtraCursor> extra_cursors;
+    class ExtraCursor {
+      Glib::RefPtr<Gtk::TextTag> extra_cursor_selection;
 
-    struct ExtraSnippetCursor {
+    public:
+      ExtraCursor(const Glib::RefPtr<Gtk::TextTag> &extra_cursor_selection, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, bool snippet, int line_offset = 0);
+      ExtraCursor(const Glib::RefPtr<Gtk::TextTag> &extra_cursor_selection, const Gtk::TextIter &start_iter, bool snippet, int line_offset = 0) : ExtraCursor(extra_cursor_selection, start_iter, start_iter, snippet, line_offset) {}
+      ~ExtraCursor();
+
+      void move(const Gtk::TextIter &iter, bool selection_activated);
+      void move_selection_bound(const Gtk::TextIter &iter);
+
       Glib::RefPtr<Gtk::TextBuffer::Mark> insert;
       Glib::RefPtr<Gtk::TextBuffer::Mark> selection_bound;
+      /// Used when moving cursor up/down lines
+      int line_offset;
+      /// Set to true when the extra cursor corresponds to a snippet parameter
+      bool snippet;
     };
-    std::vector<ExtraSnippetCursor> extra_snippet_cursors;
+    std::list<ExtraCursor> extra_cursors;
 
     void setup_extra_cursor_signals();
     bool extra_cursors_signals_set = false;

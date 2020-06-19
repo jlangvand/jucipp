@@ -281,8 +281,8 @@ void LanguageProtocol::Client::parse_server_message() {
 
       tmp.seekg(0, std::ios::end);
       if(tmp.tellg() > 0) {
+        tmp.seekg(0, std::ios::beg);
         server_message_stream = std::move(tmp);
-        server_message_stream.seekg(0, std::ios::beg);
         parse_server_message();
       }
     }
