@@ -148,15 +148,16 @@ void Autocomplete::setup_dialog() {
     reparse();
   };
 
-  CompletionDialog::get()->on_changed = [this](unsigned int index, const std::string &text) {
-    if(index >= rows.size()) {
+  CompletionDialog::get()->on_change = [this](boost::optional<unsigned int> index, const std::string &text) {
+    if(on_change)
+      on_change(index, text);
+
+    if(!index) {
       tooltips.hide();
       return;
     }
 
-    on_changed(index, text);
-
-    auto set_buffer = set_tooltip_buffer(index);
+    auto set_buffer = set_tooltip_buffer(*index);
     if(!set_buffer)
       tooltips.hide();
     else {
@@ -170,9 +171,7 @@ void Autocomplete::setup_dialog() {
   };
 
   CompletionDialog::get()->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    if(index >= rows.size())
-      return;
-
-    on_select(index, text, hide_window);
+    if(on_select)
+      on_select(index, text, hide_window);
   };
 }

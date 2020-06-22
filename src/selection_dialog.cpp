@@ -155,11 +155,11 @@ void SelectionDialogBase::cursor_changed() {
     index = it->get_value(list_view_text.column_record.index);
   if(last_index == index)
     return;
-  if(on_changed) {
+  if(on_change) {
     std::string text;
     if(it)
       text = it->get_value(list_view_text.column_record.text);
-    on_changed(index.value_or(-1), text);
+    on_change(index, text);
   }
   last_index = index;
 }
@@ -288,8 +288,12 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
   }
   else if(key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter || key->keyval == GDK_KEY_ISO_Left_Tab || key->keyval == GDK_KEY_Tab) {
     auto it = list_view_text.get_selection()->get_selected();
-    auto column = list_view_text.get_column(0);
-    list_view_text.row_activated(list_view_text.get_model()->get_path(it), *column);
+    if(it) {
+      auto column = list_view_text.get_column(0);
+      list_view_text.row_activated(list_view_text.get_model()->get_path(it), *column);
+    }
+    else
+      hide();
     return true;
   }
   else if(key->keyval == GDK_KEY_Escape) {

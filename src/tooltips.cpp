@@ -803,7 +803,7 @@ void Tooltips::show(bool disregard_drawn) {
   }
 }
 
-void Tooltips::hide(boost::optional<std::pair<int, int>> last_mouse_pos, boost::optional<std::pair<int, int>> mouse_pos) {
+void Tooltips::hide(const boost::optional<std::pair<int, int>> &last_mouse_pos, const boost::optional<std::pair<int, int>> &mouse_pos) {
   for(auto &tooltip : tooltip_list)
     tooltip.hide(last_mouse_pos, mouse_pos);
 }

@@ -923,8 +923,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     code_complete_results = nullptr;
   };
 
-  autocomplete.on_changed = [this](unsigned int index, const std::string &text) {
-    selected_completion_string = completion_strings[index];
+  autocomplete.on_change = [this](boost::optional<unsigned int> index, const std::string &text) {
+    selected_completion_string = index ? completion_strings[*index] : nullptr;
   };
 
   autocomplete.on_select = [this](unsigned int index, const std::string &text, bool hide_window) {

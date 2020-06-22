@@ -50,8 +50,8 @@ public:
 
   std::function<void()> on_show;
   std::function<void()> on_hide;
+  std::function<void(boost::optional<unsigned int> index, const std::string &text)> on_change;
   std::function<void(unsigned int index, const std::string &text, bool hide_window)> on_select;
-  std::function<void(unsigned int index, const std::string &text)> on_changed;
   std::function<void(const std::string &text)> on_search_entry_changed;
   Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark;
 

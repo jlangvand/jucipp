@@ -211,8 +211,8 @@ void LanguageProtocol::Client::parse_server_message() {
   if(header_read) {
     server_message_stream.seekg(0, std::ios::end);
     size_t read_size = server_message_stream.tellg();
-    std::stringstream tmp;
     if(read_size >= *server_message_size) {
+      std::stringstream tmp;
       if(read_size > *server_message_size) {
         server_message_stream.seekg(*server_message_size, std::ios::beg);
         server_message_stream.seekp(*server_message_size, std::ios::beg);

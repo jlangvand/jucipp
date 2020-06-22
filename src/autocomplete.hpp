@@ -3,6 +3,7 @@
 #include "mutex.hpp"
 #include "tooltips.hpp"
 #include <atomic>
+#include <boost/optional.hpp>
 #include <thread>
 
 class Autocomplete {
@@ -46,8 +47,8 @@ public:
 
   std::function<void()> on_show = [] {};
   std::function<void()> on_hide = [] {};
-  std::function<void(unsigned int, const std::string &)> on_changed = [](unsigned int index, const std::string &text) {};
-  std::function<void(unsigned int, const std::string &, bool)> on_select = [](unsigned int index, const std::string &text, bool hide_window) {};
+  std::function<void(boost::optional<unsigned int>, const std::string &)> on_change;
+  std::function<void(unsigned int, const std::string &, bool)> on_select;
 
   std::function<std::function<void(Tooltip &tooltip)>(unsigned int)> set_tooltip_buffer = [](unsigned int index) { return nullptr; };
 

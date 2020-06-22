@@ -62,7 +62,7 @@ public:
 
   void show(const Gdk::Rectangle &rectangle, bool disregard_drawn = false);
   void show(bool disregard_drawn = false);
-  void hide(boost::optional<std::pair<int, int>> last_mouse_pos = {}, boost::optional<std::pair<int, int>> mouse_pos = {});
+  void hide(const boost::optional<std::pair<int, int>> &last_mouse_pos = {}, const boost::optional<std::pair<int, int>> &mouse_pos = {});
   void clear() { tooltip_list.clear(); };
 
   template <typename... Ts>

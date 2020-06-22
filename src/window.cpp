@@ -963,8 +963,6 @@ void Window::set_menu_actions() {
     }
 
     SelectionDialog::get()->on_select = [paths = std::move(paths)](unsigned int index, const std::string &text, bool hide_window) {
-      if(index >= paths.size())
-        return;
       if(Notebook::get().open(paths[index])) {
         auto view = Notebook::get().get_current_view();
         view->hide_tooltips();
@@ -1117,8 +1115,6 @@ void Window::set_menu_actions() {
         return;
       }
       SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-        if(index >= rows.size())
-          return;
         auto location = rows[index];
         boost::system::error_code ec;
         if(!boost::filesystem::is_regular_file(location.file_path, ec))
@@ -1177,8 +1173,6 @@ void Window::set_menu_actions() {
           if(rows.size() == 0)
             return;
           SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-            if(index >= rows.size())
-              return;
             auto offset = rows[index];
             boost::system::error_code ec;
             if(!boost::filesystem::is_regular_file(offset.file_path, ec))
@@ -1210,8 +1204,6 @@ void Window::set_menu_actions() {
               SelectionDialog::get()->set_cursor_at_last_row();
           }
           SelectionDialog::get()->on_select = [view, rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-            if(index >= rows.size())
-              return;
             auto offset = rows[index];
             view->get_buffer()->place_cursor(view->get_iter_at_line_pos(offset.line, offset.index));
             view->scroll_to(view->get_buffer()->get_insert(), 0.0, 1.0, 0.5);
@@ -1572,8 +1564,6 @@ void Window::set_menu_actions() {
     }
 
     SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-      if(index >= rows.size())
-        return;
       if(Notebook::get().open(rows[index].file_path)) {
         auto view = Notebook::get().get_current_view();
         view->place_cursor_at_line_pos(rows[index].line, rows[index].index);

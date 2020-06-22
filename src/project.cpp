@@ -245,8 +245,6 @@ void Project::Base::show_symbols() {
   if(rows.size() == 0)
     return;
   SelectionDialog::get()->on_select = [rows = std::move(rows), project_path = std::move(ctags.project_path)](unsigned int index, const std::string &text, bool hide_window) {
-    if(index >= rows.size())
-      return;
     auto offset = rows[index];
     auto full_path = project_path / offset.file_path;
     boost::system::error_code ec;
@@ -556,8 +554,6 @@ void Project::LLDB::debug_backtrace() {
     }
 
     SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-      if(index >= rows.size())
-        return;
       auto frame = rows[index];
       if(!frame.file_path.empty()) {
         if(Notebook::get().open(frame.file_path)) {
@@ -597,8 +593,6 @@ void Project::LLDB::debug_show_variables() {
     }
 
     SelectionDialog::get()->on_select = [rows](unsigned int index, const std::string &text, bool hide_window) {
-      if(index >= rows->size())
-        return;
       auto variable = (*rows)[index];
       Debug::LLDB::get().select_frame(variable.frame_index, variable.thread_index_id);
       if(!variable.file_path.empty()) {
@@ -617,15 +611,15 @@ void Project::LLDB::debug_show_variables() {
       self->debug_variable_tooltips.clear();
     };
 
-    SelectionDialog::get()->on_changed = [self = this->shared_from_this(), rows, view](unsigned int index, const std::string &text) {
-      if(index >= rows->size()) {
+    SelectionDialog::get()->on_change = [self = this->shared_from_this(), rows, view](boost::optional<unsigned int> index, const std::string &text) {
+      if(!index) {
         self->debug_variable_tooltips.hide();
         return;
       }
       self->debug_variable_tooltips.clear();
 
       auto set_tooltip_buffer = [rows, index](Tooltip &tooltip) {
-        auto variable = (*rows)[index];
+        auto variable = (*rows)[*index];
 
         Glib::ustring value = variable.value;
         if(!value.empty()) {
