@@ -386,16 +386,10 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       auto prev_it = cursor_locations.begin();
       for(auto it = std::next(prev_it); it != cursor_locations.end();) {
         if(prev_it->view == it->view && abs(prev_it->mark->get_iter().get_line() - it->mark->get_iter().get_line()) <= 2) {
-          if(current_cursor_location == it) {
-            prev_it->view->get_buffer()->delete_mark(prev_it->mark);
-            cursor_locations.erase(prev_it);
-            prev_it = it;
-            ++it;
-          }
-          else {
-            it->view->get_buffer()->delete_mark(it->mark);
-            it = cursor_locations.erase(it);
-          }
+          if(current_cursor_location == it)
+            current_cursor_location = prev_it;
+          it->view->get_buffer()->delete_mark(it->mark);
+          it = cursor_locations.erase(it);
         }
         else {
           ++it;
