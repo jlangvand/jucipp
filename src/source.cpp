@@ -628,7 +628,7 @@ void Source::View::setup_signals() {
     return false;
   });
 
-  get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     auto mark_name = mark->get_name();
 
     if(get_buffer()->get_has_selection() && mark_name == "selection_bound")

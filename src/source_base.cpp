@@ -181,7 +181,7 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 
   extra_cursor_selection = get_buffer()->create_tag();
 
-  get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
       keep_clipboard = false;
     }
@@ -1207,7 +1207,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
 
   auto last_insert = get_buffer()->create_mark(get_buffer()->get_insert()->get_iter(), false);
   auto last_selection_bound = get_buffer()->create_mark(get_buffer()->get_selection_bound()->get_iter(), false);
-  get_buffer()->signal_mark_set().connect([this, last_insert, last_selection_bound](const Gtk::TextBuffer::iterator &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) mutable {
+  get_buffer()->signal_mark_set().connect([this, last_insert, last_selection_bound](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) mutable {
     auto is_insert = mark->get_name() == "insert";
     if(is_insert && !keep_snippet_marks)
       clear_snippet_marks();
@@ -1253,7 +1253,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
     }
   });
 
-  get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::ustring &text, int bytes) {
+  get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int bytes) {
     if(enable_multiple_cursors && !extra_cursors.empty()) {
       enable_multiple_cursors = false;
       auto offset = iter.get_offset() - get_buffer()->get_insert()->get_iter().get_offset();
@@ -1278,7 +1278,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
   auto erase_backward_length = std::make_shared<int>(0);
   auto erase_forward_length = std::make_shared<int>(0);
   auto erase_selection = std::make_shared<bool>(false);
-  get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextBuffer::iterator &iter_start, const Gtk::TextBuffer::iterator &iter_end) {
+  get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter &iter_start, const Gtk::TextIter &iter_end) {
     if(enable_multiple_cursors && (!extra_cursors.empty())) {
       auto insert_offset = get_buffer()->get_insert()->get_iter().get_offset();
       *erase_backward_length = insert_offset - iter_start.get_offset();
@@ -1298,7 +1298,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
       }
     }
   }, false);
-  get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextBuffer::iterator & /*iter_start*/, const Gtk::TextBuffer::iterator & /*iter_end*/) {
+  get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter & /*iter_start*/, const Gtk::TextIter & /*iter_end*/) {
     if(enable_multiple_cursors && (*erase_backward_length != 0 || *erase_forward_length != 0)) {
       enable_multiple_cursors = false;
       for(auto &extra_cursor : extra_cursors) {

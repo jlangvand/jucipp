@@ -118,7 +118,7 @@ void Source::DiffView::configure() {
   parse_stop = false;
   monitor_changed = false;
 
-  buffer_insert_connection = get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &iter, const Glib::ustring &text, int) {
+  buffer_insert_connection = get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int) {
     //Do not perform git diff if no newline is added and line is already marked as added
     if(!iter.starts_line() && iter.has_tag(renderer->tag_added)) {
       bool newline = false;
@@ -147,7 +147,7 @@ void Source::DiffView::configure() {
     }, 250);
   }, false);
 
-  buffer_erase_connection = get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start_iter, const Gtk::TextBuffer::iterator &end_iter) {
+  buffer_erase_connection = get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
     //Do not perform git diff if start_iter and end_iter is at the same line in addition to the line is tagged added
     if(start_iter.get_line() == end_iter.get_line() && start_iter.has_tag(renderer->tag_added))
       return;

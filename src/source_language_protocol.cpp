@@ -1325,13 +1325,13 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
 
 void Source::LanguageProtocolView::setup_signals() {
   if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
-    get_buffer()->signal_insert().connect([this](const Gtk::TextBuffer::iterator &start, const Glib::ustring &text_, int bytes) {
+    get_buffer()->signal_insert().connect([this](const Gtk::TextIter &start, const Glib::ustring &text_, int bytes) {
       std::string text = text_;
       escape_text(text);
       client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
     }, false);
 
-    get_buffer()->signal_erase().connect([this](const Gtk::TextBuffer::iterator &start, const Gtk::TextBuffer::iterator &end) {
+    get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
       client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
     }, false);
   }

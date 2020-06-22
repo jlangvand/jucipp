@@ -339,7 +339,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       cursor_locations.erase(it);
     }
   };
-  view->get_buffer()->signal_mark_set().connect([this, view, add_cursor_location](const Gtk::TextBuffer::iterator & /*iter*/, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  view->get_buffer()->signal_mark_set().connect([this, view, add_cursor_location](const Gtk::TextIter & /*iter*/, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
       if(disable_next_update_cursor_locations) {
         disable_next_update_cursor_locations = false;
@@ -373,11 +373,11 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       add_cursor_location(iter);
     }
   });
-  view->get_buffer()->signal_insert().connect([this, view, add_cursor_location](const Gtk::TextBuffer::iterator & /*iter*/, const Glib::ustring & /*text*/, int /*bytes*/) {
+  view->get_buffer()->signal_insert().connect([this, view, add_cursor_location](const Gtk::TextIter & /*iter*/, const Glib::ustring & /*text*/, int /*bytes*/) {
     if(current_cursor_location == cursor_locations.end() || current_cursor_location->view != view)
       add_cursor_location(view->get_buffer()->get_insert()->get_iter());
   });
-  view->get_buffer()->signal_erase().connect([this, view, add_cursor_location](const Gtk::TextBuffer::iterator & /*start*/, const Gtk::TextBuffer::iterator & /*end*/) {
+  view->get_buffer()->signal_erase().connect([this, view, add_cursor_location](const Gtk::TextIter & /*start*/, const Gtk::TextIter & /*end*/) {
     if(current_cursor_location == cursor_locations.end() || current_cursor_location->view != view)
       add_cursor_location(view->get_buffer()->get_insert()->get_iter());
 

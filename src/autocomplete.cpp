@@ -20,7 +20,7 @@ Autocomplete::Autocomplete(Gtk::TextView *view, bool &interactive_completion, gu
     }
   });
 
-  view->get_buffer()->signal_mark_set().connect([this](const Gtk::TextBuffer::iterator &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
+  view->get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert")
       stop();
   });
