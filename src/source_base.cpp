@@ -1213,8 +1213,10 @@ void Source::BaseView::setup_extra_cursor_signals() {
       clear_snippet_marks();
 
     if(is_insert) {
-      if(enable_multiple_cursors) {
-        enable_multiple_cursors = false;
+      if(enable_multiple_cursors || enable_multiple_cursors_placements) {
+        auto set_enable_multiple_cursors = enable_multiple_cursors;
+        if(set_enable_multiple_cursors)
+          enable_multiple_cursors = false;
         auto offset_diff = mark->get_iter().get_offset() - last_insert->get_iter().get_offset();
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
@@ -1224,14 +1226,17 @@ void Source::BaseView::setup_extra_cursor_signals() {
             extra_cursor.line_offset = iter.get_line_offset();
           }
         }
-        enable_multiple_cursors = true;
+        if(set_enable_multiple_cursors)
+          enable_multiple_cursors = true;
       }
       get_buffer()->move_mark(last_insert, mark->get_iter());
     }
 
     if(mark->get_name() == "selection_bound") {
-      if(enable_multiple_cursors) {
-        enable_multiple_cursors = false;
+      if(enable_multiple_cursors || enable_multiple_cursors_placements) {
+        auto set_enable_multiple_cursors = enable_multiple_cursors;
+        if(set_enable_multiple_cursors)
+          enable_multiple_cursors = false;
         auto offset_diff = mark->get_iter().get_offset() - last_selection_bound->get_iter().get_offset();
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
@@ -1241,7 +1246,8 @@ void Source::BaseView::setup_extra_cursor_signals() {
             extra_cursor.move_selection_bound(iter);
           }
         }
-        enable_multiple_cursors = true;
+        if(set_enable_multiple_cursors)
+          enable_multiple_cursors = true;
       }
       get_buffer()->move_mark(last_selection_bound, mark->get_iter());
     }

@@ -141,6 +141,11 @@ namespace Source {
     void cleanup_whitespace_characters(const Gtk::TextIter &iter);
 
     bool enable_multiple_cursors = false;
+
+  public:
+    bool enable_multiple_cursors_placements = false;
+
+  protected:
     Glib::RefPtr<Gtk::TextTag> extra_cursor_selection;
 
     bool on_key_press_event(GdkEventKey *key) override;

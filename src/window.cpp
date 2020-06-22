@@ -543,8 +543,10 @@ void Window::set_menu_actions() {
       auto undo_manager = view->get_source_buffer()->get_undo_manager();
       if(undo_manager->can_undo()) {
         view->disable_spellcheck = true;
+        view->enable_multiple_cursors_placements = true;
         undo_manager->undo();
         view->disable_spellcheck = false;
+        view->enable_multiple_cursors_placements = false;
         view->hide_tooltips();
         view->scroll_to(view->get_buffer()->get_insert());
       }
@@ -555,8 +557,10 @@ void Window::set_menu_actions() {
       auto undo_manager = view->get_source_buffer()->get_undo_manager();
       if(undo_manager->can_redo()) {
         view->disable_spellcheck = true;
+        view->enable_multiple_cursors_placements = true;
         undo_manager->redo();
         view->disable_spellcheck = false;
+        view->enable_multiple_cursors_placements = false;
         view->hide_tooltips();
         view->scroll_to(view->get_buffer()->get_insert());
       }
