@@ -1,11 +1,14 @@
-# <img alt="juCi++" src="share/juci.png" />
+<img alt="juCi++" src="share/juci.png" />
 
-###### juCi++: a lightweight, platform independent C++-IDE with support for C++11, C++14, C++17, and C++20 features depending on libclang version.
-<!--<img src="https://gitlab.com/cppit/jucipp/raw/master/docs/images/screenshot3.png"/>-->
 ## About
-Current IDEs struggle with C++ support due to the complexity of
-the programming language. juCI++, however, is designed especially 
-towards libclang with speed, stability, and ease of use in mind. 
+In 2015, juCi++ was one of the first IDEs to utilize libclang for improved C/C++ tooling.
+The integrated C/C++ support has since then improved steadily, and support for other
+languages has been made possible through the language server protocol. The main goals of juCi++ is
+effective resource usage, stability, and ease of use. Instead of relying on 3rd party addons,
+features expected in an IDE is instead integrated directly into juCi++.
+
+For effective development, juCi++ is primarily written for Unix/Linux systems. However, Windows users
+can use juCi++ through POSIX compatibility layers such as MSYS2.
 
 ## Features
 * Platform independent
