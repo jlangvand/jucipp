@@ -1542,7 +1542,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
       start.forward_chars(offsets.first);
       auto end = start;
       end.forward_chars(offsets.second);
-      snippet_parameters_list.back().emplace_back(SnippetParameter{get_buffer()->create_mark(start, false), get_buffer()->create_mark(end, false), end.get_offset() - start.get_offset()});
+      snippet_parameters_list.back().emplace_back(start, end);
     }
   }
 
@@ -1599,8 +1599,6 @@ bool Source::BaseView::select_snippet_parameter() {
 
         setup_extra_cursor_signals();
       }
-      get_buffer()->delete_mark(snippet_parameter.start);
-      get_buffer()->delete_mark(snippet_parameter.end);
     }
     snippet_parameters_list.erase(snippet_parameters_it);
     return true;
@@ -1612,12 +1610,6 @@ bool Source::BaseView::clear_snippet_marks() {
   bool cleared = false;
 
   if(!snippet_parameters_list.empty()) {
-    for(auto &snippet_parameters : snippet_parameters_list) {
-      for(auto &snippet_parameter : snippet_parameters) {
-        get_buffer()->delete_mark(snippet_parameter.start);
-        get_buffer()->delete_mark(snippet_parameter.end);
-      }
-    }
     snippet_parameters_list.clear();
     cleared = true;
   }
@@ -1640,7 +1632,7 @@ bool Source::BaseView::clear_snippet_marks() {
 Source::BaseView::ExtraCursor::ExtraCursor(const Glib::RefPtr<Gtk::TextTag> &extra_cursor_selection, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, bool snippet, int line_offset)
     : extra_cursor_selection(extra_cursor_selection),
       insert(start_iter.get_buffer()->create_mark(start_iter, false)),
-      selection_bound(start_iter.get_buffer()->create_mark(end_iter, false)),
+      selection_bound(end_iter.get_buffer()->create_mark(end_iter, false)),
       line_offset(line_offset), snippet(snippet) {
   insert->set_visible(true);
   if(start_iter != end_iter)

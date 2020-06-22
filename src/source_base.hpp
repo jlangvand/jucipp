@@ -178,12 +178,19 @@ namespace Source {
     bool keep_snippet_marks = false;
     Mutex snippets_mutex;
     std::vector<Snippets::Snippet> *snippets GUARDED_BY(snippets_mutex) = nullptr;
-    struct SnippetParameter {
+    class SnippetParameter {
+    public:
+      SnippetParameter(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter)
+          : start(start_iter.get_buffer()->create_mark(start_iter, false)), end(end_iter.get_buffer()->create_mark(end_iter, false)), size(end_iter.get_offset() - start_iter.get_offset()) {}
+      ~SnippetParameter() {
+        start->get_buffer()->delete_mark(start);
+        end->get_buffer()->delete_mark(end);
+      }
       Glib::RefPtr<Gtk::TextBuffer::Mark> start, end;
       /// Used to check if the parameter has been deleted, and should be passed on next tab
       int size;
     };
-    std::list<std::vector<SnippetParameter>> snippet_parameters_list;
+    std::list<std::list<SnippetParameter>> snippet_parameters_list;
     Glib::RefPtr<Gtk::TextTag> snippet_parameter_tag;
     void insert_snippet(Gtk::TextIter iter, const std::string &snippet);
     bool select_snippet_parameter();
