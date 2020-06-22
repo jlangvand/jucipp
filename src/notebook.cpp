@@ -327,17 +327,12 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   auto add_cursor_location = [this, view](const Gtk::TextIter &iter) {
     if(current_cursor_location != cursor_locations.end()) {
       // Remove history newer than current (create new history branch)
-      for(auto it = std::next(current_cursor_location); it != cursor_locations.end();) {
-        it->view->get_buffer()->delete_mark(it->mark);
+      for(auto it = std::next(current_cursor_location); it != cursor_locations.end();)
         it = cursor_locations.erase(it);
-      }
     }
-    current_cursor_location = cursor_locations.emplace(cursor_locations.end(), view, view->get_buffer()->create_mark(iter, false));
-    if(cursor_locations.size() > 10) {
-      auto it = cursor_locations.begin();
-      it->view->get_buffer()->delete_mark(it->mark);
-      cursor_locations.erase(it);
-    }
+    current_cursor_location = cursor_locations.emplace(cursor_locations.end(), view, iter);
+    if(cursor_locations.size() > 10)
+      cursor_locations.erase(cursor_locations.begin());
   };
   view->get_buffer()->signal_mark_set().connect([this, view, add_cursor_location](const Gtk::TextIter & /*iter*/, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
@@ -354,17 +349,13 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
           // Combine cursor histories adjacent and similar to current cursor
           auto it = std::next(current_cursor_location);
           if(it != cursor_locations.end()) {
-            if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2) {
-              it->view->get_buffer()->delete_mark(it->mark);
+            if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2)
               cursor_locations.erase(it);
-            }
           }
           if(current_cursor_location != cursor_locations.begin()) {
             it = std::prev(current_cursor_location);
-            if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2) {
-              it->view->get_buffer()->delete_mark(it->mark);
+            if(it->view == current_cursor_location->view && abs(it->mark->get_iter().get_line() - current_cursor_location->mark->get_iter().get_line()) <= 2)
               cursor_locations.erase(it);
-            }
           }
 
           return;
@@ -388,7 +379,6 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
         if(prev_it->view == it->view && abs(prev_it->mark->get_iter().get_line() - it->mark->get_iter().get_line()) <= 2) {
           if(current_cursor_location == it)
             current_cursor_location = prev_it;
-          it->view->get_buffer()->delete_mark(it->mark);
           it = cursor_locations.erase(it);
         }
         else {
@@ -563,7 +553,6 @@ void Notebook::delete_cursor_locations(Source::View *view) {
     if(it->view == view) {
       if(current_cursor_location != cursor_locations.end() && current_cursor_location->view == view)
         current_cursor_location = cursor_locations.end();
-      it->view->get_buffer()->delete_mark(it->mark);
       it = cursor_locations.erase(it);
     }
     else
