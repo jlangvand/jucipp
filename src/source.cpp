@@ -1619,7 +1619,7 @@ void Source::View::add_diagnostic_tooltip(const Gtk::TextIter &start, const Gtk:
 
   std::string severity_tag_name = error ? "def:error" : "def:warning";
 
-  diagnostic_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [error, severity_tag_name, set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
+  diagnostic_tooltips.emplace_back(this, start, end, [error, severity_tag_name, set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
     tooltip.buffer->insert_with_tag(tooltip.buffer->get_insert()->get_iter(), error ? "Error" : "Warning", severity_tag_name);
     tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), ":\n");
     set_buffer(tooltip);

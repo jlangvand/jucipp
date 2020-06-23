@@ -11,9 +11,11 @@
 std::set<Tooltip *> Tooltips::shown_tooltips;
 Gdk::Rectangle Tooltips::drawn_tooltips_rectangle = Gdk::Rectangle();
 
-Tooltip::Tooltip(Gtk::TextView *text_view, Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark_,
-                 Glib::RefPtr<Gtk::TextBuffer::Mark> end_mark_, std::function<void(Tooltip &toolip)> set_buffer_)
-    : start_mark(std::move(start_mark_)), end_mark(std::move(end_mark_)), text_view(text_view), set_buffer(std::move(set_buffer_)) {}
+Tooltip::Tooltip(Gtk::TextView *text_view, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, std::function<void(Tooltip &toolip)> set_buffer_)
+    : start_mark(start_iter.get_buffer()->create_mark(start_iter)), end_mark(end_iter.get_buffer()->create_mark(end_iter)), text_view(text_view), set_buffer(std::move(set_buffer_)) {}
+
+Tooltip::Tooltip(std::function<void(Tooltip &)> set_buffer_)
+    : text_view(nullptr), set_buffer(std::move(set_buffer_)) {}
 
 Tooltip::~Tooltip() {
   Tooltips::shown_tooltips.erase(this);

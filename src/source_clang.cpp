@@ -509,7 +509,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
             auto start = get_buffer()->get_iter_at_line_index(token_offsets.first.line - 1, token_offsets.first.index - 1);
             auto end = get_buffer()->get_iter_at_line_index(token_offsets.second.line - 1, token_offsets.second.index - 1);
 
-            type_tooltips.emplace_back(this, get_buffer()->create_mark(start), get_buffer()->create_mark(end), [this, token](Tooltip &tooltip) {
+            type_tooltips.emplace_back(this, start, end, [this, token](Tooltip &tooltip) {
               auto cursor = token.get_cursor();
               tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
               auto brief_comment = cursor.get_brief_comments();

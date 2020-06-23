@@ -104,7 +104,7 @@ void Autocomplete::run() {
               reparse();
               return;
             }
-            CompletionDialog::create(view, view->get_buffer()->create_mark(start_iter));
+            CompletionDialog::create(view, start_iter);
             setup_dialog();
             for(auto &row : rows) {
               CompletionDialog::get()->add_row(row);
@@ -163,7 +163,7 @@ void Autocomplete::setup_dialog() {
     else {
       tooltips.clear();
       auto iter = CompletionDialog::get()->start_mark->get_iter();
-      tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), [set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
+      tooltips.emplace_back(view, iter, iter, [set_buffer = std::move(set_buffer)](Tooltip &tooltip) {
         set_buffer(tooltip);
       });
       tooltips.show(true);

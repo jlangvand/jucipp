@@ -35,8 +35,8 @@ void SelectionDialogBase::ListViewText::clear() {
   size = 0;
 }
 
-SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const Glib::RefPtr<Gtk::TextBuffer::Mark> &start_mark, bool show_search_entry, bool use_markup)
-    : start_mark(start_mark), text_view(text_view), window(Gtk::WindowType::WINDOW_POPUP), vbox(Gtk::Orientation::ORIENTATION_VERTICAL), list_view_text(use_markup), show_search_entry(show_search_entry) {
+SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup)
+    : start_mark(start_iter ? start_iter->get_buffer()->create_mark(*start_iter) : Glib::RefPtr<Gtk::TextBuffer::Mark>()), text_view(text_view), window(Gtk::WindowType::WINDOW_POPUP), vbox(Gtk::Orientation::ORIENTATION_VERTICAL), list_view_text(use_markup), show_search_entry(show_search_entry) {
   auto g_application = g_application_get_default();
   auto gio_application = Glib::wrap(g_application, true);
   auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
@@ -213,8 +213,8 @@ void SelectionDialogBase::hide() {
 
 std::unique_ptr<SelectionDialog> SelectionDialog::instance;
 
-SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const Glib::RefPtr<Gtk::TextBuffer::Mark> &start_mark, bool show_search_entry, bool use_markup)
-    : SelectionDialogBase(text_view, start_mark, show_search_entry, use_markup) {
+SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup)
+    : SelectionDialogBase(text_view, start_iter, show_search_entry, use_markup) {
   auto search_key = std::make_shared<std::string>();
   auto filter_model = Gtk::TreeModelFilter::create(list_view_text.get_model());
 
@@ -342,7 +342,7 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
 
 std::unique_ptr<CompletionDialog> CompletionDialog::instance;
 
-CompletionDialog::CompletionDialog(Gtk::TextView *text_view, const Glib::RefPtr<Gtk::TextBuffer::Mark> &start_mark) : SelectionDialogBase(text_view, start_mark, false, false) {
+CompletionDialog::CompletionDialog(Gtk::TextView *text_view, const Gtk::TextIter &start_iter) : SelectionDialogBase(text_view, start_iter, false, false) {
   show_offset = text_view->get_buffer()->get_insert()->get_iter().get_offset();
 
   auto search_key = std::make_shared<std::string>();

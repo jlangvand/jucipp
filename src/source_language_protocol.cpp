@@ -1096,7 +1096,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
   }
 
   for(auto &mark : type_coverage_marks) {
-    add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](Tooltip &tooltip) {
+    add_diagnostic_tooltip(mark.start->get_iter(), mark.end->get_iter(), false, [](Tooltip &tooltip) {
       tooltip.buffer->insert_at_cursor(type_coverage_message);
     });
     num_warnings++;
@@ -1172,7 +1172,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           type_tooltips.clear();
 
           auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
-          type_tooltips.emplace_back(this, get_buffer()->create_mark(token_iters.first), get_buffer()->create_mark(token_iters.second), [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
+          type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
             for(size_t i = 0; i < contents.size(); i++) {
               if(i > 0)
                 tooltip.buffer->insert_at_cursor("\n\n");
@@ -1735,15 +1735,11 @@ void Source::LanguageProtocolView::update_type_coverage() {
       }
 
       dispatcher.post([this, ranges = std::move(ranges)] {
-        for(auto &mark : type_coverage_marks) {
-          get_buffer()->delete_mark(mark.first);
-          get_buffer()->delete_mark(mark.second);
-        }
         type_coverage_marks.clear();
         for(auto &range : ranges) {
           auto start = get_iter_at_line_pos(range.start.line, range.start.character);
           auto end = get_iter_at_line_pos(range.end.line, range.end.character);
-          type_coverage_marks.emplace_back(get_buffer()->create_mark(start), get_buffer()->create_mark(end));
+          type_coverage_marks.emplace_back(start, end);
         }
 
         update_diagnostics(last_diagnostics);

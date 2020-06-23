@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "filesystem.hpp"
 #include "source.hpp"
 #include <glib.h>
@@ -695,6 +696,39 @@ int main() {
       buffer->set_text("");
       view.insert_snippet(buffer->get_insert()->get_iter(), "\\test\\");
       g_assert(buffer->get_text() == "\\test\\");
+    }
+    {
+      Config::get().source.enable_multiple_cursors = true;
+      buffer->set_text("\n");
+      buffer->place_cursor(buffer->begin());
+      event.keyval = GDK_KEY_Down;
+      event.state = GDK_MOD1_MASK;
+      view.on_key_press_event(&event);
+      event.state = 0;
+
+      view.enable_multiple_cursors = true;
+      view.insert_snippet(buffer->get_insert()->get_iter(), "\\begin{${1:enumerate}}\n  $0\n\\end{${1:enum}}");
+      g_assert(buffer->get_text() == "\\begin{enumerate}\n  \n\\end{enum}\n\\begin{enumerate}\n  \n\\end{enum}");
+      Gtk::TextIter start, end;
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_offset() == 7);
+      g_assert(end.get_offset() == 16);
+
+      event.keyval = GDK_KEY_t;
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "\\begin{t}\n  \n\\end{t}\n\\begin{t}\n  \n\\end{t}");
+      event.keyval = GDK_KEY_e;
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "\\begin{te}\n  \n\\end{te}\n\\begin{te}\n  \n\\end{te}");
+
+      event.keyval = GDK_KEY_Tab;
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "\\begin{te}\n  \n\\end{te}\n\\begin{te}\n  \n\\end{te}");
+      g_assert(buffer->get_insert()->get_iter().get_offset() == 13);
+
+      event.keyval = GDK_KEY_t;
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "\\begin{te}\n  t\n\\end{te}\n\\begin{te}\n  t\n\\end{te}");
     }
   }
 }

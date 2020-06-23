@@ -634,7 +634,7 @@ void Project::LLDB::debug_show_variables() {
       };
       if(view) {
         auto iter = view->get_buffer()->get_insert()->get_iter();
-        self->debug_variable_tooltips.emplace_back(view, view->get_buffer()->create_mark(iter), view->get_buffer()->create_mark(iter), std::move(set_tooltip_buffer));
+        self->debug_variable_tooltips.emplace_back(view, iter, iter, std::move(set_tooltip_buffer));
       }
       else
         self->debug_variable_tooltips.emplace_back(std::move(set_tooltip_buffer));

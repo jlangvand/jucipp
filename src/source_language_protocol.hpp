@@ -214,7 +214,17 @@ namespace Source {
     std::vector<LanguageProtocol::Diagnostic> last_diagnostics;
 
     sigc::connection update_type_coverage_connection;
-    std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> type_coverage_marks;
+    class TypeCoverageMark {
+    public:
+      TypeCoverageMark(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter)
+          : start(start_iter.get_buffer()->create_mark(start_iter)), end(end_iter.get_buffer()->create_mark(end_iter)) {}
+      ~TypeCoverageMark() {
+        start->get_buffer()->delete_mark(start);
+        end->get_buffer()->delete_mark(end);
+      }
+      Glib::RefPtr<Gtk::TextMark> start, end;
+    };
+    std::list<TypeCoverageMark> type_coverage_marks;
     size_t num_warnings = 0, num_errors = 0, num_fix_its = 0;
     void update_type_coverage();
     std::atomic<int> update_type_coverage_retries = {60};
