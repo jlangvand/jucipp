@@ -1197,6 +1197,24 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     return false;
   }
 
+  // Move cursors left/right of selection
+  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left) && (key->state & GDK_SHIFT_MASK) == 0 && get_buffer()->get_has_selection()) {
+    enable_multiple_cursors = false;
+    for(auto &extra_cursor : extra_cursors) {
+      auto iter = std::min(extra_cursor.insert->get_iter(), extra_cursor.selection_bound->get_iter());
+      extra_cursor.move(iter, false);
+    }
+    return false;
+  }
+  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right) && (key->state & GDK_SHIFT_MASK) == 0 && get_buffer()->get_has_selection()) {
+    enable_multiple_cursors = false;
+    for(auto &extra_cursor : extra_cursors) {
+      auto iter = std::max(extra_cursor.insert->get_iter(), extra_cursor.selection_bound->get_iter());
+      extra_cursor.move(iter, false);
+    }
+    return false;
+  }
+
   return false;
 }
 
