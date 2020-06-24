@@ -184,6 +184,9 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
       keep_clipboard = false;
+
+      if(!keep_snippet_marks)
+        clear_snippet_marks();
     }
   });
 
@@ -1198,19 +1201,29 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
   }
 
   // Move cursors left/right of selection
-  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left) && (key->state & GDK_SHIFT_MASK) == 0 && get_buffer()->get_has_selection()) {
+  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left)) {
     enable_multiple_cursors = false;
+    bool shift_pressed = (key->state & GDK_SHIFT_MASK) != 0;
     for(auto &extra_cursor : extra_cursors) {
-      auto iter = std::min(extra_cursor.insert->get_iter(), extra_cursor.selection_bound->get_iter());
-      extra_cursor.move(iter, false);
+      auto iter = extra_cursor.insert->get_iter();
+      if(!shift_pressed && get_buffer()->get_has_selection())
+        iter = std::min(iter, extra_cursor.selection_bound->get_iter());
+      else
+        iter.backward_char();
+      extra_cursor.move(iter, shift_pressed);
     }
     return false;
   }
-  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right) && (key->state & GDK_SHIFT_MASK) == 0 && get_buffer()->get_has_selection()) {
+  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right)) {
     enable_multiple_cursors = false;
+    bool shift_pressed = (key->state & GDK_SHIFT_MASK) != 0;
     for(auto &extra_cursor : extra_cursors) {
-      auto iter = std::max(extra_cursor.insert->get_iter(), extra_cursor.selection_bound->get_iter());
-      extra_cursor.move(iter, false);
+      auto iter = extra_cursor.insert->get_iter();
+      if(!shift_pressed && get_buffer()->get_has_selection())
+        iter = std::max(iter, extra_cursor.selection_bound->get_iter());
+      else
+        iter.forward_char();
+      extra_cursor.move(iter, shift_pressed);
     }
     return false;
   }
@@ -1228,11 +1241,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
   auto last_insert = get_buffer()->create_mark(get_buffer()->get_insert()->get_iter(), false);
   auto last_selection_bound = get_buffer()->create_mark(get_buffer()->get_selection_bound()->get_iter(), false);
   get_buffer()->signal_mark_set().connect([this, last_insert, last_selection_bound](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) mutable {
-    auto is_insert = mark->get_name() == "insert";
-    if(is_insert && !keep_snippet_marks)
-      clear_snippet_marks();
-
-    if(is_insert) {
+    if(mark->get_name() == "insert") {
       if(enable_multiple_cursors || enable_multiple_cursors_placements) {
         auto set_enable_multiple_cursors = enable_multiple_cursors;
         if(set_enable_multiple_cursors)
