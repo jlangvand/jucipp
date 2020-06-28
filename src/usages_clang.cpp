@@ -560,19 +560,13 @@ std::pair<std::map<boost::filesystem::path, Usages::Clang::PathSet>, Usages::Cla
     std::string line;
     while(std::getline(stream, line)) {
       // Optimization: only run regex_match if line starts with # after spaces/tabs
-      auto include_begin = line.cbegin();
-      for(; include_begin != line.cend(); ++include_begin) {
-        if(*include_begin == ' ' || *include_begin == '\t')
-          continue;
-        if(*include_begin == '#')
-          break;
-        else {
-          include_begin = line.cend();
-          break;
-        }
-      }
+      size_t pos = 0;
+      while(pos < line.size() && (line[pos] == ' ' || line[pos] == '\t'))
+        ++pos;
+      if(pos >= line.size())
+        continue;
       std::smatch sm;
-      if(include_begin != line.cend() && std::regex_match(include_begin, line.cend(), sm, include_regex)) {
+      if(line[pos] == '#' && std::regex_match(line.cbegin() + pos, line.cend(), sm, include_regex)) {
         boost::filesystem::path path(sm[1].str());
         boost::filesystem::path include_path;
         // remove .. and .
@@ -596,11 +590,10 @@ std::pair<std::map<boost::filesystem::path, Usages::Clang::PathSet>, Usages::Cla
         }
       }
       else if(check_spelling) {
-        size_t pos = 0;
         while((pos = line.find(spelling, pos)) != std::string::npos) {
           if(!is_spelling_char(spelling[0]) ||
              ((pos == 0 || !is_spelling_char(line[pos - 1])) &&
-              (pos + spelling.size() >= line.size() - 1 || !is_spelling_char(line[pos + spelling.size()])))) {
+              (pos + spelling.size() >= line.size() || !is_spelling_char(line[pos + spelling.size()])))) {
             paths_with_spelling.emplace(path);
             check_spelling = false;
             break;
