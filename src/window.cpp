@@ -784,7 +784,7 @@ void Window::set_menu_actions() {
     if(current_cursor_location->view != Notebook::get().get_current_view()) {
       // Move to current position if current position's view is not current view
       // (for instance, in case one is looking at a new file but has not yet placed the cursor within the file)
-      if(!Notebook::get().open(current_cursor_location->view->file_path))
+      if(!Notebook::get().open(current_cursor_location->view))
         return;
     }
     else {
@@ -793,7 +793,7 @@ void Window::set_menu_actions() {
 
       --current_cursor_location;
       if(current_cursor_location->view != Notebook::get().get_current_view()) {
-        if(!Notebook::get().open(current_cursor_location->view->file_path))
+        if(!Notebook::get().open(current_cursor_location->view))
           return;
       }
     }
@@ -809,7 +809,7 @@ void Window::set_menu_actions() {
     if(current_cursor_location->view != Notebook::get().get_current_view()) {
       // Move to current position if current position's view is not current view
       // (for instance, in case one is looking at a new file but has not yet placed the cursor within the file)
-      if(!Notebook::get().open(current_cursor_location->view->file_path))
+      if(!Notebook::get().open(current_cursor_location->view))
         return;
     }
     else {
@@ -818,7 +818,7 @@ void Window::set_menu_actions() {
 
       ++current_cursor_location;
       if(current_cursor_location->view != Notebook::get().get_current_view()) {
-        if(!Notebook::get().open(current_cursor_location->view->file_path))
+        if(!Notebook::get().open(current_cursor_location->view))
           return;
       }
     }
@@ -1307,7 +1307,7 @@ void Window::set_menu_actions() {
             Info::get().print("Saved Fix-Its to header file: " + filesystem::get_short_path(view->file_path).string());
         }
         if(current_view != Notebook::get().get_current_view())
-          Notebook::get().open(current_view->file_path);
+          Notebook::get().open(current_view);
       }
     }
   });

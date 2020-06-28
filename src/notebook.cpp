@@ -102,6 +102,18 @@ std::vector<Source::View *> &Notebook::get_views() {
   return source_views;
 }
 
+bool Notebook::open(Source::View *view) {
+  for(size_t c = 0; c < size(); c++) {
+    if(view == source_views[c]) {
+      auto notebook_page = get_notebook_page(c);
+      notebooks[notebook_page.first].set_current_page(notebook_page.second);
+      focus_view(source_views[c]);
+      return true;
+    }
+  }
+  return false;
+}
+
 bool Notebook::open(const boost::filesystem::path &file_path_, Position position) {
   boost::system::error_code ec;
   if(file_path_.empty() || (boost::filesystem::exists(file_path_, ec) && !boost::filesystem::is_regular_file(file_path_, ec))) {
