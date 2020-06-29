@@ -2289,11 +2289,11 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
         iter = get_buffer()->get_insert()->get_iter();
 
         auto start_iter = get_tabs_end_iter(iter.get_line());
-        auto end_iter = start_iter;
-        end_iter.forward_chars(2);
-        auto start_of_sentence = get_buffer()->get_text(start_iter, end_iter);
-        if(!start_of_sentence.empty()) {
-          if(start_of_sentence == "/*" || start_of_sentence[0] == '*') {
+        if(!is_code_iter(start_iter)) {
+          auto end_iter = start_iter;
+          end_iter.forward_chars(2);
+          auto start_of_sentence = get_buffer()->get_text(start_iter, end_iter);
+          if(!start_of_sentence.empty() && (start_of_sentence == "/*" || start_of_sentence[0] == '*')) {
             auto tabs = get_line_before(start_iter);
             auto insert_str = '\n' + tabs;
             if(start_of_sentence[0] == '/')
@@ -2346,6 +2346,90 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
         get_buffer()->insert_at_cursor('\n' + tabs);
         scroll_to(get_buffer()->get_insert());
         return true;
+      }
+    }
+
+    // Indent enter inside HTML or JSX elements, for instance:
+    // <div>CURSOR</div>
+    // to:
+    // <div>
+    //   CURSOR
+    // </div>
+    // and
+    // <div>CURSORtest
+    // to
+    // <div>
+    //   CURSORtest
+    if(*condition_iter == '>' && language && (language->get_id() == "js" || language->get_id() == "html")) {
+      auto prev = condition_iter;
+      Gtk::TextIter open_element_iter;
+      if(prev.backward_char() && backward_to_code(prev) && *prev != '/' &&
+         find_open_symbol_backward(prev, open_element_iter, '<', '>') &&
+         open_element_iter.forward_char() && forward_to_code(open_element_iter) && *open_element_iter != '/') {
+        auto get_element = [this](Gtk::TextIter iter) {
+          auto start = iter;
+          auto end = iter;
+          while(iter.backward_char() && (is_token_char(*iter) || *iter == '.'))
+            start = iter;
+          while((is_token_char(*end) || *end == '.') && end.forward_char()) {
+          }
+          return get_buffer()->get_text(start, end);
+        };
+        auto open_element_token = get_element(open_element_iter);
+        std::vector<std::string> void_elements = {"area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"};
+        if(std::none_of(void_elements.begin(), void_elements.end(), [&open_element_token](const std::string &e) { return e == open_element_token; })) {
+          auto close_element_iter = iter;
+          // If cursor is placed between open and close tag
+          if(*close_element_iter == '<' && close_element_iter.forward_char() && forward_to_code(close_element_iter) && *close_element_iter == '/' &&
+             close_element_iter.forward_char() && forward_to_code(close_element_iter) &&
+             open_element_token == get_element(close_element_iter)) {
+            get_buffer()->insert_at_cursor('\n' + tabs + tab + '\n' + tabs);
+            auto insert_it = get_buffer()->get_insert()->get_iter();
+            if(insert_it.backward_chars(tabs.size() + 1)) {
+              scroll_to(get_buffer()->get_insert());
+              get_buffer()->place_cursor(insert_it);
+            }
+            return true;
+          }
+          close_element_iter = iter;
+          // Add closing tag if missing
+          if(close_element_iter.ends_line()) {
+            forward_to_code(close_element_iter);
+            auto close_element_tabs_size = static_cast<size_t>(get_tabs_end_iter(close_element_iter).get_line_offset());
+            if(!close_element_iter || close_element_tabs_size < tabs.size() ||
+               (close_element_tabs_size == tabs.size() && *close_element_iter == '<' && close_element_iter.forward_char() && forward_to_code(close_element_iter) &&
+                !(*close_element_iter == '/' && close_element_iter.forward_char() && forward_to_code(close_element_iter) && get_element(close_element_iter) == open_element_token))) {
+              get_buffer()->insert_at_cursor('\n' + tabs + tab + '\n' + tabs + "</" + open_element_token + '>');
+              auto insert_it = get_buffer()->get_insert()->get_iter();
+              if(insert_it.backward_chars(tabs.size() + 1 + open_element_token.size() + 3)) {
+                scroll_to(get_buffer()->get_insert());
+                get_buffer()->place_cursor(insert_it);
+              }
+              return true;
+            }
+          }
+          // If line ends with closing element, move content after open to new line, and closing tag on the next line thereafter
+          close_element_iter = iter;
+          if(!close_element_iter.ends_line())
+            close_element_iter.forward_to_line_end();
+          if(close_element_iter.backward_char() && *close_element_iter == '>' && close_element_iter.backward_char() &&
+             find_open_symbol_backward(close_element_iter, close_element_iter, '<', '>')) {
+            auto start_close_element_iter = close_element_iter;
+            auto content_size = start_close_element_iter.get_offset() - iter.get_offset();
+            if(close_element_iter.forward_char() && forward_to_code(close_element_iter) &&
+               *close_element_iter == '/' && close_element_iter.forward_char() && forward_to_code(close_element_iter) && get_element(close_element_iter) == open_element_token) {
+              get_buffer()->insert_at_cursor('\n' + tabs + tab);
+              auto close_element_start_iter = get_buffer()->get_insert()->get_iter();
+              close_element_start_iter.forward_chars(content_size);
+              get_buffer()->insert(close_element_start_iter, '\n' + tabs);
+              scroll_to(get_buffer()->get_insert());
+              return true;
+            }
+          }
+          get_buffer()->insert_at_cursor('\n' + tabs + tab);
+          scroll_to(get_buffer()->get_insert());
+          return true;
+        }
       }
     }
 
@@ -2622,6 +2706,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
         }
       }
     }
+
     // Indent as in current or next line
     int line_nr = iter.get_line();
     if(iter.ends_line() && (line_nr + 1) < get_buffer()->get_line_count()) {

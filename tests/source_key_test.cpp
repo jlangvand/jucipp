@@ -1293,6 +1293,17 @@ int main() {
     }
     {
       buffer->set_text("  /*\n"
+                       "   *");
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  /*\n"
+                                     "   *\n"
+                                     "   * ");
+      g_assert(buffer->get_insert()->get_iter() == buffer->end());
+    }
+    {
+      buffer->set_text("  /*\n"
                        "   */");
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
@@ -2312,31 +2323,63 @@ int main() {
       g_assert(buffer->get_insert()->get_iter().get_line_offset() == 4);
     }
     {
-      buffer->set_text("  <br>\n"
-                       "    <br>");
+      buffer->set_text("  test\n"
+                       "    test");
       auto iter = buffer->end();
       iter.backward_chars(9);
       buffer->place_cursor(iter);
       view.on_key_press_event(&event);
-      g_assert(buffer->get_text() == "  <br>\n"
+      g_assert(buffer->get_text() == "  test\n"
                                      "    \n"
-                                     "    <br>");
+                                     "    test");
       iter = buffer->end();
       iter.backward_chars(9);
       g_assert(buffer->get_insert()->get_iter() == iter);
     }
     {
-      buffer->set_text("  test(<br>\n"
-                       "    <br>");
+      buffer->set_text("  test(test\n"
+                       "    test");
       auto iter = buffer->end();
       iter.backward_chars(9);
       buffer->place_cursor(iter);
       view.on_key_press_event(&event);
-      g_assert(buffer->get_text() == "  test(<br>\n"
+      g_assert(buffer->get_text() == "  test(test\n"
                                      "    \n"
-                                     "    <br>");
+                                     "    test");
       iter = buffer->end();
       iter.backward_chars(9);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    test\n"
+                       "    test");
+      auto iter = buffer->end();
+      iter.backward_chars(9);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    test\n"
+                                     "    \n"
+                                     "    test");
+      iter = buffer->end();
+      iter.backward_chars(9);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    test\n"
+                       "      test");
+      auto iter = buffer->end();
+      iter.backward_chars(11);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    test\n"
+                                     "      \n"
+                                     "      test");
+      iter = buffer->end();
+      iter.backward_chars(11);
       g_assert(buffer->get_insert()->get_iter() == iter);
     }
     {
@@ -2357,18 +2400,102 @@ int main() {
     }
     {
       buffer->set_text("  test(\n"
-                       "    <br>\n"
                        "    <br>");
       auto iter = buffer->end();
-      iter.backward_chars(9);
       buffer->place_cursor(iter);
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  test(\n"
                                      "    <br>\n"
-                                     "    \n"
-                                     "    <br>");
+                                     "    ");
       iter = buffer->end();
-      iter.backward_chars(9);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div>");
+      auto iter = buffer->end();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      \n"
+                                     "    </div>");
+      iter = buffer->end();
+      iter.backward_chars(11);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div>\n");
+      auto iter = buffer->end();
+      iter.backward_char();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      \n"
+                                     "    </div>\n");
+      iter = buffer->end();
+      iter.backward_chars(12);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div>\n"
+                       "    </div>\n");
+      auto iter = buffer->end();
+      iter.backward_chars(12);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      \n"
+                                     "    </div>\n");
+      iter = buffer->end();
+      iter.backward_chars(12);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div></div>");
+      auto iter = buffer->end();
+      iter.backward_chars(6);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      \n"
+                                     "    </div>");
+      iter = buffer->end();
+      iter.backward_chars(11);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div></DIV>");
+      auto iter = buffer->end();
+      iter.backward_chars(6);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      </DIV>");
+      iter = buffer->end();
+      iter.backward_chars(6);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div><div>");
+      auto iter = buffer->end();
+      iter.backward_chars(5);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      <div>");
+      iter = buffer->end();
+      iter.backward_chars(5);
       g_assert(buffer->get_insert()->get_iter() == iter);
     }
     {
