@@ -1436,9 +1436,9 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     autocomplete_show_arguments = false;
 
     auto line = ' ' + get_line_before();
-    const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>\"']|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*)(\\.)([a-zA-Z0-9_]*)$|" // .
-                                  "^.*(::)([a-zA-Z0-9_]*)$|"                                                             // ::
-                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$");                                       // part of symbol
+    const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>\"']|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*\\?{0,1})(\\.)([a-zA-Z0-9_]*)$|" // .
+                                  "^.*(::)([a-zA-Z0-9_]*)$|"                                                                     // ::
+                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$");                                               // part of symbol
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {
@@ -1652,11 +1652,22 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 
     // Do not insert function/template parameters if they already exist
-    auto iter = get_buffer()->get_insert()->get_iter();
-    if(*iter == '(' || *iter == '<') {
-      auto bracket_pos = insert.find(*iter);
-      if(bracket_pos != std::string::npos)
-        insert.erase(bracket_pos);
+    {
+      auto iter = get_buffer()->get_insert()->get_iter();
+      if(*iter == '(' || *iter == '<') {
+        auto bracket_pos = insert.find(*iter);
+        if(bracket_pos != std::string::npos)
+          insert.erase(bracket_pos);
+      }
+    }
+
+    // Do not instert ?. after ., instead replace . with ?.
+    if(1 < insert.size() && insert[0] == '?' && insert[1] == '.') {
+      auto iter = get_buffer()->get_insert()->get_iter();
+      auto prev = iter;
+      if(prev.backward_char() && *prev == '.') {
+        get_buffer()->erase(prev, iter);
+      }
     }
 
     if(hide_window) {
