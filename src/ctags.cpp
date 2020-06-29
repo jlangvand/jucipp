@@ -8,6 +8,8 @@
 #include <vector>
 
 Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable_kind, const std::string &languages) : enable_scope(enable_scope), enable_kind(enable_kind) {
+  // TODO: When universal ctags is available on all platforms (Ubuntu 20.04 LTS does), add: --pattern-length-limit=0
+  auto options = " --sort=foldcase -I \"override noexcept\" -f -" + (!languages.empty() ? " --languages=" + languages : std::string());
   std::string fields(" --fields=n");
   if(enable_scope)
     fields += 's';
@@ -25,12 +27,11 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
     }
     else
       project_path = path;
-    auto extra = !languages.empty() ? " --languages=" + languages : std::string();
-    command = Config::get().project.ctags_command + exclude + fields + extra + " --sort=foldcase -I \"override noexcept\" -f - -R *";
+    command = Config::get().project.ctags_command + options + fields + exclude + " -R *";
   }
   else {
     project_path = path.parent_path();
-    command = Config::get().project.ctags_command + fields + " --c-kinds=+p --c++-kinds=+p --sort=foldcase -I \"override noexcept\" -f - " + filesystem::escape_argument(path.string());
+    command = Config::get().project.ctags_command + options + fields + " --c-kinds=+p --c++-kinds=+p " + filesystem::escape_argument(path.string());
   }
 
   std::stringstream stdin_stream;
