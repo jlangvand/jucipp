@@ -11,7 +11,7 @@ cache:
 
 before_build:
   - git submodule update --init --recursive
-  # - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -Syyuu"
+  - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -Syyuu"
   - C:\msys64\usr\bin\bash -lc "pacman --noconfirm --needed -S make mingw-w64-x86_64-{cmake,toolchain,clang,gtkmm3,gtksourceviewmm3,boost,aspell,aspell-en,libgit2,universal-ctags-git,libffi}"
 
 build_script:
