@@ -2499,6 +2499,21 @@ int main() {
       g_assert(buffer->get_insert()->get_iter() == iter);
     }
     {
+      buffer->set_text("  test(\n"
+                       "    <div>test</div>");
+      auto iter = buffer->end();
+      iter.backward_chars(10);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      test\n"
+                                     "    </div>");
+      iter = buffer->end();
+      iter.backward_chars(15);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
       buffer->set_text("f(\n"
                        "  () => {\n"
                        "    a();\n"
