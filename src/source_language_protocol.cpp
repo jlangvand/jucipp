@@ -128,9 +128,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     LockGuard lock(read_write_mutex);
     process_id = process->get_id();
   }
-  // When using rust-analyzer instead of rls, remove: "initializationOptions":{"omitInitBuild":true}
-  // Also remove: "workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true} ?
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"didChangeConfiguration":{"dynamicRegistration":true},"didChangeWatchedFiles":{"dynamicRegistration":true},"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true,"documentationFormat":["markdown", "plaintext"]}},"hover":{"dynamicRegistration":true,"contentFormat": ["markdown", "plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown", "plaintext"]}},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true,"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["quickfix"]}}}}, "offsetEncoding": ["utf-8"]},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true,"documentationFormat":["markdown", "plaintext"]}},"hover":{"dynamicRegistration":true,"contentFormat": ["markdown", "plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown", "plaintext"]}},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true,"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["quickfix"]}}}}, "offsetEncoding": ["utf-8"]},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -160,8 +158,6 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
       }
 
       write_notification("initialized", "");
-      if(language_id == "rust")
-        write_notification("workspace/didChangeConfiguration", R"("settings":{"rust":{}})");
     }
     result_processed.set_value();
   });
