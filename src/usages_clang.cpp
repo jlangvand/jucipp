@@ -161,15 +161,16 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
   // Wait for current caching to finish
   std::unique_ptr<Dialog::Message> message;
-  const std::string message_string = "Please wait while finding usages";
   std::atomic<bool> canceled(false);
-  auto on_cancel = [&canceled] {
-    canceled = true;
+  auto create_message = [&canceled] {
+    return std::make_unique<Dialog::Message>("Please wait while finding usages", [&canceled] {
+      canceled = true;
+    }, true);
   };
   size_t tasks = cache_in_progress_count;
   std::atomic<size_t> tasks_completed = {0};
   if(tasks != 0) {
-    message = std::make_unique<Dialog::Message>(message_string, std::move(on_cancel), true);
+    message = create_message();
     while(cache_in_progress_count != 0) {
       message->set_fraction((static_cast<double>(tasks - cache_in_progress_count) / tasks) / 10.0);
       while(Gtk::Main::events_pending())
@@ -219,7 +220,7 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
   if(!potential_paths.empty()) {
     tasks += potential_paths.size();
     if(!message)
-      message = std::make_unique<Dialog::Message>(message_string, std::move(on_cancel), true);
+      message = create_message();
 
     std::vector<std::thread> threads;
     auto it = potential_paths.begin();
