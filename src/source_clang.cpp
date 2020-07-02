@@ -1837,6 +1837,7 @@ Source::ClangViewRefactor::Identifier Source::ClangViewRefactor::get_identifier(
 }
 
 void Source::ClangViewRefactor::wait_parsing() {
+  hide_tooltips();
   std::unique_ptr<Dialog::Message> message;
   std::vector<Source::ClangView *> clang_views;
   for(auto &view : views) {
