@@ -1,7 +1,7 @@
 #include "dialogs.hpp"
 #include <cmath>
 
-Dialog::Message::Message(const std::string &text) : Gtk::Window(Gtk::WindowType::WINDOW_POPUP) {
+Dialog::Message::Message(const std::string &text, std::function<void()> &&on_cancel, bool show_progress_bar) : Gtk::Window(Gtk::WindowType::WINDOW_POPUP) {
   auto g_application = g_application_get_default();
   auto gio_application = Glib::wrap(g_application, true);
   auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
@@ -17,6 +17,17 @@ Dialog::Message::Message(const std::string &text) : Gtk::Window(Gtk::WindowType:
   auto label = Gtk::manage(new Gtk::Label(text));
   label->set_padding(10, 10);
   box->pack_start(*label);
+  if(on_cancel) {
+    auto cancel_button = Gtk::manage(new Gtk::Button("Cancel"));
+    cancel_button->signal_clicked().connect([label, on_cancel = std::move(on_cancel)] {
+      label->set_text("Canceling...");
+      if(on_cancel)
+        on_cancel();
+    });
+    box->pack_start(*cancel_button);
+  }
+  if(show_progress_bar)
+    box->pack_start(progress_bar);
   add(*box);
 
   show_all_children();
@@ -24,6 +35,10 @@ Dialog::Message::Message(const std::string &text) : Gtk::Window(Gtk::WindowType:
 
   while(Gtk::Main::events_pending())
     Gtk::Main::iteration();
+}
+
+void Dialog::Message::set_fraction(double fraction) {
+  progress_bar.set_fraction(fraction);
 }
 
 bool Dialog::Message::on_delete_event(GdkEventAny *event) {

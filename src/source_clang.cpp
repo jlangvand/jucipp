@@ -1849,9 +1849,7 @@ void Source::ClangViewRefactor::wait_parsing() {
     }
   }
   if(message) {
-    for(;;) {
-      while(Gtk::Main::events_pending())
-        Gtk::Main::iteration();
+    while(true) {
       bool all_parsed = true;
       for(auto &clang_view : clang_views) {
         if(!clang_view->parsed) {
@@ -1861,6 +1859,8 @@ void Source::ClangViewRefactor::wait_parsing() {
       }
       if(all_parsed)
         break;
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     message->hide();

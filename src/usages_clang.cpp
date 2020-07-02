@@ -6,6 +6,7 @@
 #include "utility.hpp"
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <regex>
 #include <thread>
 
@@ -161,13 +162,24 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
   // Wait for current caching to finish
   std::unique_ptr<Dialog::Message> message;
   const std::string message_string = "Please wait while finding usages";
-  if(cache_in_progress_count != 0) {
-    message = std::make_unique<Dialog::Message>(message_string);
+  std::atomic<bool> canceled(false);
+  auto on_cancel = [&canceled] {
+    canceled = true;
+  };
+  size_t tasks = cache_in_progress_count;
+  std::atomic<size_t> tasks_completed = {0};
+  if(tasks != 0) {
+    message = std::make_unique<Dialog::Message>(message_string, std::move(on_cancel), true);
     while(cache_in_progress_count != 0) {
+      message->set_fraction((static_cast<double>(tasks - cache_in_progress_count) / tasks) / 10.0);
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
+  tasks_completed = tasks;
+  if(canceled)
+    return {};
 
   // Use cache
   for(auto it = potential_paths.begin(); it != potential_paths.end();) {
@@ -205,8 +217,9 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
   // Parse potential paths
   if(!potential_paths.empty()) {
+    tasks += potential_paths.size();
     if(!message)
-      message = std::make_unique<Dialog::Message>(message_string);
+      message = std::make_unique<Dialog::Message>(message_string, std::move(on_cancel), true);
 
     std::vector<std::thread> threads;
     auto it = potential_paths.begin();
@@ -216,16 +229,19 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
       if(number_of_threads == 0)
         number_of_threads = 1;
     }
+    std::vector<std::atomic<bool>> completed_threads(number_of_threads);
     for(unsigned thread_id = 0; thread_id < number_of_threads; ++thread_id) {
+      completed_threads[thread_id] = false;
       threads.emplace_back([&potential_paths, &it, &build_path,
-                            &project_path, &usages, &visited, &spelling, &cursor] {
-        while(true) {
+                            &project_path, &usages, &visited, &spelling, &cursor,
+                            thread_id, &completed_threads, &tasks_completed, &canceled] {
+        while(!canceled) {
           boost::filesystem::path path;
           {
             static Mutex mutex;
             LockGuard lock(mutex);
             if(it == potential_paths.end())
-              return;
+              break;
             path = *it;
             ++it;
           }
@@ -256,10 +272,25 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
             add_usages_from_includes(project_path, build_path, usages, visited, spelling, cursor, &translation_unit, true);
           }
 
-          // auto time = std::chrono::system_clock::now();
-          // std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(time - before_time).count() << std::endl;
+          tasks_completed++;
         }
+        completed_threads[thread_id] = true;
       });
+    }
+    while(true) {
+      bool all_completed = true;
+      for(auto &completed_thread : completed_threads) {
+        if(!completed_thread) {
+          all_completed = false;
+          break;
+        }
+      }
+      if(all_completed)
+        break;
+      message->set_fraction(static_cast<double>(tasks_completed) / tasks);
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     for(auto &thread : threads)
       thread.join();
@@ -267,6 +298,9 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
 
   if(message)
     message->hide();
+
+  if(canceled)
+    return {};
 
   return usages;
 }
@@ -364,6 +398,7 @@ void Usages::Clang::erase_all_caches_for_project(const boost::filesystem::path &
     while(cache_in_progress_count != 0) {
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     message.hide();
   }
@@ -450,10 +485,8 @@ bool Usages::Clang::add_usages_from_cache(const boost::filesystem::path &path, s
   for(auto &path_and_last_write_time : cache.paths_and_last_write_times) {
     boost::system::error_code ec;
     auto last_write_time = boost::filesystem::last_write_time(path_and_last_write_time.first, ec);
-    if(ec || last_write_time != path_and_last_write_time.second) {
-      // std::cout << "updated file: " << path_and_last_write_time.first << ", included from " << path << std::endl;
+    if(ec || last_write_time != path_and_last_write_time.second)
       return false;
-    }
   }
 
   auto offsets = cache.get_similar_token_offsets(cursor.get_kind(), spelling, cursor.get_all_usr_extended());

@@ -129,6 +129,7 @@ Window::Window() {
       while(!Source::View::non_deleted_views.empty()) {
         while(Gtk::Main::events_pending())
           Gtk::Main::iteration();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
       message.hide();
     }

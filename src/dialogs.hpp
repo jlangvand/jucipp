@@ -14,10 +14,14 @@ public:
 
   class Message : public Gtk::Window {
   public:
-    Message(const std::string &text);
+    Message(const std::string &text, std::function<void()> &&on_cancel = {}, bool show_progrss_bar = false);
+    void set_fraction(double fraction);
 
   protected:
     bool on_delete_event(GdkEventAny *event) override;
+
+  private:
+    Gtk::ProgressBar progress_bar;
   };
 
 private:
