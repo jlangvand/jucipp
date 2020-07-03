@@ -1,7 +1,7 @@
 #include "autocomplete.hpp"
 #include "selection_dialog.hpp"
 
-Autocomplete::Autocomplete(Gtk::TextView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word)
+Autocomplete::Autocomplete(Gsv::View *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word)
     : view(view), interactive_completion(interactive_completion), pass_buffer_and_strip_word(pass_buffer_and_strip_word) {
   view->get_buffer()->signal_changed().connect([this, &last_keyval] {
     if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {

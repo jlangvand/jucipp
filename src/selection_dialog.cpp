@@ -36,7 +36,7 @@ void SelectionDialogBase::ListViewText::clear() {
 }
 
 SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup)
-    : start_mark(start_iter ? start_iter->get_buffer()->create_mark(*start_iter) : Glib::RefPtr<Gtk::TextBuffer::Mark>()), text_view(text_view), window(Gtk::WindowType::WINDOW_POPUP), vbox(Gtk::Orientation::ORIENTATION_VERTICAL), list_view_text(use_markup), show_search_entry(show_search_entry) {
+    : start_mark(start_iter ? Source::Mark(*start_iter) : Source::Mark()), text_view(text_view), window(Gtk::WindowType::WINDOW_POPUP), vbox(Gtk::Orientation::ORIENTATION_VERTICAL), list_view_text(use_markup), show_search_entry(show_search_entry) {
   auto g_application = g_application_get_default();
   auto gio_application = Glib::wrap(g_application, true);
   auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
@@ -139,11 +139,6 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::
   list_view_text.signal_cursor_changed().connect([this] {
     cursor_changed();
   });
-}
-
-SelectionDialogBase::~SelectionDialogBase() {
-  if(text_view)
-    text_view->get_buffer()->delete_mark(start_mark);
 }
 
 void SelectionDialogBase::cursor_changed() {

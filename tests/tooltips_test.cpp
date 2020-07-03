@@ -4,6 +4,7 @@
 
 int main() {
   auto app = Gtk::Application::create();
+  Gsv::init();
 
   auto get_markdown_tooltip = [](const std::string &input) {
     auto tooltip = std::make_unique<Tooltip>([&](Tooltip &tooltip) {

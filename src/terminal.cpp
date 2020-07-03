@@ -277,13 +277,12 @@ size_t Terminal::print(const std::string &message, bool bold) {
     umessage.replace(iter, next_char_iter, "?");
   }
 
-  auto start_mark = get_buffer()->create_mark(get_buffer()->get_iter_at_line(get_buffer()->end().get_line()));
+  Source::Mark start_mark(get_buffer()->get_iter_at_line(get_buffer()->end().get_line()));
   if(bold)
     get_buffer()->insert_with_tag(get_buffer()->end(), umessage, bold_tag);
   else
     get_buffer()->insert(get_buffer()->end(), umessage);
   auto start_iter = start_mark->get_iter();
-  get_buffer()->delete_mark(start_mark);
   auto end_iter = get_buffer()->get_insert()->get_iter();
 
   apply_link_tags(start_iter, end_iter);

@@ -19,7 +19,7 @@ public:
   Win32Dialog(){};
 
   ~Win32Dialog() {
-    if(dialog != nullptr)
+    if(dialog)
       dialog->Release();
   }
 

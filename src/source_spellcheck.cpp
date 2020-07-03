@@ -7,7 +7,7 @@
 AspellConfig *Source::SpellCheckView::spellcheck_config = nullptr;
 
 Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language) {
-  if(spellcheck_config == nullptr)
+  if(!spellcheck_config)
     spellcheck_config = new_aspell_config();
   spellcheck_checker = nullptr;
   spellcheck_error_tag = get_buffer()->create_tag("spellcheck_error");
@@ -29,7 +29,7 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
   });
 
   get_buffer()->signal_changed().connect([this]() {
-    if(spellcheck_checker == nullptr)
+    if(!spellcheck_checker)
       return;
 
     delayed_spellcheck_suggestions_connection.disconnect();
@@ -129,29 +129,29 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
 
   // In case of for instance text paste or undo/redo
   get_buffer()->signal_insert().connect([this](const Gtk::TextIter &start_iter, const Glib::ustring &inserted_string, int) {
-    if(spellcheck_checker == nullptr)
+    if(!spellcheck_checker)
       return;
 
-    if(!disable_spellcheck)
-      return;
-
-    auto iter = start_iter;
-    if(!is_word_iter(iter) && !iter.starts_line())
-      iter.backward_char();
-    if(is_word_iter(iter)) {
-      auto word = get_word(iter);
-      get_buffer()->remove_tag(spellcheck_error_tag, word.first, word.second);
+    if(disable_spellcheck) {
+      auto iter = start_iter;
+      if(!is_word_iter(iter) && !iter.starts_line())
+        iter.backward_char();
+      if(is_word_iter(iter)) {
+        auto word = get_word(iter);
+        get_buffer()->remove_tag(spellcheck_error_tag, word.first, word.second);
+      }
     }
   }, false);
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
-    if(spellcheck_checker == nullptr)
-      return;
-
     if(mark->get_name() == "insert") {
       if(SelectionDialog::get())
         SelectionDialog::get()->hide();
+      if(!spellcheck_checker)
+        return;
       delayed_spellcheck_suggestions_connection.disconnect();
+      if(get_buffer()->get_has_selection())
+        return;
       delayed_spellcheck_suggestions_connection = Glib::signal_timeout().connect([this]() {
         if(get_buffer()->get_insert()->get_iter().has_tag(spellcheck_error_tag)) {
           SelectionDialog::create(this, false);
@@ -179,13 +179,6 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
         }
         return false;
       }, 500);
-    }
-  });
-
-  get_buffer()->signal_mark_set().connect([](const Gtk::TextIter &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
-    if(mark->get_name() == "insert") {
-      if(SelectionDialog::get())
-        SelectionDialog::get()->hide();
     }
   });
 
@@ -221,7 +214,7 @@ Source::SpellCheckView::~SpellCheckView() {
   delayed_spellcheck_suggestions_connection.disconnect();
   delayed_spellcheck_error_clear.disconnect();
 
-  if(spellcheck_checker != nullptr)
+  if(spellcheck_checker)
     delete_aspell_speller(spellcheck_checker);
 
   signal_tag_added_connection.disconnect();
@@ -234,7 +227,7 @@ void Source::SpellCheckView::configure() {
     aspell_config_replace(spellcheck_config, "encoding", "utf-8");
   }
   spellcheck_possible_err = new_aspell_speller(spellcheck_config);
-  if(spellcheck_checker != nullptr)
+  if(spellcheck_checker)
     delete_aspell_speller(spellcheck_checker);
   spellcheck_checker = nullptr;
   if(aspell_error_number(spellcheck_possible_err) != 0)
@@ -251,7 +244,7 @@ void Source::SpellCheckView::hide_dialogs() {
 }
 
 void Source::SpellCheckView::spellcheck(const Gtk::TextIter &start, const Gtk::TextIter &end) {
-  if(spellcheck_checker == nullptr)
+  if(!spellcheck_checker)
     return;
   auto iter = start;
   while(iter && iter < end) {
@@ -550,9 +543,8 @@ std::vector<std::string> Source::SpellCheckView::get_spellcheck_suggestions(cons
 
   std::vector<std::string> words;
   const char *word;
-  while((word = aspell_string_enumeration_next(elements)) != nullptr) {
+  while((word = aspell_string_enumeration_next(elements)))
     words.emplace_back(word);
-  }
   delete_aspell_string_enumeration(elements);
 
   return words;

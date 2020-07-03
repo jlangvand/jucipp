@@ -8,11 +8,11 @@ Git::Error Git::error;
 
 std::string Git::Error::message() noexcept {
 #if LIBGIT2_VER_MAJOR > 0 || (LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR >= 28)
-  const git_error *last_error = git_error_last();
+  auto last_error = git_error_last();
 #else
-  const git_error *last_error = giterr_last();
+  auto last_error = giterr_last();
 #endif
-  if(last_error == nullptr)
+  if(!last_error)
     return std::string();
   else
     return last_error->message;
@@ -253,7 +253,7 @@ std::shared_ptr<Git::Repository> Git::get_repository(const boost::filesystem::pa
 }
 
 boost::filesystem::path Git::path(const char *cpath, boost::optional<size_t> cpath_length_) noexcept {
-  if(cpath == nullptr)
+  if(!cpath)
     return boost::filesystem::path();
   auto cpath_length = cpath_length_.value_or(strlen(cpath));
   if(cpath_length > 0 && (cpath[cpath_length - 1] == '/' || cpath[cpath_length - 1] == '\\'))

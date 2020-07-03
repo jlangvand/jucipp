@@ -11,34 +11,30 @@
 std::set<Tooltip *> Tooltips::shown_tooltips;
 Gdk::Rectangle Tooltips::drawn_tooltips_rectangle = Gdk::Rectangle();
 
-Tooltip::Tooltip(Gtk::TextView *text_view, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, std::function<void(Tooltip &toolip)> set_buffer_)
-    : start_mark(start_iter.get_buffer()->create_mark(start_iter)), end_mark(end_iter.get_buffer()->create_mark(end_iter)), text_view(text_view), set_buffer(std::move(set_buffer_)) {}
+Tooltip::Tooltip(Gsv::View *view, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, std::function<void(Tooltip &toolip)> set_buffer_)
+    : start_mark(start_iter), end_mark(end_iter), view(view), set_buffer(std::move(set_buffer_)) {}
 
 Tooltip::Tooltip(std::function<void(Tooltip &)> set_buffer_)
-    : text_view(nullptr), set_buffer(std::move(set_buffer_)) {}
+    : view(nullptr), set_buffer(std::move(set_buffer_)) {}
 
 Tooltip::~Tooltip() {
   Tooltips::shown_tooltips.erase(this);
-  if(text_view) {
-    text_view->get_buffer()->delete_mark(start_mark);
-    text_view->get_buffer()->delete_mark(end_mark);
-  }
 }
 
 void Tooltip::update() {
-  if(text_view) {
+  if(view) {
     auto iter = start_mark->get_iter();
     auto end_iter = end_mark->get_iter();
-    text_view->get_iter_location(iter, activation_rectangle);
+    view->get_iter_location(iter, activation_rectangle);
     if(iter.get_offset() < end_iter.get_offset()) {
       while(iter.forward_char() && iter != end_iter) {
         Gdk::Rectangle rectangle;
-        text_view->get_iter_location(iter, rectangle);
+        view->get_iter_location(iter, rectangle);
         activation_rectangle.join(rectangle);
       }
     }
     int location_window_x, location_window_y;
-    text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, activation_rectangle.get_x(), activation_rectangle.get_y(), location_window_x, location_window_y);
+    view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, activation_rectangle.get_x(), activation_rectangle.get_y(), location_window_x, location_window_y);
     activation_rectangle.set_x(location_window_x);
     activation_rectangle.set_y(location_window_y);
   }
@@ -82,20 +78,18 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
     buffer = Gtk::TextBuffer::create();
 
-    if(text_view) {
-      auto tag = text_view->get_buffer()->get_tag_table()->lookup("def:warning");
-      auto new_tag = buffer->create_tag("def:warning");
-      if(tag->property_foreground_set())
-        new_tag->property_foreground_rgba() = tag->property_foreground_rgba().get_value();
-      if(tag->property_background_set())
-        new_tag->property_background_rgba() = tag->property_background_rgba().get_value();
-
-      tag = text_view->get_buffer()->get_tag_table()->lookup("def:error");
-      new_tag = buffer->create_tag("def:error");
-      if(tag->property_foreground_set())
-        new_tag->property_foreground_rgba() = tag->property_foreground_rgba().get_value();
-      if(tag->property_background_set())
-        new_tag->property_background_rgba() = tag->property_background_rgba().get_value();
+    if(view) {
+      auto create_tag_from_style = [this](const std::string &style_name) {
+        if(auto style = view->get_source_buffer()->get_style_scheme()->get_style(style_name)) {
+          auto tag = buffer->create_tag(style_name);
+          if(style->property_foreground_set())
+            tag->property_foreground() = style->property_foreground();
+          if(style->property_background_set())
+            tag->property_background() = style->property_background();
+        }
+      };
+      create_tag_from_style("def:warning");
+      create_tag_from_style("def:error");
     }
     link_tag = buffer->create_tag("link");
     link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
@@ -164,8 +158,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
           std::smatch sm;
           if(std::regex_match(link, sm, regex)) {
             auto path = boost::filesystem::path(sm[1].str());
-            if(auto view = dynamic_cast<Source::View *>(text_view))
-              path = filesystem::get_normal_path(view->file_path.parent_path() / path);
+            if(auto source_view = dynamic_cast<Source::View *>(view))
+              path = filesystem::get_normal_path(source_view->file_path.parent_path() / path);
 
             boost::system::error_code ec;
             if(boost::filesystem::is_regular_file(path, ec)) {
@@ -185,8 +179,8 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
           }
 
           auto path = boost::filesystem::path(link);
-          if(auto view = dynamic_cast<Source::View *>(text_view))
-            path = filesystem::get_normal_path(view->file_path.parent_path() / path);
+          if(auto source_view = dynamic_cast<Source::View *>(view))
+            path = filesystem::get_normal_path(source_view->file_path.parent_path() / path);
           boost::system::error_code ec;
           if(boost::filesystem::is_regular_file(path, ec) && Notebook::get().open(path))
             return true;
@@ -206,13 +200,14 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
     // Add ScrolledWindow if needed
     Gtk::Widget *widget = tooltip_text_view;
+    auto screen_width = Gdk::Screen::get_default()->get_width();
     auto screen_height = Gdk::Screen::get_default()->get_height();
-    if(size.second > screen_height - 6 /* 2xpadding */) {
+    if(size.first > screen_width - 6 /* 2xpadding */ || size.second > screen_height - 6 /* 2xpadding */) {
       auto scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
-      scrolled_window->property_hscrollbar_policy() = Gtk::PolicyType::POLICY_NEVER;
-      scrolled_window->property_vscrollbar_policy() = Gtk::PolicyType::POLICY_AUTOMATIC;
+      scrolled_window->property_hscrollbar_policy() = size.first > screen_width - 6 ? Gtk::PolicyType::POLICY_AUTOMATIC : Gtk::PolicyType::POLICY_NEVER;
+      scrolled_window->property_vscrollbar_policy() = size.second > screen_height - 6 ? Gtk::PolicyType::POLICY_AUTOMATIC : Gtk::PolicyType::POLICY_NEVER;
       scrolled_window->add(*tooltip_text_view);
-      scrolled_window->set_size_request(-1, screen_height - 6 /* 2xpadding */);
+      scrolled_window->set_size_request(size.first > screen_width - 6 ? screen_width - 6 : -1, size.second > screen_height - 6 ? screen_height - 6 : -1);
       widget = scrolled_window;
     }
 
@@ -225,7 +220,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 #endif
 
     window->signal_realize().connect([this] {
-      if(!text_view) {
+      if(!view) {
         auto &dialog = SelectionDialog::get();
         if(dialog && dialog->is_visible()) {
           int root_x, root_y;
@@ -245,15 +240,15 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     return; // Do not show empty tooltips
 
   int root_x = 0, root_y = 0;
-  if(text_view) {
+  if(view) {
     Gdk::Rectangle visible_rect;
-    text_view->get_visible_rect(visible_rect);
+    view->get_visible_rect(visible_rect);
     int visible_window_x, visible_window_y;
-    text_view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, visible_rect.get_x(), visible_rect.get_y(), visible_window_x, visible_window_y);
+    view->buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, visible_rect.get_x(), visible_rect.get_y(), visible_window_x, visible_window_y);
 
-    auto window_x = std::max(activation_rectangle.get_x(), visible_window_x); // Adjust tooltip right if it is left of text_view
+    auto window_x = std::max(activation_rectangle.get_x(), visible_window_x); // Adjust tooltip right if it is left of view
     auto window_y = activation_rectangle.get_y();
-    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(window_x, window_y, root_x, root_y);
+    view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(window_x, window_y, root_x, root_y);
     root_x -= 3; // -1xpadding
 
     if(root_y < size.second)
@@ -262,7 +257,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
     // Move tooltip left if it is right of screen
     auto screen_width = Gdk::Screen::get_default()->get_width();
-    rectangle.set_x(root_x + size.first > screen_width ? screen_width - size.first : root_x);
+    rectangle.set_x(root_x + size.first > screen_width ? std::max(0, screen_width - size.first) /* Move tooptip right if it is left of screen */ : root_x);
   }
 
   rectangle.set_width(size.first);
@@ -292,9 +287,9 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 void Tooltip::hide(const boost::optional<std::pair<int, int>> &last_mouse_pos, const boost::optional<std::pair<int, int>> &mouse_pos) {
   // Keep tooltip if mouse is moving towards it
   // Calculated using dot product between the mouse_pos vector and the corners of the tooltip window
-  if(text_view && window && shown && last_mouse_pos && mouse_pos) {
+  if(view && window && shown && last_mouse_pos && mouse_pos) {
     static int root_x, root_y;
-    text_view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(last_mouse_pos->first, last_mouse_pos->second, root_x, root_y);
+    view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(last_mouse_pos->first, last_mouse_pos->second, root_x, root_y);
     int diff_x = mouse_pos->first - last_mouse_pos->first;
     int diff_y = mouse_pos->second - last_mouse_pos->second;
     class Corner {
@@ -326,7 +321,7 @@ void Tooltip::wrap_lines() {
   while(true) {
     auto last_space = buffer->end();
     bool long_line = true;
-    for(unsigned c = 0; c <= 80; c++) {
+    for(int c = 0; c <= max_columns; c++) {
       if(*iter == ' ')
         last_space = iter;
       if(iter.ends_line()) {
@@ -337,7 +332,7 @@ void Tooltip::wrap_lines() {
         return;
     }
     if(long_line) {
-      if(!last_space) { // If word is longer than 80
+      if(!last_space) { // If word is longer than max_columns
         while(true) {
           if(iter.ends_line())
             break;
@@ -366,21 +361,8 @@ void Tooltip::wrap_lines() {
   }
 }
 
-void Tooltip::insert_with_links_tagged(const std::string &text) {
-  static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])");
-  std::smatch sm;
-  std::sregex_iterator it(text.begin(), text.end(), http_regex);
-  std::sregex_iterator end;
-  size_t start_pos = 0;
-  for(; it != end; ++it) {
-    buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[it->position()]);
-    buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], &text[it->position() + it->length()], link_tag);
-    start_pos = it->position() + it->length();
-  }
-  buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[text.size()]);
-}
 
-void Tooltip::insert_markdown(const std::string &input) {
+void Tooltip::create_tags() {
   if(!h1_tag) {
     h1_tag = buffer->create_tag();
     h1_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
@@ -419,6 +401,24 @@ void Tooltip::insert_markdown(const std::string &input) {
     strikethrough_tag = buffer->create_tag();
     strikethrough_tag->property_strikethrough() = true;
   }
+}
+
+void Tooltip::insert_with_links_tagged(const std::string &text) {
+  static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])");
+  std::smatch sm;
+  std::sregex_iterator it(text.begin(), text.end(), http_regex);
+  std::sregex_iterator end;
+  size_t start_pos = 0;
+  for(; it != end; ++it) {
+    buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[it->position()]);
+    buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], &text[it->position() + it->length()], link_tag);
+    start_pos = it->position() + it->length();
+  }
+  buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[text.size()]);
+}
+
+void Tooltip::insert_markdown(const std::string &input) {
+  create_tags();
 
   size_t i = 0;
 
@@ -705,6 +705,7 @@ void Tooltip::insert_markdown(const std::string &input) {
     if(starts_with(input, i, "```")) {
       auto i_saved = i;
       if(forward_to({'\n'})) {
+        auto language = input.substr(i_saved + 3, i - (i_saved + 3));
         i++;
         if(i < input.size()) {
           auto start = i;
@@ -717,7 +718,7 @@ void Tooltip::insert_markdown(const std::string &input) {
           auto end = buffer->end();
           if(end.backward_char() && !end.starts_line())
             buffer->insert_at_cursor("\n");
-          buffer->insert_with_tag(buffer->get_insert()->get_iter(), input.substr(start, i - start), code_block_tag);
+          insert_code(input.substr(start, i - start), language, true);
           buffer->insert_at_cursor("\n");
           i += 3;
           return true;
@@ -779,6 +780,106 @@ void Tooltip::insert_markdown(const std::string &input) {
   }
 
   remove_trailing_newlines();
+}
+
+void Tooltip::insert_code(const std::string &code, const boost::optional<std::string> &language_identifier, bool block) {
+  create_tags();
+
+  auto insert_iter = buffer->get_insert()->get_iter();
+  Source::Mark start_mark(insert_iter);
+
+  bool style_format_type_description = false;
+  if(!block) {
+    auto pos = code.find("\n");
+    if(pos != std::string::npos)
+      block = true;
+    else if(insert_iter == buffer->begin() && !block && utf8_character_count(code) > static_cast<size_t>(max_columns)) {
+      block = true;
+      style_format_type_description = true;
+    }
+  }
+
+  buffer->insert_with_tag(insert_iter, code, block ? code_block_tag : code_tag);
+
+  if(view && language_identifier) {
+    auto tmp_view = Gsv::View();
+    tmp_view.get_buffer()->set_text(code);
+    auto scheme = view->get_source_buffer()->get_style_scheme();
+    tmp_view.get_source_buffer()->set_style_scheme(scheme);
+    Glib::RefPtr<Gsv::Language> language;
+    if(!language_identifier->empty())
+      language = Source::LanguageManager::get_default()->get_language(*language_identifier);
+    if(!language) {
+      if(auto source_view = dynamic_cast<Source::View *>(view))
+        language = source_view->language;
+    }
+    if(language) {
+      tmp_view.get_source_buffer()->set_language(language);
+      tmp_view.get_source_buffer()->set_highlight_syntax(true);
+      tmp_view.get_source_buffer()->ensure_highlight(tmp_view.get_buffer()->begin(), tmp_view.get_buffer()->end());
+
+      auto start_iter = start_mark->get_iter();
+      tmp_view.get_buffer()->get_tag_table()->foreach([this, &tmp_view, &start_iter](const Glib::RefPtr<Gtk::TextTag> &tmp_tag) {
+        if(tmp_tag->property_foreground_set()) {
+          auto tag = buffer->create_tag();
+          tag->property_foreground_rgba() = tmp_tag->property_foreground_rgba().get_value();
+
+          auto tmp_iter = tmp_view.get_source_buffer()->begin();
+          Gtk::TextIter tmp_start;
+          if(tmp_iter.starts_tag(tmp_tag))
+            tmp_start = tmp_iter;
+          while(tmp_iter.forward_to_tag_toggle(tmp_tag)) {
+            if(tmp_iter.ends_tag(tmp_tag)) {
+              auto start = start_iter;
+              start.forward_chars(tmp_start.get_offset());
+              auto end = start_iter;
+              end.forward_chars(tmp_iter.get_offset());
+              buffer->apply_tag(tag, start, end);
+            }
+            else
+              tmp_start = tmp_iter;
+          }
+        }
+      });
+    }
+  }
+
+  // Make long type descriptions readable
+  if(style_format_type_description) {
+    int initial_max_columns = max_columns;
+    std::list<Source::Mark> open_brackets;
+    for(auto iter = start_mark->get_iter(); iter; iter.forward_char()) {
+      if(*iter == '(' || *iter == '[' || *iter == '{' || *iter == '<')
+        open_brackets.emplace_back(iter);
+      else if(*iter == ')' || *iter == ']' || *iter == '}' || *iter == '>') {
+        if(!open_brackets.empty())
+          open_brackets.pop_back();
+      }
+      else if(*iter == ',' && !open_brackets.empty()) {
+        auto line_offset = open_brackets.back()->get_iter().get_line_offset();
+        if(iter.forward_char()) {
+          Source::Mark mark(iter);
+          auto previous = iter;
+          if(*iter == ' ' && iter.forward_char()) {
+            buffer->erase(previous, iter);
+            iter = mark->get_iter();
+          }
+          buffer->insert(mark->get_iter(), '\n' + std::string(line_offset + 1, ' '));
+          iter = mark->get_iter();
+        }
+      }
+      else if(*iter == ' ' && open_brackets.empty() && iter.get_line_offset() + (buffer->end().get_offset() - iter.get_offset()) > initial_max_columns) { // Add new line between return value, parameters and specifiers
+        auto previous = iter;
+        if(iter.forward_char()) {
+          Source::Mark mark(iter);
+          buffer->erase(previous, iter);
+          buffer->insert(mark->get_iter(), "\n");
+          iter = mark->get_iter();
+        }
+      }
+      max_columns = std::max(max_columns, iter.get_line_offset() + 1);
+    }
+  }
 }
 
 void Tooltip::remove_trailing_newlines() {

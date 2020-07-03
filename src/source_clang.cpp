@@ -511,7 +511,11 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
 
             type_tooltips.emplace_back(this, start, end, [this, token](Tooltip &tooltip) {
               auto cursor = token.get_cursor();
-              tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), "Type: " + cursor.get_type_description());
+              auto type_description = cursor.get_type_description();
+              size_t pos = 0;
+              while((pos = type_description.find("::__1", pos)) != std::string::npos)
+                type_description.erase(pos, 5);
+              tooltip.insert_code(type_description, std::string{});
               auto brief_comment = cursor.get_brief_comments();
               if(brief_comment != "")
                 tooltip.insert_with_links_tagged("\n\n" + brief_comment);
@@ -647,7 +651,12 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), (tooltip.buffer->size() > 0 ? "\n\n" : "") + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), (tooltip.buffer->size() > 0 ? "\n\n" : "") + value_type + ":\n");
+                    auto value = debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1);
+                    size_t pos = 0;
+                    while((pos = value.find("::__1", pos)) != std::string::npos)
+                      value.erase(pos, 5);
+                    tooltip.insert_code(value, {});
                   }
                 }
               }
@@ -820,7 +829,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
       clangmm::remove_include_guard(buffer);
     code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line_number, column));
-    if(code_complete_results->cx_results == nullptr) {
+    if(!code_complete_results->cx_results) {
       auto expected = ParseState::processing;
       parse_state.compare_exchange_strong(expected, ParseState::restarting);
       return;

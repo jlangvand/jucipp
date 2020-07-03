@@ -7,9 +7,9 @@
 #include <thread>
 
 class Autocomplete {
-  Gtk::TextView *view;
+  Gsv::View *view;
   bool &interactive_completion;
-  /// If text_view buffer should be passed to add_rows. Empty buffer is passed if not.
+  /// If view buffer should be passed to add_rows. Empty buffer is passed if not.
   /// Also, some utilities, like libclang, require that autocomplete is started at the beginning of a word.
   bool pass_buffer_and_strip_word;
 
@@ -52,7 +52,7 @@ public:
 
   std::function<std::function<void(Tooltip &tooltip)>(unsigned int)> set_tooltip_buffer = [](unsigned int index) { return nullptr; };
 
-  Autocomplete(Gtk::TextView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
+  Autocomplete(Gsv::View *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
 
   void run();
   void stop();

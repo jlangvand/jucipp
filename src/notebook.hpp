@@ -18,12 +18,9 @@ class Notebook : public Gtk::Paned {
 
   class CursorLocation {
   public:
-    CursorLocation(Source::View *view, const Gtk::TextIter &iter) : view(view), mark(iter.get_buffer()->create_mark(iter, false)) {}
-    ~CursorLocation() {
-      mark->get_buffer()->delete_mark(mark);
-    }
+    CursorLocation(Source::View *view, const Gtk::TextIter &iter) : view(view), mark(iter, false) {}
     Source::View *view;
-    Glib::RefPtr<Gtk::TextBuffer::Mark> mark;
+    Source::Mark mark;
   };
 
 private:

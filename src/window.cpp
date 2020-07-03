@@ -1266,7 +1266,7 @@ void Window::set_menu_actions() {
 
         std::set<Glib::RefPtr<Gtk::TextBuffer>> buffers;
         std::set<Source::View *> header_views;
-        std::vector<std::pair<Glib::RefPtr<Gtk::TextMark>, Glib::RefPtr<Gtk::TextMark>>> fix_it_marks;
+        std::list<std::pair<Source::Mark, Source::Mark>> fix_it_marks;
         for(auto &fix_it : fix_its) {
           auto view = current_view;
           if(fix_it.path != current_view->file_path) {
@@ -1278,27 +1278,24 @@ void Window::set_menu_actions() {
           }
           auto start_iter = view->get_iter_at_line_pos(fix_it.offsets.first.line, fix_it.offsets.first.index);
           auto end_iter = view->get_iter_at_line_pos(fix_it.offsets.second.line, fix_it.offsets.second.index);
-          fix_it_marks.emplace_back(view->get_buffer()->create_mark(start_iter), view->get_buffer()->create_mark(end_iter));
+          fix_it_marks.emplace_back(start_iter, end_iter);
           buffers.emplace(view->get_buffer());
         }
 
         for(auto &buffer : buffers)
           buffer->begin_user_action();
-        for(size_t i = 0; i < fix_its.size(); ++i) {
-          auto buffer = fix_it_marks[i].first->get_buffer();
-          if(fix_its[i].type == Source::FixIt::Type::insert)
-            buffer->insert(fix_it_marks[i].first->get_iter(), fix_its[i].source);
-          else if(fix_its[i].type == Source::FixIt::Type::replace) {
-            buffer->erase(fix_it_marks[i].first->get_iter(), fix_it_marks[i].second->get_iter());
-            buffer->insert(fix_it_marks[i].first->get_iter(), fix_its[i].source);
+        auto fix_it_mark = fix_it_marks.begin();
+        for(auto &fix_it : fix_its) {
+          auto buffer = fix_it_mark->first->get_buffer();
+          if(fix_it.type == Source::FixIt::Type::insert)
+            buffer->insert(fix_it_mark->first->get_iter(), fix_it.source);
+          else if(fix_it.type == Source::FixIt::Type::replace) {
+            buffer->erase(fix_it_mark->first->get_iter(), fix_it_mark->second->get_iter());
+            buffer->insert(fix_it_mark->first->get_iter(), fix_it.source);
           }
-          else if(fix_its[i].type == Source::FixIt::Type::erase)
-            buffer->erase(fix_it_marks[i].first->get_iter(), fix_it_marks[i].second->get_iter());
-        }
-        for(auto &mark_pair : fix_it_marks) {
-          auto buffer = mark_pair.first->get_buffer();
-          buffer->delete_mark(mark_pair.first);
-          buffer->delete_mark(mark_pair.second);
+          else if(fix_it.type == Source::FixIt::Type::erase)
+            buffer->erase(fix_it_mark->first->get_iter(), fix_it_mark->second->get_iter());
+          ++fix_it_mark;
         }
         for(auto &buffer : buffers)
           buffer->end_user_action();

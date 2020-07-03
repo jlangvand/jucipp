@@ -11,6 +11,22 @@
 #include <vector>
 
 namespace Source {
+  /// RAII-style text mark. Use instead of Gtk::TextBuffer::create_mark and Gtk::TextBuffer::delete_mark,
+  /// since Gtk::TextBuffer::delete_mark is not called upon Glib::RefPtr<Gtk::TextMark> deletion
+  class Mark : public Glib::RefPtr<Gtk::TextMark> {
+  public:
+    Mark(const Gtk::TextIter &iter, bool left_gravity = true) : Glib::RefPtr<Gtk::TextMark>(iter.get_buffer()->create_mark(iter, left_gravity)) {}
+    Mark() = default;
+    Mark(Mark &&) = default;
+    Mark &operator=(Mark &&) = default;
+    Mark(const Mark &) = delete;
+    Mark &operator=(const Mark &) = delete;
+    ~Mark() {
+      if(*this)
+        (*this)->get_buffer()->delete_mark(*this);
+    }
+  };
+
   class SearchView : public Gsv::View {
   public:
     SearchView();
@@ -162,8 +178,8 @@ namespace Source {
       void move(const Gtk::TextIter &iter, bool selection_activated);
       void move_selection_bound(const Gtk::TextIter &iter);
 
-      Glib::RefPtr<Gtk::TextBuffer::Mark> insert;
-      Glib::RefPtr<Gtk::TextBuffer::Mark> selection_bound;
+      Mark insert;
+      Mark selection_bound;
       /// Used when moving cursor up/down lines
       int line_offset;
       /// Set to true when the extra cursor corresponds to a snippet parameter
@@ -181,12 +197,8 @@ namespace Source {
     class SnippetParameter {
     public:
       SnippetParameter(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter)
-          : start(start_iter.get_buffer()->create_mark(start_iter, false)), end(end_iter.get_buffer()->create_mark(end_iter, false)), size(end_iter.get_offset() - start_iter.get_offset()) {}
-      ~SnippetParameter() {
-        start->get_buffer()->delete_mark(start);
-        end->get_buffer()->delete_mark(end);
-      }
-      Glib::RefPtr<Gtk::TextBuffer::Mark> start, end;
+          : start(start_iter, false), end(end_iter, false), size(end_iter.get_offset() - start_iter.get_offset()) {}
+      Mark start, end;
       /// Used to check if the parameter has been deleted, and should be passed on next tab
       int size;
     };

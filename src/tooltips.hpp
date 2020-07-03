@@ -1,7 +1,8 @@
 #pragma once
+#include "source_base.hpp"
 #include <boost/optional.hpp>
 #include <functional>
-#include <gtkmm.h>
+#include <gtksourceviewmm.h>
 #include <list>
 #include <set>
 #include <string>
@@ -9,7 +10,7 @@
 
 class Tooltip {
 public:
-  Tooltip(Gtk::TextView *text_view, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, std::function<void(Tooltip &)> set_buffer_);
+  Tooltip(Gsv::View *view, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, std::function<void(Tooltip &)> set_buffer_);
   Tooltip(std::function<void(Tooltip &tooltip)> set_buffer_);
   ~Tooltip();
 
@@ -18,22 +19,23 @@ public:
   void hide(const boost::optional<std::pair<int, int>> &last_mouse_pos, const boost::optional<std::pair<int, int>> &mouse_pos);
 
   Gdk::Rectangle activation_rectangle;
-  Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark;
-  Glib::RefPtr<Gtk::TextBuffer::Mark> end_mark;
+  Source::Mark start_mark, end_mark;
 
   Glib::RefPtr<Gtk::TextBuffer> buffer;
 
   void insert_with_links_tagged(const std::string &text);
   void insert_markdown(const std::string &text);
+  void insert_code(const std::string &code, const boost::optional<std::string> &language_identifier, bool block = false);
   // Remove empty lines at end of buffer
   void remove_trailing_newlines();
 
 private:
   std::unique_ptr<Gtk::Window> window;
-  void wrap_lines();
 
-  Gtk::TextView *text_view;
+  Gsv::View *view;
   std::function<void(Tooltip &)> set_buffer;
+  /// Initial maximum number of characters on each line
+  int max_columns = 80;
   std::pair<int, int> size;
   Gdk::Rectangle rectangle;
 
@@ -52,6 +54,9 @@ private:
   std::map<Glib::RefPtr<Gtk::TextTag>, std::string> links;
   std::map<Glib::RefPtr<Gtk::TextTag>, std::string> reference_links;
   std::unordered_map<std::string, std::string> references;
+
+  void wrap_lines();
+  void create_tags();
 };
 
 class Tooltips {

@@ -133,9 +133,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   clickable_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
   clickable_tag->property_underline_set() = true;
 
-  get_buffer()->create_tag("def:warning");
   get_buffer()->create_tag("def:warning_underline");
-  get_buffer()->create_tag("def:error");
   get_buffer()->create_tag("def:error_underline");
 
   auto mark_attr_debug_breakpoint = Gsv::MarkAttributes::create();
@@ -464,33 +462,26 @@ void Source::View::configure() {
   auto scheme = get_source_buffer()->get_style_scheme();
   auto tag_table = get_buffer()->get_tag_table();
   auto style = scheme->get_style("def:warning");
-  auto diagnostic_tag = get_buffer()->get_tag_table()->lookup("def:warning");
   auto diagnostic_tag_underline = get_buffer()->get_tag_table()->lookup("def:warning_underline");
   if(style && (style->property_foreground_set() || style->property_background_set())) {
     Glib::ustring warning_property;
-    if(style->property_foreground_set()) {
+    if(style->property_foreground_set())
       warning_property = style->property_foreground().get_value();
-      diagnostic_tag->property_foreground() = warning_property;
-    }
     else if(style->property_background_set())
       warning_property = style->property_background().get_value();
 
     diagnostic_tag_underline->property_underline() = Pango::Underline::UNDERLINE_ERROR;
     auto tag_class = G_OBJECT_GET_CLASS(diagnostic_tag_underline->gobj()); //For older GTK+ 3 versions:
     auto param_spec = g_object_class_find_property(tag_class, "underline-rgba");
-    if(param_spec != nullptr) {
+    if(param_spec)
       diagnostic_tag_underline->set_property("underline-rgba", Gdk::RGBA(warning_property));
-    }
   }
   style = scheme->get_style("def:error");
-  diagnostic_tag = get_buffer()->get_tag_table()->lookup("def:error");
   diagnostic_tag_underline = get_buffer()->get_tag_table()->lookup("def:error_underline");
   if(style && (style->property_foreground_set() || style->property_background_set())) {
     Glib::ustring error_property;
-    if(style->property_foreground_set()) {
+    if(style->property_foreground_set())
       error_property = style->property_foreground().get_value();
-      diagnostic_tag->property_foreground() = error_property;
-    }
     else if(style->property_background_set())
       error_property = style->property_background().get_value();
 
@@ -630,11 +621,17 @@ void Source::View::setup_signals() {
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iterator, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     auto mark_name = mark->get_name();
+    if(mark_name == "selection_bound") {
+      if(get_buffer()->get_has_selection())
+        delayed_tooltips_connection.disconnect();
 
-    if(get_buffer()->get_has_selection() && mark_name == "selection_bound")
-      delayed_tooltips_connection.disconnect();
+      if(update_status_location)
+        update_status_location(this);
 
-    if(mark_name == "insert") {
+      if(!keep_previous_extended_selections)
+        previous_extended_selections.clear();
+    }
+    else if(mark_name == "insert") {
       hide_tooltips();
 
       delayed_tooltips_connection.disconnect();
@@ -672,10 +669,6 @@ void Source::View::setup_signals() {
       if(!keep_previous_extended_selections)
         previous_extended_selections.clear();
     }
-
-    if(!keep_previous_extended_selections && (mark_name == "insert" || mark_name == "selection_bound"))
-      if(!keep_previous_extended_selections)
-        previous_extended_selections.clear();
   });
 
   signal_key_release_event().connect([this](GdkEventKey *event) {
@@ -929,10 +922,9 @@ void Source::View::setup_format_style(bool is_generic_view) {
                     }
                   }
                   if(left_gravity_insert) {
-                    auto mark = get_buffer()->create_mark(start);
+                    Mark mark(start);
                     get_buffer()->insert(start, replacement_str);
                     get_buffer()->place_cursor(mark->get_iter());
-                    get_buffer()->delete_mark(mark);
                   }
                   else
                     get_buffer()->insert(start, replacement_str);
@@ -2145,7 +2137,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     // Indent right when clicking tab, no matter where in the line the cursor is. Also works on selected text.
     Gtk::TextIter selection_start, selection_end;
     get_buffer()->get_selection_bounds(selection_start, selection_end);
-    auto selection_end_mark = get_buffer()->create_mark(selection_end);
+    Mark selection_end_mark(selection_end);
     int line_start = selection_start.get_line();
     int line_end = selection_end.get_line();
     for(int line = line_start; line <= line_end; line++) {
@@ -2153,7 +2145,6 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
       if(!get_buffer()->get_has_selection() || line_it != selection_end_mark->get_iter())
         get_buffer()->insert(line_it, tab);
     }
-    get_buffer()->delete_mark(selection_end_mark);
     return true;
   }
   // Indent left when clicking shift-tab, no matter where in the line the cursor is. Also works on selected text.
@@ -2472,12 +2463,11 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
           if(!iter.ends_line() && *iter != ')' && *iter != ']' && *iter != '}') {
             get_buffer()->insert_at_cursor('\n' + tabs + tab);
             auto iter = get_buffer()->get_insert()->get_iter();
-            auto mark = get_buffer()->create_mark(iter);
+            Mark mark(iter);
             iter.forward_to_line_end();
             get_buffer()->insert(iter, '\n' + tabs + static_cast<char>(close_symbol));
             scroll_to(get_buffer()->get_insert());
             get_buffer()->place_cursor(mark->get_iter());
-            get_buffer()->delete_mark(mark);
             return true;
           }
           else {
@@ -2603,12 +2593,11 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
           if(!iter.ends_line() && *iter != ')' && *iter != ']') {
             get_buffer()->insert_at_cursor('\n' + tabs + tab);
             auto iter = get_buffer()->get_insert()->get_iter();
-            auto mark = get_buffer()->create_mark(iter);
+            Mark mark(iter);
             iter.forward_to_line_end();
             get_buffer()->insert(iter, '\n' + tabs + '}');
             scroll_to(get_buffer()->get_insert());
             get_buffer()->place_cursor(mark->get_iter());
-            get_buffer()->delete_mark(mark);
             return true;
           }
           else {
@@ -2886,16 +2875,14 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
         auto after_end = end;
         if(before_start.backward_char() && *before_start == '*' && before_start.backward_char() && *before_start == '/' &&
            *after_end == '*' && after_end.forward_char() && *after_end == '/') {
-          auto start_mark = get_buffer()->create_mark(start);
-          auto end_mark = get_buffer()->create_mark(end);
+          Mark start_mark(start);
+          Mark end_mark(end);
           get_buffer()->erase(before_start, start);
           after_end = end_mark->get_iter();
           after_end.forward_chars(2);
           get_buffer()->erase(end_mark->get_iter(), after_end);
 
           get_buffer()->select_range(start_mark->get_iter(), end_mark->get_iter());
-          get_buffer()->delete_mark(start_mark);
-          get_buffer()->delete_mark(end_mark);
           return true;
         }
       }
@@ -2960,16 +2947,14 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
     if(!left.empty() && !right.empty()) {
       Gtk::TextIter start, end;
       get_buffer()->get_selection_bounds(start, end);
-      auto start_mark = get_buffer()->create_mark(start);
-      auto end_mark = get_buffer()->create_mark(end);
+      Mark start_mark(start);
+      Mark end_mark(end);
       get_buffer()->insert(start, left);
       get_buffer()->insert(end_mark->get_iter(), right);
 
       auto start_mark_next_iter = start_mark->get_iter();
       start_mark_next_iter.forward_chars(left.size());
       get_buffer()->select_range(start_mark_next_iter, end_mark->get_iter());
-      get_buffer()->delete_mark(start_mark);
-      get_buffer()->delete_mark(end_mark);
       return true;
     }
     return false;

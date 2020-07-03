@@ -1238,15 +1238,15 @@ void Source::BaseView::setup_extra_cursor_signals() {
 
   extra_cursor_selection->set_priority(get_buffer()->get_tag_table()->get_size() - 1);
 
-  auto last_insert = get_buffer()->create_mark(get_buffer()->get_insert()->get_iter(), false);
-  auto last_selection_bound = get_buffer()->create_mark(get_buffer()->get_selection_bound()->get_iter(), false);
+  auto last_insert = std::make_shared<Mark>(get_buffer()->get_insert()->get_iter(), false);
+  auto last_selection_bound = std::make_shared<Mark>(get_buffer()->get_selection_bound()->get_iter(), false);
   get_buffer()->signal_mark_set().connect([this, last_insert, last_selection_bound](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) mutable {
     if(mark->get_name() == "insert") {
       if(enable_multiple_cursors || enable_multiple_cursors_placements) {
         auto set_enable_multiple_cursors = enable_multiple_cursors;
         if(set_enable_multiple_cursors)
           enable_multiple_cursors = false;
-        auto offset_diff = mark->get_iter().get_offset() - last_insert->get_iter().get_offset();
+        auto offset_diff = mark->get_iter().get_offset() - (*last_insert)->get_iter().get_offset();
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
             auto iter = extra_cursor.insert->get_iter();
@@ -1258,7 +1258,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
         if(set_enable_multiple_cursors)
           enable_multiple_cursors = true;
       }
-      get_buffer()->move_mark(last_insert, mark->get_iter());
+      get_buffer()->move_mark(*last_insert, mark->get_iter());
     }
 
     if(mark->get_name() == "selection_bound") {
@@ -1266,7 +1266,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
         auto set_enable_multiple_cursors = enable_multiple_cursors;
         if(set_enable_multiple_cursors)
           enable_multiple_cursors = false;
-        auto offset_diff = mark->get_iter().get_offset() - last_selection_bound->get_iter().get_offset();
+        auto offset_diff = mark->get_iter().get_offset() - (*last_selection_bound)->get_iter().get_offset();
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
             auto iter = extra_cursor.selection_bound->get_iter();
@@ -1278,7 +1278,7 @@ void Source::BaseView::setup_extra_cursor_signals() {
         if(set_enable_multiple_cursors)
           enable_multiple_cursors = true;
       }
-      get_buffer()->move_mark(last_selection_bound, mark->get_iter());
+      get_buffer()->move_mark(*last_selection_bound, mark->get_iter());
     }
   });
 
@@ -1540,7 +1540,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
     parameter_offsets_and_sizes_map.erase(it);
   }
 
-  auto mark = get_buffer()->create_mark(iter);
+  Mark mark(iter);
 
   get_source_buffer()->begin_user_action();
   Gtk::TextIter start, end;
@@ -1563,7 +1563,6 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
   get_source_buffer()->end_user_action();
 
   iter = mark->get_iter();
-  get_buffer()->delete_mark(mark);
   for(auto &parameter_offsets_and_sized : parameter_offsets_and_sizes_map) {
     snippet_parameters_list.emplace_back();
     for(auto &offsets : parameter_offsets_and_sized.second) {
@@ -1660,8 +1659,8 @@ bool Source::BaseView::clear_snippet_marks() {
 
 Source::BaseView::ExtraCursor::ExtraCursor(const Glib::RefPtr<Gtk::TextTag> &extra_cursor_selection, const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter, bool snippet, int line_offset)
     : extra_cursor_selection(extra_cursor_selection),
-      insert(start_iter.get_buffer()->create_mark(start_iter, false)),
-      selection_bound(end_iter.get_buffer()->create_mark(end_iter, false)),
+      insert(start_iter, false),
+      selection_bound(end_iter, false),
       line_offset(line_offset), snippet(snippet) {
   insert->set_visible(true);
   if(start_iter != end_iter)
@@ -1671,8 +1670,6 @@ Source::BaseView::ExtraCursor::ExtraCursor(const Glib::RefPtr<Gtk::TextTag> &ext
 Source::BaseView::ExtraCursor::~ExtraCursor() {
   insert->get_buffer()->remove_tag(extra_cursor_selection, insert->get_iter(), selection_bound->get_iter());
   insert->set_visible(false);
-  insert->get_buffer()->delete_mark(insert);
-  selection_bound->get_buffer()->delete_mark(selection_bound);
 }
 
 void Source::BaseView::ExtraCursor::move(const Gtk::TextIter &iter, bool selection_activated) {

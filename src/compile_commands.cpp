@@ -180,7 +180,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
     if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
       auto clang_version = sm[1].str();
       auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
-      if(env_msystem_prefix != nullptr)
+      if(env_msystem_prefix)
         arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
     }
 #endif
@@ -202,7 +202,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
 #endif
 #ifdef _WIN32
       auto env_msystem_prefix = std::getenv("MSYSTEM_PREFIX");
-      if(env_msystem_prefix != nullptr)
+      if(env_msystem_prefix)
         arguments.emplace_back("-I" + (boost::filesystem::path(env_msystem_prefix) / "lib/clang" / clang_version / "include").string());
 #endif
     }

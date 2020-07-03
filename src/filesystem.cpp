@@ -86,10 +86,8 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
   if(!home_path.empty())
     return home_path;
   std::vector<std::string> environment_variables = {"HOME", "AppData"};
-  char *ptr = nullptr;
   for(auto &variable : environment_variables) {
-    ptr = std::getenv(variable.c_str());
-    if(ptr != nullptr) {
+    if(auto ptr = std::getenv(variable.c_str())) {
       boost::system::error_code ec;
       boost::filesystem::path path(ptr);
       if(boost::filesystem::exists(path, ec)) {

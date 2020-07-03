@@ -1,4 +1,5 @@
 #pragma once
+#include "source_base.hpp"
 #include <boost/optional.hpp>
 #include <functional>
 #include <gtkmm.h>
@@ -38,7 +39,7 @@ class SelectionDialogBase {
 
 public:
   SelectionDialogBase(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup);
-  virtual ~SelectionDialogBase();
+  virtual ~SelectionDialogBase() {}
   void add_row(const std::string &row);
   void erase_rows();
   void set_cursor_at_last_row();
@@ -53,7 +54,7 @@ public:
   std::function<void(boost::optional<unsigned int> index, const std::string &text)> on_change;
   std::function<void(unsigned int index, const std::string &text, bool hide_window)> on_select;
   std::function<void(const std::string &text)> on_search_entry_changed;
-  Glib::RefPtr<Gtk::TextBuffer::Mark> start_mark;
+  Source::Mark start_mark;
 
 protected:
   void cursor_changed();

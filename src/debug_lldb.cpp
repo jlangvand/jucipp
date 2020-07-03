@@ -187,7 +187,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
     for(auto &e : environment_from_arguments)
       environment.emplace_back(e.c_str());
     size_t environ_size = 0;
-    while(environ[environ_size] != nullptr)
+    while(environ[environ_size])
       ++environ_size;
     for(size_t c = 0; c < environ_size; ++c)
       environment.emplace_back(environ[c]);
@@ -340,13 +340,11 @@ std::vector<Debug::LLDB::Frame> Debug::LLDB::get_backtrace() {
 
       backtrace_frame.index = c_f;
 
-      if(frame.GetFunctionName() != nullptr)
-        backtrace_frame.function_name = frame.GetFunctionName();
+      if(auto function_name = frame.GetFunctionName())
+        backtrace_frame.function_name = function_name;
 
-      auto module_filename = frame.GetModule().GetFileSpec().GetFilename();
-      if(module_filename != nullptr) {
+      if(auto module_filename = frame.GetModule().GetFileSpec().GetFilename())
         backtrace_frame.module_filename = module_filename;
-      }
 
       auto line_entry = frame.GetLineEntry();
       if(line_entry.IsValid()) {
@@ -381,8 +379,8 @@ std::vector<Debug::LLDB::Variable> Debug::LLDB::get_variables() {
           Debug::LLDB::Variable variable;
           variable.thread_index_id = thread.GetIndexID();
           variable.frame_index = c_f;
-          if(value.GetName() != nullptr)
-            variable.name = value.GetName();
+          if(auto name = value.GetName())
+            variable.name = name;
           value.GetDescription(stream);
           variable.value = stream.GetData();
 
@@ -442,19 +440,21 @@ std::string Debug::LLDB::get_value(const std::string &variable, const boost::fil
         lldb::SBStream stream;
         auto value = values.GetValueAtIndex(value_index);
 
-        if(value.GetName() != nullptr && value.GetName() == variable) {
-          auto declaration = value.GetDeclaration();
-          if(declaration.IsValid()) {
-            if(declaration.GetLine() == line_nr && (declaration.GetColumn() == 0 || declaration.GetColumn() == line_index)) {
-              auto file_spec = declaration.GetFileSpec();
-              auto value_decl_path = filesystem::get_normal_path(file_spec.GetDirectory());
-              value_decl_path /= file_spec.GetFilename();
-              if(value_decl_path == file_path) {
-                value.GetDescription(stream);
-                std::string variable_value = stream.GetData();
-                if(ends_with(variable_value, "\n\n"))
-                  variable_value.pop_back(); // Remove newline at end of string
-                return variable_value;
+        if(auto name = value.GetName()) {
+          if(name == variable) {
+            auto declaration = value.GetDeclaration();
+            if(declaration.IsValid()) {
+              if(declaration.GetLine() == line_nr && (declaration.GetColumn() == 0 || declaration.GetColumn() == line_index)) {
+                auto file_spec = declaration.GetFileSpec();
+                auto value_decl_path = filesystem::get_normal_path(file_spec.GetDirectory());
+                value_decl_path /= file_spec.GetFilename();
+                if(value_decl_path == file_path) {
+                  value.GetDescription(stream);
+                  std::string variable_value = stream.GetData();
+                  if(ends_with(variable_value, "\n\n"))
+                    variable_value.pop_back(); // Remove newline at end of string
+                  return variable_value;
+                }
               }
             }
           }

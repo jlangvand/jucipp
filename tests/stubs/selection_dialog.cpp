@@ -16,8 +16,6 @@ std::unique_ptr<SelectionDialog> SelectionDialog::instance;
 SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup)
     : SelectionDialogBase(text_view, start_iter, show_search_entry, use_markup) {}
 
-SelectionDialogBase::~SelectionDialogBase() {}
-
 bool SelectionDialog::on_key_press(GdkEventKey *key) { return true; }
 
 std::unique_ptr<CompletionDialog> CompletionDialog::instance;

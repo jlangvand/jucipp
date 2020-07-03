@@ -1092,7 +1092,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
   }
 
   for(auto &mark : type_coverage_marks) {
-    add_diagnostic_tooltip(mark.start->get_iter(), mark.end->get_iter(), false, [](Tooltip &tooltip) {
+    add_diagnostic_tooltip(mark.first->get_iter(), mark.second->get_iter(), false, [](Tooltip &tooltip) {
       tooltip.buffer->insert_at_cursor(type_coverage_message);
     });
     num_warnings++;
@@ -1131,7 +1131,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
       // hover result structure vary significantly from the different language servers
       struct Content {
         std::string value;
-        bool markdown;
+        std::string kind;
       };
       std::vector<Content> contents;
       auto contents_pt = result.get_child_optional("contents");
@@ -1139,20 +1139,28 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
         return;
       auto value = contents_pt->get_value<std::string>("");
       if(!value.empty())
-        contents.emplace_back(Content{value, true});
+        contents.emplace_back(Content{value, "markdown"});
       else {
         auto value_pt = contents_pt->get_optional<std::string>("value");
-        if(value_pt)
-          contents.emplace_back(Content{*value_pt, contents_pt->get<std::string>("kind", "") == "markdown"});
+        if(value_pt) {
+          auto kind = contents_pt->get<std::string>("kind", "");
+          if(kind.empty())
+            kind = contents_pt->get<std::string>("language", "");
+          contents.emplace_back(Content{*value_pt, kind});
+        }
         else {
           for(auto it = contents_pt->begin(); it != contents_pt->end(); ++it) {
             auto value = it->second.get<std::string>("value", "");
-            if(!value.empty())
-              contents.emplace_back(Content{value, contents_pt->get<std::string>("kind", "") == "markdown"});
+            if(!value.empty()) {
+              auto kind = it->second.get<std::string>("kind", "");
+              if(kind.empty())
+                kind = it->second.get<std::string>("language", "");
+              contents.emplace_back(Content{value, kind});
+            }
             else {
               value = it->second.get_value<std::string>("");
               if(!value.empty())
-                contents.emplace_back(Content{value, true});
+                contents.emplace_back(Content{value, "markdown"});
             }
           }
         }
@@ -1172,12 +1180,13 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
             for(size_t i = 0; i < contents.size(); i++) {
               if(i > 0)
                 tooltip.buffer->insert_at_cursor("\n\n");
-              if(contents[i].markdown && language_id != "python") // TODO: python-language-server might support markdown in the future
-                tooltip.insert_markdown(contents[i].value);
-              else {
+              if(contents[i].kind == "plaintext" || contents[i].kind.empty())
                 tooltip.insert_with_links_tagged(contents[i].value);
-                tooltip.remove_trailing_newlines();
-              }
+              else if(contents[i].kind == "markdown")
+                tooltip.insert_markdown(contents[i].value);
+              else
+                tooltip.insert_code(contents[i].value, contents[i].kind);
+              tooltip.remove_trailing_newlines();
             }
 
 #ifdef JUCI_ENABLE_DEBUG
@@ -1224,7 +1233,8 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                       next_char_iter++;
                       debug_value.replace(iter, next_char_iter, "?");
                     }
-                    tooltip.buffer->insert_at_cursor("\n\n" + value_type + ": " + debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
+                    tooltip.buffer->insert_at_cursor("\n\n" + value_type + ":\n");
+                    tooltip.insert_code(debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1), {});
                   }
                 }
               }
@@ -1514,20 +1524,17 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
                 auto label = parameter_it->second.get<std::string>("label", "");
                 auto insert = label;
-                auto plaintext = parameter_it->second.get<std::string>("documentation", "");
-                std::string markdown;
-                if(plaintext.empty()) {
-                  auto documentation = parameter_it->second.get_child_optional("documentation");
-                  if(documentation) {
-                    auto kind = documentation->get<std::string>("kind", "");
-                    if(kind == "markdown")
-                      markdown = documentation->get<std::string>("value", "");
-                    else
-                      plaintext = documentation->get<std::string>("value", "");
+                auto documentation = parameter_it->second.get<std::string>("documentation", "");
+                std::string kind;
+                if(documentation.empty()) {
+                  auto documentation_pt = parameter_it->second.get_child_optional("documentation");
+                  if(documentation_pt) {
+                    documentation = documentation_pt->get<std::string>("value", "");
+                    kind = documentation_pt->get<std::string>("kind", "");
                   }
                 }
                 autocomplete->rows.emplace_back(std::move(label));
-                autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(plaintext), std::move(markdown)});
+                autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
               }
             }
           }
@@ -1550,16 +1557,13 @@ void Source::LanguageProtocolView::setup_autocomplete() {
             for(auto it = begin; it != end; ++it) {
               auto label = it->second.get<std::string>("label", "");
               auto detail = it->second.get<std::string>("detail", "");
-              auto plaintext = it->second.get<std::string>("documentation", "");
-              std::string markdown;
-              if(plaintext.empty()) {
-                auto documentation = it->second.get_child_optional("documentation");
-                if(documentation) {
-                  auto kind = documentation->get<std::string>("kind", "");
-                  if(kind == "markdown")
-                    markdown = documentation->get<std::string>("value", "");
-                  else
-                    plaintext = documentation->get<std::string>("value", "");
+              auto documentation = it->second.get<std::string>("documentation", "");
+              std::string kind;
+              if(documentation.empty()) {
+                auto documentation_pt = it->second.get_child_optional("documentation");
+                if(documentation_pt) {
+                  documentation = documentation_pt->get<std::string>("value", "");
+                  kind = documentation_pt->get<std::string>("kind", "");
                 }
               }
               auto insert = it->second.get<std::string>("insertText", "");
@@ -1600,12 +1604,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 }
                 if(starts_with(label, prefix)) {
                   autocomplete->rows.emplace_back(std::move(label));
-                  if(!plaintext.empty() && detail != plaintext) {
-                    if(!detail.empty())
-                      detail += "\n\n";
-                    detail += plaintext;
-                  }
-                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(markdown)});
+                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(kind)});
                 }
               }
             }
@@ -1621,7 +1620,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 for(auto &snippet : *snippets) {
                   if(starts_with(snippet.prefix, prefix)) {
                     autocomplete->rows.emplace_back(snippet.prefix);
-                    autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, snippet.description, {}});
+                    autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}});
                   }
                 }
               }
@@ -1691,17 +1690,23 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
-    auto plaintext = autocomplete_rows[index].plaintext;
-    auto markdown = autocomplete_rows[index].markdown;
-    if(plaintext.empty() && markdown.empty())
+    auto autocomplete = autocomplete_rows[index];
+    if(autocomplete.detail.empty() && autocomplete.documentation.empty())
       return nullptr;
-    return [plaintext = std::move(plaintext), markdown = std::move(markdown)](Tooltip &tooltip) {
-      if(!plaintext.empty())
-        tooltip.insert_with_links_tagged(plaintext);
-      if(!markdown.empty()) {
-        if(!plaintext.empty())
+    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) {
+      if(!autocomplete.detail.empty()) {
+        tooltip.insert_code(autocomplete.detail, language ? language->get_id().raw() : std::string{});
+        tooltip.remove_trailing_newlines();
+      }
+      if(!autocomplete.documentation.empty()) {
+        if(tooltip.buffer->size() > 0)
           tooltip.buffer->insert_at_cursor("\n\n");
-        tooltip.insert_markdown(markdown);
+        if(autocomplete.kind == "plaintext" || autocomplete.kind.empty())
+          tooltip.insert_with_links_tagged(autocomplete.documentation);
+        else if(autocomplete.kind == "markdown")
+          tooltip.insert_markdown(autocomplete.documentation);
+        else
+          tooltip.insert_code(autocomplete.documentation, autocomplete.kind);
       }
     };
   };
