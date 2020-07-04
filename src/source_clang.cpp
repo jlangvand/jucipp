@@ -501,11 +501,11 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
       auto &token = (*clang_tokens)[c];
       auto &token_offsets = clang_tokens_offsets[c];
       auto token_spelling = token.get_spelling();
-      if(token.is_identifier() || token_spelling == "auto" || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
+      if(token.is_identifier() || token_spelling == "auto" || token_spelling == "this" || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
         if(line == token_offsets.first.line - 1 && index >= token_offsets.first.index - 1 && index <= token_offsets.second.index - 1) {
           auto cursor = token.get_cursor();
           auto referenced = cursor.get_referenced();
-          if(referenced || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
+          if(referenced || token_spelling == "this" || token_spelling == "[" || token_spelling == "]" || token_spelling == "*" || token_spelling == "&") {
             auto start = get_buffer()->get_iter_at_line_index(token_offsets.first.line - 1, token_offsets.first.index - 1);
             auto end = get_buffer()->get_iter_at_line_index(token_offsets.second.line - 1, token_offsets.second.index - 1);
 
