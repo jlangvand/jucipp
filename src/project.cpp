@@ -629,7 +629,7 @@ void Project::LLDB::debug_show_variables() {
             next_char_iter++;
             value.replace(iter, next_char_iter, "?");
           }
-          tooltip.insert_code(value.substr(0, value.size() - 1), {});
+          tooltip.insert_code(value.substr(0, value.size() - 1));
         }
       };
       if(view) {

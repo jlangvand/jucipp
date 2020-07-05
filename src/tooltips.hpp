@@ -1,6 +1,7 @@
 #pragma once
 #include "source_base.hpp"
 #include <boost/optional.hpp>
+#include <boost/variant.hpp>
 #include <functional>
 #include <gtksourceviewmm.h>
 #include <list>
@@ -25,8 +26,9 @@ public:
 
   void insert_with_links_tagged(const std::string &text);
   void insert_markdown(const std::string &text);
-  void insert_code(const std::string &code, const boost::optional<std::string> &language_identifier, bool block = false);
-  // Remove empty lines at end of buffer
+  // TODO, c++17: use std::monostate instead of Void
+  void insert_code(const std::string &code, boost::variant<std::string, Glib::RefPtr<Gsv::Language>> language = Glib::RefPtr<Gsv::Language>{}, bool block = false);
+  /// Remove empty lines at end of buffer
   void remove_trailing_newlines();
 
 private:

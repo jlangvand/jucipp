@@ -420,7 +420,7 @@ bool Source::SpellCheckView::is_code_iter(const Gtk::TextIter &iter) {
     if(iter.has_tag(comment_tag))
       return true;
 #if GTKMM_MAJOR_VERSION > 3 || (GTKMM_MAJOR_VERSION == 3 && GTKMM_MINOR_VERSION >= 20)
-    if(iter.starts_tag(comment_tag))
+    if(iter.begins_tag(comment_tag))
       return true;
 #else
     if(*iter == '/') {

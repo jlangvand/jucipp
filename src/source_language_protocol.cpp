@@ -1180,7 +1180,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
             for(size_t i = 0; i < contents.size(); i++) {
               if(i > 0)
                 tooltip.buffer->insert_at_cursor("\n\n");
-              if(contents[i].kind == "plaintext" || contents[i].kind.empty())
+              if(contents[i].kind == "plaintext" || contents[i].kind.empty() || (language_id == "python" && contents[i].kind == "markdown")) // Python might support markdown in the future
                 tooltip.insert_with_links_tagged(contents[i].value);
               else if(contents[i].kind == "markdown")
                 tooltip.insert_markdown(contents[i].value);
@@ -1234,7 +1234,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                       debug_value.replace(iter, next_char_iter, "?");
                     }
                     tooltip.buffer->insert_at_cursor("\n\n" + value_type + ":\n");
-                    tooltip.insert_code(debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1), {});
+                    tooltip.insert_code(debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1));
                   }
                 }
               }
@@ -1695,13 +1695,13 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       return nullptr;
     return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) {
       if(!autocomplete.detail.empty()) {
-        tooltip.insert_code(autocomplete.detail, language ? language->get_id().raw() : std::string{});
+        tooltip.insert_code(autocomplete.detail, language);
         tooltip.remove_trailing_newlines();
       }
       if(!autocomplete.documentation.empty()) {
         if(tooltip.buffer->size() > 0)
           tooltip.buffer->insert_at_cursor("\n\n");
-        if(autocomplete.kind == "plaintext" || autocomplete.kind.empty())
+        if(autocomplete.kind == "plaintext" || autocomplete.kind.empty() || (language_id == "python" && autocomplete.kind == "markdown")) // Python might support markdown in the future
           tooltip.insert_with_links_tagged(autocomplete.documentation);
         else if(autocomplete.kind == "markdown")
           tooltip.insert_markdown(autocomplete.documentation);

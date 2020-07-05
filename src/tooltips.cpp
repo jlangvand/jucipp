@@ -126,7 +126,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
         tooltip_text_view->get_iter_at_location(iter, location_x, location_y);
         if(iter.has_tag(link_tag)) {
           auto start = iter;
-          if(!start.starts_tag(link_tag))
+          if(!start.begins_tag(link_tag))
             start.backward_to_tag_toggle(link_tag);
           auto end = iter;
           end.forward_to_tag_toggle(link_tag);
@@ -782,7 +782,7 @@ void Tooltip::insert_markdown(const std::string &input) {
   remove_trailing_newlines();
 }
 
-void Tooltip::insert_code(const std::string &code, const boost::optional<std::string> &language_identifier, bool block) {
+void Tooltip::insert_code(const std::string &code, boost::variant<std::string, Glib::RefPtr<Gsv::Language>> language_variant, bool block) {
   create_tags();
 
   auto insert_iter = buffer->get_insert()->get_iter();
@@ -801,19 +801,24 @@ void Tooltip::insert_code(const std::string &code, const boost::optional<std::st
 
   buffer->insert_with_tag(insert_iter, code, block ? code_block_tag : code_tag);
 
-  if(view && language_identifier) {
-    auto tmp_view = Gsv::View();
-    tmp_view.get_buffer()->set_text(code);
-    auto scheme = view->get_source_buffer()->get_style_scheme();
-    tmp_view.get_source_buffer()->set_style_scheme(scheme);
+  if(view) {
     Glib::RefPtr<Gsv::Language> language;
-    if(!language_identifier->empty())
-      language = Source::LanguageManager::get_default()->get_language(*language_identifier);
-    if(!language) {
-      if(auto source_view = dynamic_cast<Source::View *>(view))
-        language = source_view->language;
+    if(auto language_ptr = boost::get<Glib::RefPtr<Gsv::Language>>(&language_variant))
+      language = *language_ptr;
+    else if(auto language_identifier = boost::get<std::string>(&language_variant)) {
+      if(!language_identifier->empty()) {
+        language = Source::LanguageManager::get_default()->get_language(*language_identifier);
+        if(!language) {
+          if(auto source_view = dynamic_cast<Source::View *>(view))
+            language = source_view->language;
+        }
+      }
     }
     if(language) {
+      auto tmp_view = Gsv::View();
+      tmp_view.get_buffer()->set_text(code);
+      auto scheme = view->get_source_buffer()->get_style_scheme();
+      tmp_view.get_source_buffer()->set_style_scheme(scheme);
       tmp_view.get_source_buffer()->set_language(language);
       tmp_view.get_source_buffer()->set_highlight_syntax(true);
       tmp_view.get_source_buffer()->ensure_highlight(tmp_view.get_buffer()->begin(), tmp_view.get_buffer()->end());
@@ -826,7 +831,7 @@ void Tooltip::insert_code(const std::string &code, const boost::optional<std::st
 
           auto tmp_iter = tmp_view.get_source_buffer()->begin();
           Gtk::TextIter tmp_start;
-          if(tmp_iter.starts_tag(tmp_tag))
+          if(tmp_iter.begins_tag(tmp_tag))
             tmp_start = tmp_iter;
           while(tmp_iter.forward_to_tag_toggle(tmp_tag)) {
             if(tmp_iter.ends_tag(tmp_tag)) {

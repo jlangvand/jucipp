@@ -515,7 +515,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
               size_t pos = 0;
               while((pos = type_description.find("::__1", pos)) != std::string::npos)
                 type_description.erase(pos, 5);
-              tooltip.insert_code(type_description, std::string{});
+              tooltip.insert_code(type_description, language);
               auto brief_comment = cursor.get_brief_comments();
               if(brief_comment != "")
                 tooltip.insert_with_links_tagged("\n\n" + brief_comment);
@@ -656,7 +656,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                     size_t pos = 0;
                     while((pos = value.find("::__1", pos)) != std::string::npos)
                       value.erase(pos, 5);
-                    tooltip.insert_code(value, {});
+                    tooltip.insert_code(value);
                   }
                 }
               }
