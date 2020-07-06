@@ -1133,7 +1133,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
         std::string value;
         std::string kind;
       };
-      std::vector<Content> contents;
+      std::list<Content> contents;
       auto contents_pt = result.get_child_optional("contents");
       if(!contents_pt)
         return;
@@ -1149,13 +1149,18 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           contents.emplace_back(Content{*value_pt, kind});
         }
         else {
+          bool first_value = true;
           for(auto it = contents_pt->begin(); it != contents_pt->end(); ++it) {
             auto value = it->second.get<std::string>("value", "");
             if(!value.empty()) {
               auto kind = it->second.get<std::string>("kind", "");
               if(kind.empty())
                 kind = it->second.get<std::string>("language", "");
-              contents.emplace_back(Content{value, kind});
+              if(first_value) // Place first value, which most likely is type information, to front (workaround for flow-bin's language server)
+                contents.emplace_front(Content{value, kind});
+              else
+                contents.emplace_back(Content{value, kind});
+              first_value = false;
             }
             else {
               value = it->second.get_value<std::string>("");
@@ -1177,15 +1182,17 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
 
           auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
           type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
-            for(size_t i = 0; i < contents.size(); i++) {
-              if(i > 0)
+            bool first = true;
+            for(auto &content : contents) {
+              if(!first)
                 tooltip.buffer->insert_at_cursor("\n\n");
-              if(contents[i].kind == "plaintext" || contents[i].kind.empty() || (language_id == "python" && contents[i].kind == "markdown")) // Python might support markdown in the future
-                tooltip.insert_with_links_tagged(contents[i].value);
-              else if(contents[i].kind == "markdown")
-                tooltip.insert_markdown(contents[i].value);
+              first = false;
+              if(content.kind == "plaintext" || content.kind.empty() || (language_id == "python" && content.kind == "markdown")) // Python might support markdown in the future
+                tooltip.insert_with_links_tagged(content.value);
+              else if(content.kind == "markdown")
+                tooltip.insert_markdown(content.value);
               else
-                tooltip.insert_code(contents[i].value, contents[i].kind);
+                tooltip.insert_code(content.value, content.kind);
               tooltip.remove_trailing_newlines();
             }
 
