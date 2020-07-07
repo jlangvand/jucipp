@@ -784,7 +784,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
       else if(is_generic_view) {
-        static std::regex regex(R"(^\[error\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)");
+        const static std::regex regex(R"(^\[error\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
         std::string line;
         std::getline(stderr_stream, line);
         std::smatch sm;
@@ -2265,7 +2265,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
 bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
   const static std::regex no_bracket_statement_regex("^[ \t]*(if( +constexpr)?|for|while) *\\(.*[^;}{] *$|"
                                                      "^[ \t]*[}]? *else if( +constexpr)? *\\(.*[^;}{] *$|"
-                                                     "^[ \t]*[}]? *else *$", std::regex::extended);
+                                                     "^[ \t]*[}]? *else *$", std::regex::extended | std::regex::optimize);
 
   auto iter = get_buffer()->get_insert()->get_iter();
 

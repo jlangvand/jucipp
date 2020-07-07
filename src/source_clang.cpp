@@ -15,7 +15,7 @@
 #include "usages_clang.hpp"
 #include "utility.hpp"
 
-const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)");
+const std::regex include_regex(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^<>"]+)[>"].*$)", std::regex::optimize);
 
 Source::ClangViewParse::ClangViewParse(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language)
     : BaseView(file_path, language), Source::View(file_path, language) {
@@ -762,7 +762,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     auto line = ' ' + get_line_before();
     const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>]|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*)(\\.|->)([a-zA-Z0-9_]*)$|" // . or ->
                                   "^.*(::)([a-zA-Z0-9_]*)$|"                                                             // ::
-                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$");                                       // part of symbol
+                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$",                                        // part of symbol
+                                  std::regex::optimize);
     std::smatch sm;
     if(std::regex_match(line, sm, regex)) {
       {

@@ -578,7 +578,7 @@ std::pair<std::map<boost::filesystem::path, Usages::Clang::PathSet>, Usages::Cla
   std::map<boost::filesystem::path, PathSet> paths_includes;
   PathSet paths_with_spelling;
 
-  const static std::regex include_regex(R"R(^#[ \t]*include[ \t]*"([^"]+)".*$)R");
+  const static std::regex include_regex(R"R(^#[ \t]*include[ \t]*"([^"]+)".*$)R", std::regex::optimize);
 
   auto is_spelling_char = [](char chr) {
     return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_';

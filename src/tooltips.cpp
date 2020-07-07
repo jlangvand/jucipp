@@ -154,7 +154,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
             return true;
           }
 
-          static std::regex regex("^([^:]+):([^:]+):([^:]+)$");
+          const static std::regex regex("^([^:]+):([^:]+):([^:]+)$", std::regex::optimize);
           std::smatch sm;
           if(std::regex_match(link, sm, regex)) {
             auto path = boost::filesystem::path(sm[1].str());
@@ -404,7 +404,7 @@ void Tooltip::create_tags() {
 }
 
 void Tooltip::insert_with_links_tagged(const std::string &text) {
-  static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])");
+  const static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])", std::regex::optimize);
   std::smatch sm;
   std::sregex_iterator it(text.begin(), text.end(), http_regex);
   std::sregex_iterator end;

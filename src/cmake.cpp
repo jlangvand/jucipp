@@ -15,7 +15,7 @@ CMake::CMake(const boost::filesystem::path &path) {
     if(input) {
       std::string line;
       while(std::getline(input, line)) {
-        const static std::regex project_regex("^ *project *\\(.*$", std::regex::icase);
+        const static std::regex project_regex("^ *project *\\(.*$", std::regex::icase | std::regex::optimize);
         std::smatch sm;
         if(std::regex_match(line, sm, project_regex))
           return true;

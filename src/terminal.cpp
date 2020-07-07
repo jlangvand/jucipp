@@ -226,7 +226,8 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
                                      "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|" // gcc assert()
                                      "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                          // g_assert (glib.h)
                                      "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
-                                     "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$");         // Python
+                                     "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$",          // Python
+                                     std::regex::optimize);
   std::smatch sm;
   if(std::regex_match(line.cbegin() + pos,
                       line.cbegin() + (length == std::string::npos ? line.size() : std::min(pos + length, line.size())),

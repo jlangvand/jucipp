@@ -175,7 +175,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
       arguments.emplace_back("-F" + path);
 #ifdef _WIN32
     auto clang_version_string = clangmm::to_string(clang_getClangVersion());
-    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)");
+    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)", std::regex::optimize);
     std::smatch sm;
     if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
       auto clang_version = sm[1].str();
@@ -187,7 +187,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
   }
   else {
     auto clang_version_string = clangmm::to_string(clang_getClangVersion());
-    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)");
+    const static std::regex clang_version_regex(R"(^[A-Za-z ]+([0-9.]+).*$)", std::regex::optimize);
     std::smatch sm;
     if(std::regex_match(clang_version_string, sm, clang_version_regex)) {
       auto clang_version = sm[1].str();
