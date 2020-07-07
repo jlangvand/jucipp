@@ -25,9 +25,8 @@ public:
   void kill_last_async_process(bool force = false);
   void kill_async_processes(bool force = false);
 
-  size_t print(const std::string &message, bool bold = false);
-  void async_print(const std::string &message, bool bold = false);
-  void async_print(size_t line_nr, const std::string &message);
+  void print(std::string message, bool bold = false);
+  void async_print(std::string message, bool bold = false);
 
   void configure();
 
@@ -51,8 +50,7 @@ private:
     std::string path;
     int line, line_index;
   };
-  boost::optional<Link> find_link(const std::string &line);
-  void apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter);
+  boost::optional<Link> find_link(const std::string &line, size_t pos = 0, size_t length = std::string::npos);
 
   Mutex processes_mutex;
   std::vector<std::shared_ptr<TinyProcessLib::Process>> processes GUARDED_BY(processes_mutex);

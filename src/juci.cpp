@@ -98,7 +98,7 @@ void Application::on_activate() {
   }
 
   for(auto &error : errors)
-    Terminal::get().print(error, true);
+    Terminal::get().print(std::move(error), true);
 
   if(!current_file.empty()) {
     if(Notebook::get().open(current_file)) {

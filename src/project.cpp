@@ -651,8 +651,8 @@ void Project::LLDB::debug_show_variables() {
 void Project::LLDB::debug_run_command(const std::string &command) {
   if(debugging) {
     auto command_return = Debug::LLDB::get().run_command(command);
-    Terminal::get().async_print(command_return.first);
-    Terminal::get().async_print(command_return.second, true);
+    Terminal::get().async_print(std::move(command_return.first));
+    Terminal::get().async_print(std::move(command_return.second), true);
   }
 }
 

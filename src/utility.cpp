@@ -6,10 +6,11 @@ ScopeGuard::~ScopeGuard() {
     on_exit();
 }
 
-size_t utf8_character_count(const std::string &text) noexcept {
+size_t utf8_character_count(const std::string &text, size_t pos, size_t length) noexcept {
   size_t count = 0;
-  for(auto chr : text) {
-    if(static_cast<unsigned char>(chr) <= 0b01111111 || static_cast<unsigned char>(chr) >= 0b11000000)
+  auto size = length == std::string::npos ? text.size() : std::min(pos + length, text.size());
+  for(; pos < size; ++pos) {
+    if(static_cast<unsigned char>(text[pos]) <= 0b01111111 || static_cast<unsigned char>(text[pos]) >= 0b11000000)
       ++count;
   }
   return count;

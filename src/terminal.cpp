@@ -4,6 +4,7 @@
 #include "info.hpp"
 #include "notebook.hpp"
 #include "project.hpp"
+#include "utility.hpp"
 #include <iostream>
 #include <regex>
 #include <thread>
@@ -21,6 +22,57 @@ Terminal::Terminal() : Source::SearchView() {
 
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
+
+  // Apply link tags
+  get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int /*bytes*/) {
+    std::string line_start;
+    size_t line_start_pos = 0;
+    bool delimiter_found = false;
+    bool dot_found = false;
+    bool number_found = false;
+
+    auto start = iter;
+    start.backward_chars(text.size());
+    int line_nr = start.get_line();
+
+    auto parse_text = [&](const std::string &text) {
+      for(size_t i = 0; i < text.size(); ++i) {
+        if(text[i] == '\n') {
+          if(delimiter_found && dot_found && number_found) {
+            if(auto link = !line_start.empty()
+                               ? find_link(line_start + text, line_start_pos, (i + line_start.size()) - line_start_pos)
+                               : find_link(text, line_start_pos, i - line_start_pos)) {
+              auto link_start = get_buffer()->get_iter_at_line(line_nr);
+              auto link_end = link_start;
+              link_start.forward_chars(link->start_pos);
+              link_end.forward_chars(link->end_pos);
+              get_buffer()->apply_tag(link_tag, link_start, link_end);
+            }
+          }
+          line_start_pos = i + 1;
+          delimiter_found = false;
+          dot_found = false;
+          number_found = false;
+          ++line_nr;
+          line_start.clear();
+        }
+        else if(text[i] == '/' || text[i] == '\\')
+          delimiter_found = true;
+        else if(text[i] == '.')
+          dot_found = true;
+        else if(text[i] >= '0' && text[i] <= '9')
+          number_found = true;
+      }
+    };
+
+    if(!start.starts_line()) {
+      auto end = start;
+      start = get_buffer()->get_iter_at_line(start.get_line());
+      line_start = get_buffer()->get_text(start, end).raw();
+      parse_text(line_start);
+    }
+    parse_text(text.raw());
+  });
 }
 
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
@@ -165,8 +217,10 @@ bool Terminal::on_motion_notify_event(GdkEventMotion *event) {
   return Gtk::TextView::on_motion_notify_event(event);
 }
 
-boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
+boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, size_t pos, size_t length) {
   const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                      // C/C++ compile warning/error/rename usages
+                                     "^In file included from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info
+                                     "^                 from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info (gcc)
                                      "^  --> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                    // Rust
                                      "^Assertion failed: .*file ([A-Z]:)?([^:]+), line ([0-9]+)\\.$|" // clang assert()
                                      "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|" // gcc assert()
@@ -174,12 +228,16 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
                                      "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
                                      "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$");         // Python
   std::smatch sm;
-  if(std::regex_match(line, sm, link_regex)) {
+  if(std::regex_match(line.cbegin() + pos,
+                      line.cbegin() + (length == std::string::npos ? line.size() : std::min(pos + length, line.size())),
+                      sm, link_regex)) {
     for(size_t sub = 1; sub < link_regex.mark_count();) {
-      size_t subs = sub == 1 || sub == 5 ? 4 : 3;
+      size_t subs = sub == 1 || sub == 4 + 3 + 3 + 1 ? 4 : 3;
       if(sm.length(sub + 1)) {
         auto start_pos = static_cast<int>(sm.position(sub + 1) - sm.length(sub));
         auto end_pos = static_cast<int>(sm.position(sub + subs - 1) + sm.length(sub + subs - 1));
+        int start_pos_utf8 = utf8_character_count(line, 0, start_pos);
+        int end_pos_utf8 = start_pos_utf8 + utf8_character_count(line, start_pos, end_pos - start_pos);
         std::string path;
         if(sm.length(sub))
           path = sm[sub].str();
@@ -187,7 +245,7 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
         try {
           auto line_number = std::stoi(sm[sub + 2].str());
           auto line_offset = std::stoi(subs == 4 ? sm[sub + 3].str() : "1");
-          return Link{start_pos, end_pos, path, line_number, line_offset};
+          return Link{start_pos_utf8, end_pos_utf8, path, line_number, line_offset};
         }
         catch(...) {
           return {};
@@ -199,62 +257,20 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
   return {};
 }
 
-void Terminal::apply_link_tags(const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
-  auto iter = start_iter;
-  Gtk::TextIter line_start;
-  bool line_start_set = false;
-  bool delimiter_found = false;
-  bool dot_found = false;
-  bool number_found = false;
-  do {
-    if(iter.starts_line()) {
-      line_start = iter;
-      line_start_set = true;
-      delimiter_found = false;
-      dot_found = false;
-      number_found = false;
-    }
-    if(line_start_set && (*iter == '\\' || *iter == '/'))
-      delimiter_found = true;
-    else if(line_start_set && *iter == '.')
-      dot_found = true;
-    else if(line_start_set && (*iter >= '0' && *iter <= '9'))
-      number_found = true;
-    else if(line_start_set && delimiter_found && dot_found && number_found && iter.ends_line()) {
-      auto line = get_buffer()->get_text(line_start, iter);
-      //Convert to ascii for std::regex and Gtk::Iter::forward_chars
-      for(size_t c = 0; c < line.size(); ++c) {
-        if(line[c] > 127)
-          line.replace(c, 1, "a");
-      }
-      auto link = find_link(line.raw());
-      if(link) {
-        auto link_start = line_start;
-        auto link_end = line_start;
-        link_start.forward_chars(link->start_pos);
-        link_end.forward_chars(link->end_pos);
-        get_buffer()->apply_tag(link_tag, link_start, link_end);
-      }
-      line_start_set = false;
-    }
-  } while(iter.forward_char() && iter != end_iter);
-}
-
-size_t Terminal::print(const std::string &message, bool bold) {
+void Terminal::print(std::string message, bool bold) {
 #ifdef _WIN32
-  //Remove color codes
-  auto message_no_color = message; //copy here since operations on Glib::ustring is too slow
+  // Remove color codes
   size_t pos = 0;
-  while((pos = message_no_color.find('\e', pos)) != std::string::npos) {
-    if((pos + 2) >= message_no_color.size())
+  while((pos = message.find('\e', pos)) != std::string::npos) {
+    if((pos + 2) >= message.size())
       break;
-    if(message_no_color[pos + 1] == '[') {
+    if(message[pos + 1] == '[') {
       size_t end_pos = pos + 2;
       bool color_code_found = false;
-      while(end_pos < message_no_color.size()) {
-        if((message_no_color[end_pos] >= '0' && message_no_color[end_pos] <= '9') || message_no_color[end_pos] == ';')
+      while(end_pos < message.size()) {
+        if((message[end_pos] >= '0' && message[end_pos] <= '9') || message[end_pos] == ';')
           end_pos++;
-        else if(message_no_color[end_pos] == 'm') {
+        else if(message[end_pos] == 'm') {
           color_code_found = true;
           break;
         }
@@ -262,12 +278,12 @@ size_t Terminal::print(const std::string &message, bool bold) {
           break;
       }
       if(color_code_found)
-        message_no_color.erase(pos, end_pos - pos + 1);
+        message.erase(pos, end_pos - pos + 1);
     }
   }
-  Glib::ustring umessage = message_no_color;
+  Glib::ustring umessage = std::move(message);
 #else
-  Glib::ustring umessage = message;
+  Glib::ustring umessage = std::move(message);
 #endif
 
   Glib::ustring::iterator iter;
@@ -277,48 +293,21 @@ size_t Terminal::print(const std::string &message, bool bold) {
     umessage.replace(iter, next_char_iter, "?");
   }
 
-  Source::Mark start_mark(get_buffer()->get_iter_at_line(get_buffer()->end().get_line()));
   if(bold)
     get_buffer()->insert_with_tag(get_buffer()->end(), umessage, bold_tag);
   else
     get_buffer()->insert(get_buffer()->end(), umessage);
-  auto start_iter = start_mark->get_iter();
-  auto end_iter = get_buffer()->get_insert()->get_iter();
-
-  apply_link_tags(start_iter, end_iter);
 
   if(get_buffer()->get_line_count() > Config::get().terminal.history_size) {
     int lines = get_buffer()->get_line_count() - Config::get().terminal.history_size;
     get_buffer()->erase(get_buffer()->begin(), get_buffer()->get_iter_at_line(lines));
     deleted_lines += static_cast<size_t>(lines);
   }
-
-  return static_cast<size_t>(get_buffer()->end().get_line()) + deleted_lines;
 }
 
-void Terminal::async_print(const std::string &message, bool bold) {
-  dispatcher.post([message, bold] {
-    Terminal::get().print(message, bold);
-  });
-}
-
-void Terminal::async_print(size_t line_nr, const std::string &message) {
-  dispatcher.post([this, line_nr, message] {
-    if(line_nr < deleted_lines)
-      return;
-
-    Glib::ustring umessage = message;
-    Glib::ustring::iterator iter;
-    while(!umessage.validate(iter)) {
-      auto next_char_iter = iter;
-      next_char_iter++;
-      umessage.replace(iter, next_char_iter, "?");
-    }
-
-    auto end_line_iter = get_buffer()->get_iter_at_line(static_cast<int>(line_nr - deleted_lines));
-    while(!end_line_iter.ends_line() && end_line_iter.forward_char()) {
-    }
-    get_buffer()->insert(end_line_iter, umessage);
+void Terminal::async_print(std::string message, bool bold) {
+  dispatcher.post([message = std::move(message), bold]() mutable {
+    Terminal::get().print(std::move(message), bold);
   });
 }
 
