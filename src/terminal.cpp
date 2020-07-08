@@ -40,7 +40,7 @@ Terminal::Terminal() : Source::SearchView() {
         if(text[i] == '\n') {
           if(delimiter_found && dot_found && number_found) {
             if(auto link = !line_start.empty()
-                               ? find_link(line_start + text, line_start_pos, (i + line_start.size()) - line_start_pos)
+                               ? find_link(line_start + text.substr(0, i))
                                : find_link(text, line_start_pos, i - line_start_pos)) {
               auto link_start = get_buffer()->get_iter_at_line(line_nr);
               auto link_end = link_start;
