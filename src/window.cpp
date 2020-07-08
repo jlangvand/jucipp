@@ -1732,11 +1732,24 @@ void Window::add_widgets() {
   EntryBox::get().hide();
   Info::get().hide();
 
-  //Scroll to end of terminal whenever info is printed
-  Terminal::get().signal_size_allocate().connect([terminal_scrolled_window](Gtk::Allocation &allocation) {
+  // Scroll to end of terminal whenever info is printed and end of terminal is shown
+  auto scrolled_to_bottom = std::make_shared<bool>(true);
+  terminal_scrolled_window->get_vadjustment()->signal_value_changed().connect([terminal_scrolled_window, scrolled_to_bottom] {
     auto adjustment = terminal_scrolled_window->get_vadjustment();
-    adjustment->set_value(adjustment->get_upper() - adjustment->get_page_size());
-    Terminal::get().queue_draw();
+    *scrolled_to_bottom = adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size();
+  });
+  terminal_scrolled_window->get_vadjustment()->signal_changed().connect([terminal_scrolled_window, scrolled_to_bottom] {
+    auto adjustment = terminal_scrolled_window->get_vadjustment();
+    if(adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size()) // If for instance the terminal has been cleared
+      *scrolled_to_bottom = true;
+  });
+  Terminal::get().signal_size_allocate().connect([terminal_scrolled_window, scrolled_to_bottom](Gtk::Allocation &allocation) mutable {
+    if(*scrolled_to_bottom) {
+      auto adjustment = terminal_scrolled_window->get_vadjustment();
+      adjustment->set_value(adjustment->get_upper() - adjustment->get_page_size());
+      *scrolled_to_bottom = true;
+      Terminal::get().queue_draw();
+    }
   });
 
   EntryBox::get().signal_show().connect([hpaned, notebook_and_terminal_vpaned, notebook_vbox]() {

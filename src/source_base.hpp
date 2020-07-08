@@ -40,6 +40,9 @@ namespace Source {
 
     std::function<void(int number)> update_search_occurrences;
 
+  protected:
+    bool on_key_press_event(GdkEventKey *key) override;
+
   private:
     GtkSourceSearchContext *search_context;
     GtkSourceSearchSettings *search_settings;

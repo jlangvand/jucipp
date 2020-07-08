@@ -383,6 +383,12 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
 }
 
 bool Terminal::on_key_press_event(GdkEventKey *event) {
+  if(event->keyval == GDK_KEY_Home || event->keyval == GDK_KEY_End ||
+     event->keyval == GDK_KEY_Page_Up || event->keyval == GDK_KEY_Page_Down ||
+     event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_Down ||
+     event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_Right)
+    return Source::SearchView::on_key_press_event(event);
+
   LockGuard lock(processes_mutex);
   bool debug_is_running = false;
 #ifdef JUCI_ENABLE_DEBUG

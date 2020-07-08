@@ -122,6 +122,20 @@ void Source::SearchView::search_occurrences_updated(GtkWidget *widget, GParamSpe
     view->update_search_occurrences(gtk_source_search_context_get_occurrences_count(view->search_context));
 }
 
+bool Source::SearchView::on_key_press_event(GdkEventKey *event) {
+  if(event->keyval == GDK_KEY_Home && event->state & GDK_CONTROL_MASK) {
+    auto iter = get_buffer()->begin();
+    scroll_to(iter); // Home key should always scroll to start, even though cursor does not move
+    return Gsv::View::on_key_press_event(event);
+  }
+  else if(event->keyval == GDK_KEY_End && event->state & GDK_CONTROL_MASK) {
+    auto iter = get_buffer()->end();
+    scroll_to(iter); // End key should always scroll to start, even though cursor does not move
+    return Gsv::View::on_key_press_event(event);
+  }
+  return Gsv::View::on_key_press_event(event);
+}
+
 Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : SearchView(), file_path(file_path), language(language), status_diagnostics(0, 0, 0) {
   get_style_context()->add_class("juci_source_view");
 
@@ -1065,7 +1079,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
     return true;
   }
 
-  return Gsv::View::on_key_press_event(key);
+  return Source::SearchView::on_key_press_event(key);
 }
 
 bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
