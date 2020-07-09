@@ -24,8 +24,8 @@ EntryBox::Entry::Entry(const std::string &content, std::function<void(const std:
       selected_history = -1;
     }
   });
-  signal_key_press_event().connect([this](GdkEventKey *key) {
-    if(key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) {
+  signal_key_press_event().connect([this](GdkEventKey *event) {
+    if(event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) {
       auto &history = entry_histories[get_placeholder_text()];
       if(history.size() > 0) {
         selected_history++;
@@ -39,7 +39,7 @@ EntryBox::Entry::Entry(const std::string &content, std::function<void(const std:
         set_position(-1);
       }
     }
-    if(key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) {
+    if(event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) {
       auto &history = entry_histories[get_placeholder_text()];
       if(history.size() > 0) {
         selected_history--;

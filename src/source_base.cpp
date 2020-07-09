@@ -941,9 +941,9 @@ std::string Source::BaseView::get_selected_text() {
   return get_buffer()->get_text(start, end);
 }
 
-bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
+bool Source::BaseView::on_key_press_event(GdkEventKey *event) {
   // Move cursor one paragraph down
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && (key->state & GDK_CONTROL_MASK) > 0) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && (event->state & GDK_CONTROL_MASK) > 0) {
     auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
     auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
     bool empty_line = false;
@@ -962,7 +962,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
       iter.forward_char();
     }
     iter = get_buffer()->get_iter_at_line(iter.get_line());
-    if((key->state & GDK_SHIFT_MASK) > 0)
+    if((event->state & GDK_SHIFT_MASK) > 0)
       get_buffer()->select_range(iter, selection_start_iter);
     else
       get_buffer()->place_cursor(iter);
@@ -970,7 +970,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
     return true;
   }
   //Move cursor one paragraph up
-  else if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && (key->state & GDK_CONTROL_MASK) > 0) {
+  else if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && (event->state & GDK_CONTROL_MASK) > 0) {
     auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
     auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
     iter.backward_char();
@@ -1000,7 +1000,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
       if(!iter.starts_line()) // For CR+LF
         iter.forward_char();
     }
-    if((key->state & GDK_SHIFT_MASK) > 0)
+    if((event->state & GDK_SHIFT_MASK) > 0)
       get_buffer()->select_range(iter, selection_start_iter);
     else
       get_buffer()->place_cursor(iter);
@@ -1009,32 +1009,32 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
   }
 
   // Smart Home
-  if((key->keyval == GDK_KEY_Home || key->keyval == GDK_KEY_KP_Home) && (key->state & GDK_CONTROL_MASK) == 0) {
+  if((event->keyval == GDK_KEY_Home || event->keyval == GDK_KEY_KP_Home) && (event->state & GDK_CONTROL_MASK) == 0) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
-      extra_cursor.move(get_smart_home_iter(extra_cursor.insert->get_iter()), key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(get_smart_home_iter(extra_cursor.insert->get_iter()), event->state & GDK_SHIFT_MASK);
       extra_cursor.line_offset = extra_cursor.insert->get_iter().get_line_offset();
     }
     auto insert = get_buffer()->get_insert();
     auto iter = get_smart_home_iter(get_buffer()->get_insert()->get_iter());
     get_buffer()->move_mark(insert, iter);
-    if((key->state & GDK_SHIFT_MASK) == 0)
+    if((event->state & GDK_SHIFT_MASK) == 0)
       get_buffer()->move_mark_by_name("selection_bound", iter);
     scroll_to(get_buffer()->get_insert());
     enable_multiple_cursors = true;
     return true;
   }
   // Smart End
-  if((key->keyval == GDK_KEY_End || key->keyval == GDK_KEY_KP_End) && (key->state & GDK_CONTROL_MASK) == 0) {
+  if((event->keyval == GDK_KEY_End || event->keyval == GDK_KEY_KP_End) && (event->state & GDK_CONTROL_MASK) == 0) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
-      extra_cursor.move(get_smart_end_iter(extra_cursor.insert->get_iter()), key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(get_smart_end_iter(extra_cursor.insert->get_iter()), event->state & GDK_SHIFT_MASK);
       extra_cursor.line_offset = std::max(extra_cursor.line_offset, extra_cursor.insert->get_iter().get_line_offset());
     }
     auto insert = get_buffer()->get_insert();
     auto iter = get_smart_end_iter(get_buffer()->get_insert()->get_iter());
     get_buffer()->move_mark(insert, iter);
-    if((key->state & GDK_SHIFT_MASK) == 0)
+    if((event->state & GDK_SHIFT_MASK) == 0)
       get_buffer()->move_mark_by_name("selection_bound", iter);
     scroll_to(get_buffer()->get_insert());
     enable_multiple_cursors = true;
@@ -1042,48 +1042,48 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *key) {
   }
 
   // Move cursors left one word
-  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left) && (key->state & GDK_CONTROL_MASK) > 0) {
+  if((event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left) && (event->state & GDK_CONTROL_MASK) > 0) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
       iter.backward_word_start();
       extra_cursor.line_offset = iter.get_line_offset();
-      extra_cursor.move(iter, key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(iter, event->state & GDK_SHIFT_MASK);
     }
     auto insert = get_buffer()->get_insert();
     auto iter = insert->get_iter();
     iter.backward_word_start();
     get_buffer()->move_mark(insert, iter);
-    if((key->state & GDK_SHIFT_MASK) == 0)
+    if((event->state & GDK_SHIFT_MASK) == 0)
       get_buffer()->move_mark_by_name("selection_bound", iter);
     enable_multiple_cursors = true;
     return true;
   }
   // Move cursors right one word
-  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right) && (key->state & GDK_CONTROL_MASK) > 0) {
+  if((event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) && (event->state & GDK_CONTROL_MASK) > 0) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
       iter.forward_word_end();
       extra_cursor.line_offset = iter.get_line_offset();
-      extra_cursor.move(iter, key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(iter, event->state & GDK_SHIFT_MASK);
       extra_cursor.insert->get_buffer()->apply_tag(extra_cursor_selection, extra_cursor.insert->get_iter(), extra_cursor.selection_bound->get_iter());
     }
     auto insert = get_buffer()->get_insert();
     auto iter = insert->get_iter();
     iter.forward_word_end();
     get_buffer()->move_mark(insert, iter);
-    if((key->state & GDK_SHIFT_MASK) == 0)
+    if((event->state & GDK_SHIFT_MASK) == 0)
       get_buffer()->move_mark_by_name("selection_bound", iter);
     enable_multiple_cursors = true;
     return true;
   }
 
-  return Source::SearchView::on_key_press_event(key);
+  return Source::SearchView::on_key_press_event(event);
 }
 
-bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
-  if(key->keyval == GDK_KEY_Escape) {
+bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *event) {
+  if(event->keyval == GDK_KEY_Escape) {
     if(clear_snippet_marks())
       return true;
     if(!extra_cursors.empty()) {
@@ -1101,7 +1101,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
   unsigned move_last_created_cursor_mask = GDK_SHIFT_MASK | GDK_MOD1_MASK;
 
   // Move last created cursor
-  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left) && (key->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
+  if((event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left) && (event->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
     if(extra_cursors.empty())
       return false;
     auto iter = extra_cursors.back().insert->get_iter();
@@ -1110,7 +1110,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     extra_cursors.back().line_offset = iter.get_line_offset();
     return true;
   }
-  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right) && (key->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
+  if((event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) && (event->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
     if(extra_cursors.empty())
       return false;
     auto iter = extra_cursors.back().insert->get_iter();
@@ -1119,7 +1119,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     extra_cursors.back().line_offset = iter.get_line_offset();
     return true;
   }
-  if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && (key->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
+  if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && (event->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
     if(extra_cursors.empty())
       return false;
     auto iter = extra_cursors.back().insert->get_iter();
@@ -1131,7 +1131,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     extra_cursors.back().move(iter, false);
     return true;
   }
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && (key->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && (event->state & move_last_created_cursor_mask) == move_last_created_cursor_mask) {
     if(extra_cursors.empty())
       return false;
     auto iter = extra_cursors.back().insert->get_iter();
@@ -1145,7 +1145,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
   }
 
   // Create extra cursor
-  if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && (key->state & create_cursor_mask) == create_cursor_mask) {
+  if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && (event->state & create_cursor_mask) == create_cursor_mask) {
     auto iter = get_buffer()->get_insert()->get_iter();
     auto insert_line_offset = iter.get_line_offset();
     auto offset = iter.get_offset();
@@ -1165,7 +1165,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     }
     return true;
   }
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && (key->state & create_cursor_mask) == create_cursor_mask) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && (event->state & create_cursor_mask) == create_cursor_mask) {
     auto iter = get_buffer()->get_insert()->get_iter();
     auto insert_line_offset = iter.get_line_offset();
     auto offset = iter.get_offset();
@@ -1187,7 +1187,7 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
   }
 
   // Move cursors up/down
-  if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up)) {
+  if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up)) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
@@ -1196,11 +1196,11 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
       if(!end_line_iter.ends_line())
         end_line_iter.forward_to_line_end();
       iter.forward_chars(std::min(extra_cursor.line_offset, end_line_iter.get_line_offset()));
-      extra_cursor.move(iter, key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(iter, event->state & GDK_SHIFT_MASK);
     }
     return false;
   }
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down)) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down)) {
     enable_multiple_cursors = false;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
@@ -1209,15 +1209,15 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
       if(!end_line_iter.ends_line())
         end_line_iter.forward_to_line_end();
       iter.forward_chars(std::min(extra_cursor.line_offset, end_line_iter.get_line_offset()));
-      extra_cursor.move(iter, key->state & GDK_SHIFT_MASK);
+      extra_cursor.move(iter, event->state & GDK_SHIFT_MASK);
     }
     return false;
   }
 
   // Move cursors left/right of selection
-  if((key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left)) {
+  if((event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left)) {
     enable_multiple_cursors = false;
-    bool shift_pressed = (key->state & GDK_SHIFT_MASK) != 0;
+    bool shift_pressed = (event->state & GDK_SHIFT_MASK) != 0;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
       if(!shift_pressed && get_buffer()->get_has_selection())
@@ -1228,9 +1228,9 @@ bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *key) {
     }
     return false;
   }
-  if((key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right)) {
+  if((event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right)) {
     enable_multiple_cursors = false;
-    bool shift_pressed = (key->state & GDK_SHIFT_MASK) != 0;
+    bool shift_pressed = (event->state & GDK_SHIFT_MASK) != 0;
     for(auto &extra_cursor : extra_cursors) {
       auto iter = extra_cursor.insert->get_iter();
       if(!shift_pressed && get_buffer()->get_has_selection())
@@ -1284,7 +1284,6 @@ void Source::BaseView::setup_extra_cursor_signals() {
         if(offset_diff != 0) {
           for(auto &extra_cursor : extra_cursors) {
             auto iter = extra_cursor.selection_bound->get_iter();
-            auto start = iter;
             iter.forward_chars(offset_diff);
             extra_cursor.move_selection_bound(iter);
           }

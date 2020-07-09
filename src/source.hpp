@@ -139,11 +139,11 @@ namespace Source {
     /// If insert is at an possible argument. Also based on last key press.
     bool is_possible_argument();
 
-    bool on_key_press_event(GdkEventKey *key) override;
-    bool on_key_press_event_basic(GdkEventKey *key);
-    bool on_key_press_event_bracket_language(GdkEventKey *key);
-    bool on_key_press_event_smart_brackets(GdkEventKey *key);
-    bool on_key_press_event_smart_inserts(GdkEventKey *key);
+    bool on_key_press_event(GdkEventKey *event) override;
+    bool on_key_press_event_basic(GdkEventKey *event);
+    bool on_key_press_event_bracket_language(GdkEventKey *event);
+    bool on_key_press_event_smart_brackets(GdkEventKey *event);
+    bool on_key_press_event_smart_inserts(GdkEventKey *event);
     bool on_button_press_event(GdkEventButton *event) override;
     bool on_motion_notify_event(GdkEventMotion *motion_event) override;
 

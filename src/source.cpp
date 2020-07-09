@@ -1996,35 +1996,35 @@ bool Source::View::is_possible_argument() {
   return false;
 }
 
-bool Source::View::on_key_press_event(GdkEventKey *key) {
+bool Source::View::on_key_press_event(GdkEventKey *event) {
   enable_multiple_cursors = true;
   ScopeGuard guard{[this] {
     enable_multiple_cursors = false;
   }};
 
   if(SelectionDialog::get() && SelectionDialog::get()->is_visible()) {
-    if(SelectionDialog::get()->on_key_press(key))
+    if(SelectionDialog::get()->on_key_press(event))
       return true;
   }
   if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {
-    if(CompletionDialog::get()->on_key_press(key))
+    if(CompletionDialog::get()->on_key_press(event))
       return true;
   }
 
   if(last_keyval < GDK_KEY_Shift_L || last_keyval > GDK_KEY_Hyper_R)
     previous_non_modifier_keyval = last_keyval;
-  last_keyval = key->keyval;
+  last_keyval = event->keyval;
 
-  if((key->keyval == GDK_KEY_Tab || key->keyval == GDK_KEY_ISO_Left_Tab) && (key->state & GDK_SHIFT_MASK) == 0 && select_snippet_parameter())
+  if((event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) && (event->state & GDK_SHIFT_MASK) == 0 && select_snippet_parameter())
     return true;
-  if(on_key_press_event_extra_cursors(key))
+  if(on_key_press_event_extra_cursors(event))
     return true;
 
   {
     LockGuard lock(snippets_mutex);
     if(snippets) {
       for(auto &snippet : *snippets) {
-        if(snippet.key == key->keyval && (snippet.modifier & key->state) == snippet.modifier) {
+        if(snippet.key == event->keyval && (snippet.modifier & event->state) == snippet.modifier) {
           insert_snippet(get_buffer()->get_insert()->get_iter(), snippet.body);
           return true;
         }
@@ -2035,7 +2035,7 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
   get_buffer()->begin_user_action();
 
   // Shift+enter: go to end of line and enter
-  if((key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter) && (key->state & GDK_SHIFT_MASK) > 0) {
+  if((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) && (event->state & GDK_SHIFT_MASK) > 0) {
     auto iter = get_buffer()->get_insert()->get_iter();
     if(!iter.ends_line()) {
       iter.forward_to_line_end();
@@ -2043,35 +2043,35 @@ bool Source::View::on_key_press_event(GdkEventKey *key) {
     }
   }
 
-  if(Config::get().source.smart_brackets && on_key_press_event_smart_brackets(key)) {
+  if(Config::get().source.smart_brackets && on_key_press_event_smart_brackets(event)) {
     get_buffer()->end_user_action();
     return true;
   }
-  if(Config::get().source.smart_inserts && on_key_press_event_smart_inserts(key)) {
+  if(Config::get().source.smart_inserts && on_key_press_event_smart_inserts(event)) {
     get_buffer()->end_user_action();
     return true;
   }
 
-  if(is_bracket_language && on_key_press_event_bracket_language(key)) {
+  if(is_bracket_language && on_key_press_event_bracket_language(event)) {
     get_buffer()->end_user_action();
     return true;
   }
-  else if(on_key_press_event_basic(key)) {
+  else if(on_key_press_event_basic(event)) {
     get_buffer()->end_user_action();
     return true;
   }
   else {
     get_buffer()->end_user_action();
-    return BaseView::on_key_press_event(key);
+    return BaseView::on_key_press_event(event);
   }
 }
 
 // Basic indentation
-bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
+bool Source::View::on_key_press_event_basic(GdkEventKey *event) {
   auto iter = get_buffer()->get_insert()->get_iter();
 
   // Indent as in current or next line
-  if((key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter) && !get_buffer()->get_has_selection() && !iter.starts_line()) {
+  if((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) && !get_buffer()->get_has_selection() && !iter.starts_line()) {
     cleanup_whitespace_characters(iter);
 
     iter = get_buffer()->get_insert()->get_iter();
@@ -2104,7 +2104,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     return true;
   }
   // Indent as in next or previous line
-  else if(key->keyval == GDK_KEY_Tab && (key->state & GDK_SHIFT_MASK) == 0) {
+  else if(event->keyval == GDK_KEY_Tab && (event->state & GDK_SHIFT_MASK) == 0) {
     // Special case if insert is at beginning of empty line:
     if(iter.starts_line() && iter.ends_line() && !get_buffer()->get_has_selection()) {
       auto prev_line_iter = iter;
@@ -2148,7 +2148,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     return true;
   }
   // Indent left when clicking shift-tab, no matter where in the line the cursor is. Also works on selected text.
-  else if((key->keyval == GDK_KEY_ISO_Left_Tab || key->keyval == GDK_KEY_Tab) && (key->state & GDK_SHIFT_MASK) > 0) {
+  else if((event->keyval == GDK_KEY_ISO_Left_Tab || event->keyval == GDK_KEY_Tab) && (event->state & GDK_SHIFT_MASK) > 0) {
     Gtk::TextIter selection_start, selection_end;
     get_buffer()->get_selection_bounds(selection_start, selection_end);
     int line_start = selection_start.get_line();
@@ -2187,7 +2187,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     return true;
   }
   // "Smart" backspace key
-  else if(key->keyval == GDK_KEY_BackSpace && !get_buffer()->get_has_selection()) {
+  else if(event->keyval == GDK_KEY_BackSpace && !get_buffer()->get_has_selection()) {
     auto line = get_line_before();
     bool do_smart_backspace = true;
     for(auto &chr : line) {
@@ -2212,7 +2212,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
     }
   }
   // "Smart" delete key
-  else if(key->keyval == GDK_KEY_Delete && !get_buffer()->get_has_selection()) {
+  else if(event->keyval == GDK_KEY_Delete && !get_buffer()->get_has_selection()) {
     auto insert_iter = iter;
     bool do_smart_delete = true;
     do {
@@ -2240,8 +2240,8 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
   // TODO: figure out the bug and create pull request to gtk
   // Have only experienced this on OS X
   // Note: valgrind reports issues on TextView::on_key_press_event as well
-  auto unicode = gdk_keyval_to_unicode(key->keyval);
-  if((key->state & (GDK_CONTROL_MASK | GDK_META_MASK)) == 0 && unicode >= 32 && unicode != 127 &&
+  auto unicode = gdk_keyval_to_unicode(event->keyval);
+  if((event->state & (GDK_CONTROL_MASK | GDK_META_MASK)) == 0 && unicode >= 32 && unicode != 127 &&
      (previous_non_modifier_keyval < GDK_KEY_dead_grave || previous_non_modifier_keyval > GDK_KEY_dead_greek)) {
     if(get_buffer()->get_has_selection()) {
       Gtk::TextIter selection_start, selection_end;
@@ -2262,7 +2262,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *key) {
 }
 
 //Bracket language indentation
-bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
+bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
   const static std::regex no_bracket_statement_regex("^[ \t]*(if( +constexpr)?|for|while) *\\(.*[^;}{] *$|"
                                                      "^[ \t]*[}]? *else if( +constexpr)? *\\(.*[^;}{] *$|"
                                                      "^[ \t]*[}]? *else *$", std::regex::extended | std::regex::optimize);
@@ -2274,7 +2274,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
 
   if(!is_code_iter(iter)) {
     // Add * at start of line in comment blocks
-    if(key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter) {
+    if(event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
       if(!iter.starts_line() && (!string_tag || (!iter.has_tag(string_tag) && !iter.ends_tag(string_tag)))) {
         cleanup_whitespace_characters(iter);
         iter = get_buffer()->get_insert()->get_iter();
@@ -2304,7 +2304,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
   }
 
   // Indent depending on if/else/etc and brackets
-  if((key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter) && !iter.starts_line()) {
+  if((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) && !iter.starts_line()) {
     cleanup_whitespace_characters(iter);
     iter = get_buffer()->get_insert()->get_iter();
 
@@ -2711,14 +2711,14 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
     return true;
   }
   // Indent left when writing }, ) or ] on a new line
-  else if(key->keyval == GDK_KEY_braceright ||
-          (use_fixed_continuation_indenting && (key->keyval == GDK_KEY_bracketright || key->keyval == GDK_KEY_parenright))) {
+  else if(event->keyval == GDK_KEY_braceright ||
+          (use_fixed_continuation_indenting && (event->keyval == GDK_KEY_bracketright || event->keyval == GDK_KEY_parenright))) {
     std::string bracket;
-    if(key->keyval == GDK_KEY_braceright)
+    if(event->keyval == GDK_KEY_braceright)
       bracket = "}";
-    if(key->keyval == GDK_KEY_bracketright)
+    if(event->keyval == GDK_KEY_bracketright)
       bracket = "]";
-    else if(key->keyval == GDK_KEY_parenright)
+    else if(event->keyval == GDK_KEY_parenright)
       bracket = ")";
     std::string line = get_line_before();
     if(line.size() >= tab_size && iter.ends_line()) {
@@ -2740,7 +2740,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
     }
   }
   // Indent left when writing { on a new line after for instance if(...)\n...
-  else if(key->keyval == GDK_KEY_braceleft) {
+  else if(event->keyval == GDK_KEY_braceleft) {
     auto tabs_end_iter = get_tabs_end_iter();
     auto tabs = get_line_before(tabs_end_iter);
     size_t line_nr = iter.get_line();
@@ -2769,7 +2769,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
     }
   }
   // Mark parameters of templated functions after pressing tab and after writing template argument
-  else if(key->keyval == GDK_KEY_Tab && (key->state & GDK_SHIFT_MASK) == 0) {
+  else if(event->keyval == GDK_KEY_Tab && (event->state & GDK_SHIFT_MASK) == 0) {
     if(*iter == '>') {
       iter.forward_char();
       Gtk::TextIter parenthesis_end_iter;
@@ -2811,7 +2811,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *key) {
   return false;
 }
 
-bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *key) {
+bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *event) {
   if(get_buffer()->get_has_selection())
     return false;
 
@@ -2820,7 +2820,7 @@ bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *key) {
   previous_iter.backward_char();
   if(is_code_iter(iter)) {
     //Move after ')' if closed expression
-    if(key->keyval == GDK_KEY_parenright) {
+    if(event->keyval == GDK_KEY_parenright) {
       if(*iter == ')' && symbol_count(iter, '(', ')') <= 0) {
         iter.forward_char();
         get_buffer()->place_cursor(iter);
@@ -2829,7 +2829,7 @@ bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *key) {
       }
     }
     //Move after '>' if >( and closed expression
-    else if(key->keyval == GDK_KEY_greater) {
+    else if(event->keyval == GDK_KEY_greater) {
       if(*iter == '>') {
         iter.forward_char();
         Gtk::TextIter parenthesis_end_iter;
@@ -2841,7 +2841,7 @@ bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *key) {
       }
     }
     //Move after '(' if >( and select text inside parentheses
-    else if(key->keyval == GDK_KEY_parenleft) {
+    else if(event->keyval == GDK_KEY_parenleft) {
       auto previous_iter = iter;
       previous_iter.backward_char();
       if(*previous_iter == '>') {
@@ -2859,7 +2859,7 @@ bool Source::View::on_key_press_event_smart_brackets(GdkEventKey *key) {
   return false;
 }
 
-bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
+bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
   keep_snippet_marks = true;
   ScopeGuard guard{[this] {
     keep_snippet_marks = false;
@@ -2868,7 +2868,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
   if(get_buffer()->get_has_selection()) {
     if(is_bracket_language) {
       // Remove /**/ around selection
-      if(key->keyval == GDK_KEY_slash) {
+      if(event->keyval == GDK_KEY_slash) {
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
         auto before_start = start;
@@ -2890,56 +2890,56 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
 
     Glib::ustring left, right;
     // Insert () around selection
-    if(key->keyval == GDK_KEY_parenleft) {
+    if(event->keyval == GDK_KEY_parenleft) {
       left = '(';
       right = ')';
     }
     // Insert [] around selection
-    else if(key->keyval == GDK_KEY_bracketleft) {
+    else if(event->keyval == GDK_KEY_bracketleft) {
       left = '[';
       right = ']';
     }
     // Insert {} around selection
-    else if(key->keyval == GDK_KEY_braceleft) {
+    else if(event->keyval == GDK_KEY_braceleft) {
       left = '{';
       right = '}';
     }
     // Insert <> around selection
-    else if(key->keyval == GDK_KEY_less) {
+    else if(event->keyval == GDK_KEY_less) {
       left = '<';
       right = '>';
     }
     // Insert '' around selection
-    else if(key->keyval == GDK_KEY_apostrophe) {
+    else if(event->keyval == GDK_KEY_apostrophe) {
       left = '\'';
       right = '\'';
     }
     // Insert "" around selection
-    else if(key->keyval == GDK_KEY_quotedbl) {
+    else if(event->keyval == GDK_KEY_quotedbl) {
       left = '"';
       right = '"';
     }
     else if(language && language->get_id() == "markdown") {
-      if(key->keyval == GDK_KEY_dead_grave) {
+      if(event->keyval == GDK_KEY_dead_grave) {
         left = '`';
         right = '`';
       }
-      if(key->keyval == GDK_KEY_asterisk) {
+      if(event->keyval == GDK_KEY_asterisk) {
         left = '*';
         right = '*';
       }
-      if(key->keyval == GDK_KEY_underscore) {
+      if(event->keyval == GDK_KEY_underscore) {
         left = '_';
         right = '_';
       }
-      if(key->keyval == GDK_KEY_dead_tilde) {
+      if(event->keyval == GDK_KEY_dead_tilde) {
         left = '~';
         right = '~';
       }
     }
     else if(is_bracket_language) {
       // Insert /**/ around selection
-      if(key->keyval == GDK_KEY_slash) {
+      if(event->keyval == GDK_KEY_slash) {
         left = "/*";
         right = "*/";
       }
@@ -2975,7 +2975,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
 
   if(is_code_iter(iter)) {
     // Insert ()
-    if(key->keyval == GDK_KEY_parenleft && allow_insertion(iter)) {
+    if(event->keyval == GDK_KEY_parenleft && allow_insertion(iter)) {
       if(symbol_count(iter, '(', ')') >= 0) {
         get_buffer()->insert_at_cursor(")");
         auto iter = get_buffer()->get_insert()->get_iter();
@@ -2986,7 +2986,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Insert []
-    else if(key->keyval == GDK_KEY_bracketleft && allow_insertion(iter)) {
+    else if(event->keyval == GDK_KEY_bracketleft && allow_insertion(iter)) {
       if(symbol_count(iter, '[', ']') >= 0) {
         get_buffer()->insert_at_cursor("]");
         auto iter = get_buffer()->get_insert()->get_iter();
@@ -2997,7 +2997,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Move right on ] in []
-    else if(key->keyval == GDK_KEY_bracketright) {
+    else if(event->keyval == GDK_KEY_bracketright) {
       if(*iter == ']' && symbol_count(iter, '[', ']') <= 0) {
         iter.forward_char();
         get_buffer()->place_cursor(iter);
@@ -3006,7 +3006,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Insert {}
-    else if(key->keyval == GDK_KEY_braceleft && allow_insertion(iter)) {
+    else if(event->keyval == GDK_KEY_braceleft && allow_insertion(iter)) {
       auto start_iter = get_start_of_expression(iter);
       // Do not add } if { is at end of line and next line has a higher indentation
       auto test_iter = iter;
@@ -3055,7 +3055,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       return false;
     }
     // Move right on } in {}
-    else if(key->keyval == GDK_KEY_braceright) {
+    else if(event->keyval == GDK_KEY_braceright) {
       if(*iter == '}' && symbol_count(iter, '{', '}') <= 0) {
         iter.forward_char();
         get_buffer()->place_cursor(iter);
@@ -3064,7 +3064,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Insert ''
-    else if(key->keyval == GDK_KEY_apostrophe && allow_insertion(iter) && symbol_count(iter, '\'') % 2 == 0) {
+    else if(event->keyval == GDK_KEY_apostrophe && allow_insertion(iter) && symbol_count(iter, '\'') % 2 == 0) {
       get_buffer()->insert_at_cursor("''");
       auto iter = get_buffer()->get_insert()->get_iter();
       iter.backward_char();
@@ -3073,7 +3073,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       return true;
     }
     // Insert ""
-    else if(key->keyval == GDK_KEY_quotedbl && allow_insertion(iter) && symbol_count(iter, '"') % 2 == 0) {
+    else if(event->keyval == GDK_KEY_quotedbl && allow_insertion(iter) && symbol_count(iter, '"') % 2 == 0) {
       get_buffer()->insert_at_cursor("\"\"");
       auto iter = get_buffer()->get_insert()->get_iter();
       iter.backward_char();
@@ -3082,13 +3082,13 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       return true;
     }
     // Move right on last ' in '', or last " in ""
-    else if(((key->keyval == GDK_KEY_apostrophe && *iter == '\'') || (key->keyval == GDK_KEY_quotedbl && *iter == '\"')) && is_spellcheck_iter(iter)) {
+    else if(((event->keyval == GDK_KEY_apostrophe && *iter == '\'') || (event->keyval == GDK_KEY_quotedbl && *iter == '\"')) && is_spellcheck_iter(iter)) {
       get_buffer()->place_cursor(next_iter);
       scroll_to(get_buffer()->get_insert());
       return true;
     }
     // Insert ; at the end of line, if iter is at the last )
-    else if(key->keyval == GDK_KEY_semicolon) {
+    else if(event->keyval == GDK_KEY_semicolon) {
       if(*iter == ')' && symbol_count(iter, '(', ')') <= 0 && next_iter.ends_line()) {
         auto start_iter = get_start_of_expression(previous_iter);
         if(*start_iter == '(') {
@@ -3107,7 +3107,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
       }
     }
     // Delete ()
-    else if(key->keyval == GDK_KEY_BackSpace) {
+    else if(event->keyval == GDK_KEY_BackSpace) {
       if(*previous_iter == '(' && *iter == ')' && symbol_count(iter, '(', ')') <= 0) {
         auto next_iter = iter;
         next_iter.forward_char();
@@ -3132,7 +3132,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *key) {
         return true;
       }
       // Delete '' or ""
-      else if(key->keyval == GDK_KEY_BackSpace) {
+      else if(event->keyval == GDK_KEY_BackSpace) {
         if((*previous_iter == '\'' && *iter == '\'') || (*previous_iter == '"' && *iter == '"')) {
           get_buffer()->erase(previous_iter, next_iter);
           scroll_to(get_buffer()->get_insert());

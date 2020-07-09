@@ -730,12 +730,12 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   }, false);
 
   // Remove argument completions
-  signal_key_press_event().connect([this](GdkEventKey *key) {
+  signal_key_press_event().connect([this](GdkEventKey *event) {
     if(show_parameters && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
-       key->keyval != GDK_KEY_Down && key->keyval != GDK_KEY_Up &&
-       key->keyval != GDK_KEY_Return && key->keyval != GDK_KEY_KP_Enter &&
-       key->keyval != GDK_KEY_ISO_Left_Tab && key->keyval != GDK_KEY_Tab &&
-       (key->keyval < GDK_KEY_Shift_L || key->keyval > GDK_KEY_Hyper_R)) {
+       event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
+       event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
+       event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
+       (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
       get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
       CompletionDialog::get()->hide();
     }

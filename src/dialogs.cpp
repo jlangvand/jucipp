@@ -59,13 +59,13 @@ std::string Dialog::gtk_dialog(const boost::filesystem::path &path, const std::s
     FileChooserDialog(const Glib::ustring &title, Gtk::FileChooserAction action) : Gtk::FileChooserDialog(title, action), action(action) {}
 
   protected:
-    bool on_key_press_event(GdkEventKey *key_event) override {
+    bool on_key_press_event(GdkEventKey *event) override {
       if(action == Gtk::FileChooserAction::FILE_CHOOSER_ACTION_OPEN || action == Gtk::FileChooserAction::FILE_CHOOSER_ACTION_SELECT_FOLDER) {
-        auto unicode = gdk_keyval_to_unicode(key_event->keyval);
+        auto unicode = gdk_keyval_to_unicode(event->keyval);
         if(unicode > 31 && unicode != 127)
           return true;
       }
-      return Gtk::FileChooserDialog::on_key_press_event(key_event);
+      return Gtk::FileChooserDialog::on_key_press_event(event);
     }
   };
   FileChooserDialog dialog(title, action);

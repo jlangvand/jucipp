@@ -210,24 +210,24 @@ std::unique_ptr<SelectionDialog> SelectionDialog::instance;
 
 SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup)
     : SelectionDialogBase(text_view, start_iter, show_search_entry, use_markup) {
-  auto search_key = std::make_shared<std::string>();
+  auto search_text = std::make_shared<std::string>();
   auto filter_model = Gtk::TreeModelFilter::create(list_view_text.get_model());
 
-  filter_model->set_visible_func([this, search_key](const Gtk::TreeModel::const_iterator &iter) {
+  filter_model->set_visible_func([this, search_text](const Gtk::TreeModel::const_iterator &iter) {
     std::string row_lc;
     iter->get_value(0, row_lc);
-    auto search_key_lc = *search_key;
+    auto search_text_lc = *search_text;
     std::transform(row_lc.begin(), row_lc.end(), row_lc.begin(), ::tolower);
-    std::transform(search_key_lc.begin(), search_key_lc.end(), search_key_lc.begin(), ::tolower);
+    std::transform(search_text_lc.begin(), search_text_lc.end(), search_text_lc.begin(), ::tolower);
     if(list_view_text.use_markup) {
       size_t pos = 0;
       while((pos = row_lc.find('<', pos)) != std::string::npos) {
         auto pos2 = row_lc.find('>', pos + 1);
         row_lc.erase(pos, pos2 - pos + 1);
       }
-      search_key_lc = Glib::Markup::escape_text(search_key_lc);
+      search_text_lc = Glib::Markup::escape_text(search_text_lc);
     }
-    if(row_lc.find(search_key_lc) != std::string::npos)
+    if(row_lc.find(search_text_lc) != std::string::npos)
       return true;
     return false;
   });
@@ -238,11 +238,11 @@ SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const boost::optional
     return false;
   });
 
-  search_entry.signal_changed().connect([this, search_key, filter_model]() {
-    *search_key = search_entry.get_text();
+  search_entry.signal_changed().connect([this, search_text, filter_model]() {
+    *search_text = search_entry.get_text();
     filter_model->refilter();
     list_view_text.set_search_entry(search_entry); //TODO:Report the need of this to GTK's git (bug)
-    if(search_key->empty()) {
+    if(search_text->empty()) {
       if(list_view_text.get_model()->children().size() > 0)
         list_view_text.set_cursor(list_view_text.get_model()->get_path(list_view_text.get_model()->children().begin()));
     }
@@ -262,8 +262,8 @@ SelectionDialog::SelectionDialog(Gtk::TextView *text_view, const boost::optional
   });
 }
 
-bool SelectionDialog::on_key_press(GdkEventKey *key) {
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && list_view_text.get_model()->children().size() > 0) {
+bool SelectionDialog::on_key_press(GdkEventKey *event) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && list_view_text.get_model()->children().size() > 0) {
     auto it = list_view_text.get_selection()->get_selected();
     if(it) {
       it++;
@@ -272,7 +272,7 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
     }
     return true;
   }
-  else if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && list_view_text.get_model()->children().size() > 0) {
+  else if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && list_view_text.get_model()->children().size() > 0) {
     auto it = list_view_text.get_selection()->get_selected();
     if(it) {
       it--;
@@ -281,7 +281,7 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
     }
     return true;
   }
-  else if(key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter || key->keyval == GDK_KEY_ISO_Left_Tab || key->keyval == GDK_KEY_Tab) {
+  else if(event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter || event->keyval == GDK_KEY_ISO_Left_Tab || event->keyval == GDK_KEY_Tab) {
     auto it = list_view_text.get_selection()->get_selected();
     if(it) {
       auto column = list_view_text.get_column(0);
@@ -291,35 +291,35 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
       hide();
     return true;
   }
-  else if(key->keyval == GDK_KEY_Escape) {
+  else if(event->keyval == GDK_KEY_Escape) {
     hide();
     return true;
   }
-  else if(key->keyval == GDK_KEY_Left || key->keyval == GDK_KEY_KP_Left || key->keyval == GDK_KEY_Right || key->keyval == GDK_KEY_KP_Right) {
+  else if(event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left || event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
     hide();
     return false;
   }
   else if(show_search_entry) {
 #ifdef __APPLE__ //OS X bug most likely: Gtk::Entry will not work if window is of type POPUP
     int search_entry_length = search_entry.get_text_length();
-    if(key->keyval == GDK_KEY_dead_tilde) {
+    if(event->keyval == GDK_KEY_dead_tilde) {
       search_entry.insert_text("~", 1, search_entry_length);
       return true;
     }
-    else if(key->keyval == GDK_KEY_dead_circumflex) {
+    else if(event->keyval == GDK_KEY_dead_circumflex) {
       search_entry.insert_text("^", 1, search_entry_length);
       return true;
     }
-    else if(key->is_modifier)
+    else if(event->is_modifier)
       return true;
-    else if(key->keyval == GDK_KEY_BackSpace) {
+    else if(event->keyval == GDK_KEY_BackSpace) {
       auto length = search_entry.get_text_length();
       if(length > 0)
         search_entry.delete_text(length - 1, length);
       return true;
     }
     else {
-      gunichar unicode = gdk_keyval_to_unicode(key->keyval);
+      gunichar unicode = gdk_keyval_to_unicode(event->keyval);
       if(unicode >= 32 && unicode != 126) {
         auto ustr = Glib::ustring(1, unicode);
         search_entry.insert_text(ustr, ustr.bytes(), search_entry_length);
@@ -327,7 +327,7 @@ bool SelectionDialog::on_key_press(GdkEventKey *key) {
       }
     }
 #else
-    search_entry.on_key_press_event(key);
+    search_entry.on_key_press_event(event);
     return true;
 #endif
   }
@@ -340,32 +340,32 @@ std::unique_ptr<CompletionDialog> CompletionDialog::instance;
 CompletionDialog::CompletionDialog(Gtk::TextView *text_view, const Gtk::TextIter &start_iter) : SelectionDialogBase(text_view, start_iter, false, false) {
   show_offset = text_view->get_buffer()->get_insert()->get_iter().get_offset();
 
-  auto search_key = std::make_shared<std::string>();
+  auto search_text = std::make_shared<std::string>();
   auto filter_model = Gtk::TreeModelFilter::create(list_view_text.get_model());
   if(show_offset == start_mark->get_iter().get_offset()) {
-    filter_model->set_visible_func([search_key](const Gtk::TreeModel::const_iterator &iter) {
+    filter_model->set_visible_func([search_text](const Gtk::TreeModel::const_iterator &iter) {
       std::string row_lc;
       iter->get_value(0, row_lc);
-      auto search_key_lc = *search_key;
+      auto search_text_lc = *search_text;
       std::transform(row_lc.begin(), row_lc.end(), row_lc.begin(), ::tolower);
-      std::transform(search_key_lc.begin(), search_key_lc.end(), search_key_lc.begin(), ::tolower);
-      if(row_lc.find(search_key_lc) != std::string::npos)
+      std::transform(search_text_lc.begin(), search_text_lc.end(), search_text_lc.begin(), ::tolower);
+      if(row_lc.find(search_text_lc) != std::string::npos)
         return true;
       return false;
     });
   }
   else {
-    filter_model->set_visible_func([search_key](const Gtk::TreeModel::const_iterator &iter) {
+    filter_model->set_visible_func([search_text](const Gtk::TreeModel::const_iterator &iter) {
       std::string row;
       iter->get_value(0, row);
-      if(row.find(*search_key) == 0)
+      if(row.find(*search_text) == 0)
         return true;
       return false;
     });
   }
   list_view_text.set_model(filter_model);
-  search_entry.signal_changed().connect([this, search_key, filter_model]() {
-    *search_key = search_entry.get_text();
+  search_entry.signal_changed().connect([this, search_text, filter_model]() {
+    *search_text = search_entry.get_text();
     filter_model->refilter();
     list_view_text.set_search_entry(search_entry); //TODO:Report the need of this to GTK's git (bug)
   });
@@ -391,8 +391,8 @@ void CompletionDialog::select(bool hide_window) {
     hide();
 }
 
-bool CompletionDialog::on_key_release(GdkEventKey *key) {
-  if(key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down || key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up)
+bool CompletionDialog::on_key_release(GdkEventKey *event) {
+  if(event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down || event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up)
     return false;
 
   if(show_offset > text_view->get_buffer()->get_insert()->get_iter().get_offset())
@@ -410,20 +410,20 @@ bool CompletionDialog::on_key_release(GdkEventKey *key) {
   return false;
 }
 
-bool CompletionDialog::on_key_press(GdkEventKey *key) {
-  if((key->keyval >= '0' && key->keyval <= '9') || (key->keyval >= 'a' && key->keyval <= 'z') || (key->keyval >= 'A' && key->keyval <= 'Z') || key->keyval == '_' || gdk_keyval_to_unicode(key->keyval) >= 0x00C0 || key->keyval == GDK_KEY_BackSpace) {
+bool CompletionDialog::on_key_press(GdkEventKey *event) {
+  if((event->keyval >= '0' && event->keyval <= '9') || (event->keyval >= 'a' && event->keyval <= 'z') || (event->keyval >= 'A' && event->keyval <= 'Z') || event->keyval == '_' || gdk_keyval_to_unicode(event->keyval) >= 0x00C0 || event->keyval == GDK_KEY_BackSpace) {
     if(row_in_entry) {
       text_view->get_buffer()->erase(start_mark->get_iter(), text_view->get_buffer()->get_insert()->get_iter());
       row_in_entry = false;
-      if(key->keyval == GDK_KEY_BackSpace)
+      if(event->keyval == GDK_KEY_BackSpace)
         return true;
     }
     return false;
   }
-  if(key->keyval == GDK_KEY_Shift_L || key->keyval == GDK_KEY_Shift_R || key->keyval == GDK_KEY_Alt_L || key->keyval == GDK_KEY_Alt_R ||
-     key->keyval == GDK_KEY_Control_L || key->keyval == GDK_KEY_Control_R || key->keyval == GDK_KEY_Meta_L || key->keyval == GDK_KEY_Meta_R)
+  if(event->keyval == GDK_KEY_Shift_L || event->keyval == GDK_KEY_Shift_R || event->keyval == GDK_KEY_Alt_L || event->keyval == GDK_KEY_Alt_R ||
+     event->keyval == GDK_KEY_Control_L || event->keyval == GDK_KEY_Control_R || event->keyval == GDK_KEY_Meta_L || event->keyval == GDK_KEY_Meta_R)
     return false;
-  if((key->keyval == GDK_KEY_Down || key->keyval == GDK_KEY_KP_Down) && list_view_text.get_model()->children().size() > 0) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && list_view_text.get_model()->children().size() > 0) {
     auto it = list_view_text.get_selection()->get_selected();
     if(it) {
       it++;
@@ -437,7 +437,7 @@ bool CompletionDialog::on_key_press(GdkEventKey *key) {
     select(false);
     return true;
   }
-  if((key->keyval == GDK_KEY_Up || key->keyval == GDK_KEY_KP_Up) && list_view_text.get_model()->children().size() > 0) {
+  if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && list_view_text.get_model()->children().size() > 0) {
     auto it = list_view_text.get_selection()->get_selected();
     if(it) {
       it--;
@@ -455,12 +455,12 @@ bool CompletionDialog::on_key_press(GdkEventKey *key) {
     select(false);
     return true;
   }
-  if(key->keyval == GDK_KEY_Return || key->keyval == GDK_KEY_KP_Enter || key->keyval == GDK_KEY_ISO_Left_Tab || key->keyval == GDK_KEY_Tab) {
+  if(event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter || event->keyval == GDK_KEY_ISO_Left_Tab || event->keyval == GDK_KEY_Tab) {
     select();
     return true;
   }
   hide();
-  if(key->keyval == GDK_KEY_Escape)
+  if(event->keyval == GDK_KEY_Escape)
     return true;
   return false;
 }

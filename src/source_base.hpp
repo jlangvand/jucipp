@@ -41,7 +41,7 @@ namespace Source {
     std::function<void(int number)> update_search_occurrences;
 
   protected:
-    bool on_key_press_event(GdkEventKey *key) override;
+    bool on_key_press_event(GdkEventKey *event) override;
 
   private:
     GtkSourceSearchContext *search_context;
@@ -167,8 +167,8 @@ namespace Source {
   protected:
     Glib::RefPtr<Gtk::TextTag> extra_cursor_selection;
 
-    bool on_key_press_event(GdkEventKey *key) override;
-    bool on_key_press_event_extra_cursors(GdkEventKey *key);
+    bool on_key_press_event(GdkEventKey *event) override;
+    bool on_key_press_event_extra_cursors(GdkEventKey *event);
 
     class ExtraCursor {
       Glib::RefPtr<Gtk::TextTag> extra_cursor_selection;

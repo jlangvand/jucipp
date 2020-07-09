@@ -75,7 +75,7 @@ class SelectionDialog : public SelectionDialogBase {
   static std::unique_ptr<SelectionDialog> instance;
 
 public:
-  bool on_key_press(GdkEventKey *key);
+  bool on_key_press(GdkEventKey *event);
 
   static void create(Gtk::TextView *text_view, bool show_search_entry = true, bool use_markup = false) {
     instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(text_view, text_view->get_buffer()->get_insert()->get_iter(), show_search_entry, use_markup));
@@ -91,8 +91,8 @@ class CompletionDialog : public SelectionDialogBase {
   static std::unique_ptr<CompletionDialog> instance;
 
 public:
-  bool on_key_release(GdkEventKey *key);
-  bool on_key_press(GdkEventKey *key);
+  bool on_key_release(GdkEventKey *event);
+  bool on_key_press(GdkEventKey *event);
 
   static void create(Gtk::TextView *text_view, const Gtk::TextIter &start_iter) {
     instance = std::unique_ptr<CompletionDialog>(new CompletionDialog(text_view, start_iter));
