@@ -815,7 +815,7 @@ void Tooltip::insert_code(const std::string &code, boost::variant<std::string, G
       }
     }
     if(language) {
-      auto tmp_view = Gsv::View();
+      Gsv::View tmp_view;
       tmp_view.get_buffer()->set_text(code);
       auto scheme = view->get_source_buffer()->get_style_scheme();
       tmp_view.get_source_buffer()->set_style_scheme(scheme);
