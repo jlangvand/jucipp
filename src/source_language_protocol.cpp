@@ -1056,7 +1056,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
 
     add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](Tooltip &tooltip) {
       if(language_id == "python") { // Python might support markdown in the future
-        tooltip.buffer->insert_at_cursor(diagnostic.message);
+        tooltip.insert_with_links_tagged(diagnostic.message);
         return;
       }
       tooltip.insert_markdown(diagnostic.message);
