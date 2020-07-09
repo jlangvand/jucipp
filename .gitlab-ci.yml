@@ -42,7 +42,7 @@ thread-safety-analysis:
   stage: test
   script:
     - mkdir build && cd build
-    - CXX=clang++ CXXFLAGS="-Werror -Wno-deprecated-declarations" cmake ..
+    - CXX=clang++ CXXFLAGS=-Werror cmake ..
     - make -j$(nproc)
 
 address-sanitizer:

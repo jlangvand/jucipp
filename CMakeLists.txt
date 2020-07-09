@@ -18,7 +18,7 @@ include(CPack)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_compile_options(-pthread -Wall -Wextra -Wno-unused-parameter)
+add_compile_options(-pthread -Wall -Wextra -Wno-unused-parameter -Wno-deprecated-declarations)
 add_definitions(-DJUCI_VERSION="${JUCI_VERSION}")
 if(CMAKE_BUILD_TYPE STREQUAL "")
   add_compile_options(-O3)
