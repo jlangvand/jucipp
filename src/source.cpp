@@ -233,7 +233,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         --line_end;
       bool lines_commented = true;
       bool extra_spaces = true;
-      boost::optional<int> min_indentation;
+      int min_indentation = std::numeric_limits<int>::max();
       for(auto line = line_start; line <= line_end; ++line) {
         auto iter = get_buffer()->get_iter_at_line(line);
         bool line_added = false;
@@ -279,8 +279,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         if(line_added) {
           lines_commented &= line_commented;
           extra_spaces &= extra_space;
-          if(!min_indentation || indentation < min_indentation)
-            min_indentation = indentation;
+          min_indentation = std::min(min_indentation, indentation);
         }
       }
       if(lines.size()) {
@@ -288,7 +287,8 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
         get_buffer()->begin_user_action();
         for(auto &line : lines) {
           auto iter = get_buffer()->get_iter_at_line(line);
-          iter.forward_chars(min_indentation.value_or(0));
+          if(min_indentation != std::numeric_limits<int>::max())
+            iter.forward_chars(min_indentation);
           if(lines_commented) {
             auto end_iter = iter;
             end_iter.forward_chars(comment_characters.size() + static_cast<int>(extra_spaces));

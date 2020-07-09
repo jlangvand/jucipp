@@ -9,7 +9,7 @@ stages:
   stage: test
   script:
     - mkdir build && cd build
-    - cmake -DBUILD_TESTING=1 ..
+    - CXXFLAGS=-Werror cmake -DBUILD_TESTING=1 ..
     - make -j$(nproc)
     - broadwayd & CTEST_OUTPUT_ON_FAILURE=1 make test
 

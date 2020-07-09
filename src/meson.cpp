@@ -99,7 +99,7 @@ bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, 
 boost::filesystem::path Meson::get_executable(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {
   CompileCommands compile_commands(build_path);
 
-  boost::optional<size_t> best_match_size;
+  ssize_t best_match_size = -1;
   boost::filesystem::path best_match_executable;
   for(auto &command : compile_commands.commands) {
     auto command_file = filesystem::get_normal_path(command.file);
@@ -113,7 +113,7 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
             return executable;
           auto command_file_directory = command_file.parent_path();
           if(filesystem::file_in_path(file_path, command_file_directory)) {
-            auto size = static_cast<size_t>(std::distance(command_file_directory.begin(), command_file_directory.end()));
+            auto size = std::distance(command_file_directory.begin(), command_file_directory.end());
             if(size > best_match_size) {
               best_match_size = size;
               best_match_executable = executable;
