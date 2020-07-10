@@ -1335,39 +1335,37 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
   auto implementation_locations = [this](const Identifier &identifier) {
     std::vector<Offset> offsets;
     if(identifier) {
-      wait_parsing();
+      if(parsed) {
+        wait_parsing(); // Wait for other views to finish parsing
 
-      //First, look for a definition cursor that is equal
-      auto identifier_usr = identifier.cursor.get_usr();
-      for(auto &view : views) {
-        if(auto clang_view = dynamic_cast<Source::ClangView *>(view)) {
-          for(auto &token : *clang_view->clang_tokens) {
-            auto cursor = token.get_cursor();
-            auto cursor_kind = cursor.get_kind();
-            if((cursor_kind == clangmm::Cursor::Kind::FunctionDecl || cursor_kind == clangmm::Cursor::Kind::CXXMethod ||
-                cursor_kind == clangmm::Cursor::Kind::Constructor || cursor_kind == clangmm::Cursor::Kind::Destructor ||
-                cursor_kind == clangmm::Cursor::Kind::FunctionTemplate || cursor_kind == clangmm::Cursor::Kind::ConversionFunction) &&
-               token.is_identifier()) {
-              auto token_spelling = token.get_spelling();
-              if(identifier.kind == cursor.get_kind() && identifier.spelling == token_spelling && identifier_usr == cursor.get_usr()) {
-                if(clang_isCursorDefinition(cursor.cx_cursor)) {
-                  Offset offset;
-                  auto location = cursor.get_source_location();
-                  auto clang_offset = location.get_offset();
-                  offset.file_path = location.get_path();
-                  offset.line = clang_offset.line - 1;
-                  offset.index = clang_offset.index - 1;
-                  offsets.emplace_back(offset);
-                }
+        // First, look for a definition cursor that is equal
+        auto identifier_usr = identifier.cursor.get_usr();
+        for(auto &view : views) {
+          if(auto clang_view = dynamic_cast<Source::ClangView *>(view)) {
+            for(auto &token : *clang_view->clang_tokens) {
+              auto cursor = token.get_cursor();
+              auto cursor_kind = cursor.get_kind();
+              if((cursor_kind == clangmm::Cursor::Kind::FunctionDecl || cursor_kind == clangmm::Cursor::Kind::CXXMethod ||
+                  cursor_kind == clangmm::Cursor::Kind::Constructor || cursor_kind == clangmm::Cursor::Kind::Destructor ||
+                  cursor_kind == clangmm::Cursor::Kind::FunctionTemplate || cursor_kind == clangmm::Cursor::Kind::ConversionFunction) &&
+                 identifier.kind == cursor_kind && token.is_identifier() && clang_isCursorDefinition(cursor.cx_cursor) &&
+                 identifier.spelling == token.get_spelling() && identifier_usr == cursor.get_usr()) {
+                Offset offset;
+                auto location = cursor.get_source_location();
+                auto clang_offset = location.get_offset();
+                offset.file_path = location.get_path();
+                offset.line = clang_offset.line - 1;
+                offset.index = clang_offset.index - 1;
+                offsets.emplace_back(offset);
               }
             }
           }
         }
+        if(!offsets.empty())
+          return offsets;
       }
-      if(!offsets.empty())
-        return offsets;
 
-      //If no implementation was found, try using clang_getCursorDefinition
+      // If no implementation was found, try using clang_getCursorDefinition
       auto definition = identifier.cursor.get_definition();
       if(definition) {
         auto location = definition.get_source_location();
@@ -1380,7 +1378,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
         return offsets;
       }
 
-      //If no implementation was found, use declaration if it is a function template
+      // If no implementation was found, use declaration if it is a function template
       auto canonical = identifier.cursor.get_canonical();
       auto cursor = clang_tu->get_cursor(canonical.get_source_location());
       if(cursor && cursor.get_kind() == clangmm::Cursor::Kind::FunctionTemplate) {
@@ -1394,7 +1392,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
         return offsets;
       }
 
-      //If no implementation was found, try using Ctags
+      // If no implementation was found, try using Ctags
       auto name = identifier.cursor.get_spelling();
       auto parent = identifier.cursor.get_semantic_parent();
       while(parent && parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit) {
