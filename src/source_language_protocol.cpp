@@ -1402,7 +1402,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }, false);
 
     // Remove argument completions
-    if(!has_named_parameters()) { // Do not remove named parameters in for instance Python
+    if(!get_named_parameter_symbol()) { // Do not remove named parameters in for instance Python
       signal_key_press_event().connect([this](GdkEventKey *event) {
         if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
            event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
@@ -1524,29 +1524,70 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       if(autocomplete_show_arguments) {
         if(!capabilities.signature_help)
           return;
-        client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
-          if(!error) {
-            auto signatures = result.get_child("signatures", boost::property_tree::ptree());
-            for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
-              auto parameters = signature_it->second.get_child("parameters", boost::property_tree::ptree());
-              for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
-                auto label = parameter_it->second.get<std::string>("label", "");
-                auto insert = label;
-                auto documentation = parameter_it->second.get<std::string>("documentation", "");
-                std::string kind;
-                if(documentation.empty()) {
-                  auto documentation_pt = parameter_it->second.get_child_optional("documentation");
-                  if(documentation_pt) {
-                    documentation = documentation_pt->get<std::string>("value", "");
-                    kind = documentation_pt->get<std::string>("kind", "");
+        dispatcher.post([this, line_number, column, &result_processed] {
+          // Find current parameter number and previously used named parameters
+          unsigned current_parameter_position = 0;
+          auto named_parameter_symbol = get_named_parameter_symbol();
+          std::set<std::string> used_named_parameters;
+          auto iter = get_buffer()->get_insert()->get_iter();
+          int para_count = 0;
+          while(iter.backward_char() && backward_to_code(iter)) {
+            if(para_count == 0) {
+              if(named_parameter_symbol && (*iter == ',' || *iter == '(')) {
+                auto next = iter;
+                if(next.forward_char() && forward_to_code(next)) {
+                  auto pair = get_token_iters(next);
+                  if(pair.first != pair.second) {
+                    auto symbol = pair.second;
+                    if(forward_to_code(symbol) && *symbol == static_cast<unsigned char>(*named_parameter_symbol))
+                      used_named_parameters.emplace(get_buffer()->get_text(pair.first, pair.second));
                   }
                 }
-                autocomplete->rows.emplace_back(std::move(label));
-                autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
+              }
+              if(*iter == ',')
+                ++current_parameter_position;
+              else if(*iter == '(')
+                break;
+            }
+            if(*iter == '(')
+              ++para_count;
+            else if(*iter == ')')
+              --para_count;
+          }
+          bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
+
+          client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
+            if(!error) {
+              auto signatures = result.get_child("signatures", boost::property_tree::ptree());
+              for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
+                auto parameters = signature_it->second.get_child("parameters", boost::property_tree::ptree());
+                unsigned parameter_position = 0;
+                for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
+                  if(parameter_position == current_parameter_position || using_named_parameters) {
+                    auto label = parameter_it->second.get<std::string>("label", "");
+                    auto insert = label;
+                    auto documentation = parameter_it->second.get<std::string>("documentation", "");
+                    std::string kind;
+                    if(documentation.empty()) {
+                      auto documentation_pt = parameter_it->second.get_child_optional("documentation");
+                      if(documentation_pt) {
+                        documentation = documentation_pt->get<std::string>("value", "");
+                        kind = documentation_pt->get<std::string>("kind", "");
+                      }
+                    }
+                    if(documentation == "null") // Python erroneously returns "null" when a parameter is not documented
+                      documentation.clear();
+                    if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
+                      autocomplete->rows.emplace_back(std::move(label));
+                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
+                    }
+                  }
+                  parameter_position++;
+                }
               }
             }
-          }
-          result_processed.set_value();
+            result_processed.set_value();
+          });
         });
       }
       else {
@@ -1562,67 +1603,40 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               begin = result.begin();
               end = result.end();
             }
+            std::string prefix;
+            {
+              LockGuard lock(autocomplete->prefix_mutex);
+              prefix = autocomplete->prefix;
+            }
             for(auto it = begin; it != end; ++it) {
               auto label = it->second.get<std::string>("label", "");
-              auto detail = it->second.get<std::string>("detail", "");
-              auto documentation = it->second.get<std::string>("documentation", "");
-              std::string kind;
-              if(documentation.empty()) {
-                auto documentation_pt = it->second.get_child_optional("documentation");
-                if(documentation_pt) {
-                  documentation = documentation_pt->get<std::string>("value", "");
-                  kind = documentation_pt->get<std::string>("kind", "");
-                }
-              }
-              auto insert = it->second.get<std::string>("insertText", "");
-              if(insert.empty())
-                insert = it->second.get<std::string>("textEdit.newText", "");
-              if(!insert.empty()) {
-                // In case ( is missing in insert but is present in label
-                if(label.size() > insert.size() && label.back() == ')' && insert.find('(') == std::string::npos) {
-                  auto pos = label.find('(');
-                  if(pos != std::string::npos && pos == insert.size() && pos + 1 < label.size()) {
-                    if(pos + 2 == label.size()) // If no parameters
-                      insert += "()";
-                    else
-                      insert += "(${1:" + label.substr(pos + 1, label.size() - 1 - (pos + 1)) + "})";
+              if(starts_with(label, prefix)) {
+                auto detail = it->second.get<std::string>("detail", "");
+                auto documentation = it->second.get<std::string>("documentation", "");
+                std::string documentation_kind;
+                if(documentation.empty()) {
+                  auto documentation_pt = it->second.get_child_optional("documentation");
+                  if(documentation_pt) {
+                    documentation = documentation_pt->get<std::string>("value", "");
+                    documentation_kind = documentation_pt->get<std::string>("kind", "");
                   }
                 }
-              }
-              else {
-                insert = label;
-                auto kind = it->second.get<int>("kind", 0);
-                if(kind >= 2 && kind <= 3) {
-                  bool found_bracket = false;
-                  for(auto &chr : insert) {
-                    if(chr == '(' || chr == '{') {
-                      found_bracket = true;
-                      break;
-                    }
-                  }
-                  if(!found_bracket)
+                auto insert = it->second.get<std::string>("insertText", "");
+                if(insert.empty())
+                  insert = it->second.get<std::string>("textEdit.newText", "");
+                if(insert.empty())
+                  insert = label;
+                if(!insert.empty()) {
+                  auto kind = it->second.get<int>("kind", 0);
+                  if(kind >= 2 && kind <= 3 && insert.find('(') == std::string::npos) // If kind is method or function, but parentheses are missing
                     insert += "(${1:})";
-                }
-              }
-              if(!label.empty()) {
-                std::string prefix;
-                {
-                  LockGuard lock(autocomplete->prefix_mutex);
-                  prefix = autocomplete->prefix;
-                }
-                if(starts_with(label, prefix)) {
                   autocomplete->rows.emplace_back(std::move(label));
-                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(kind)});
+                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind)});
                 }
               }
             }
 
             if(autocomplete_enable_snippets) {
-              std::string prefix;
-              {
-                LockGuard lock(autocomplete->prefix_mutex);
-                prefix = autocomplete->prefix;
-              }
               LockGuard lock(snippets_mutex);
               if(snippets) {
                 for(auto &snippet : *snippets) {
@@ -1675,8 +1689,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
     if(hide_window) {
       if(autocomplete_show_arguments) {
-        if(has_named_parameters()) // Do not select named parameters in for instance Python
-          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
+        if(auto symbol = get_named_parameter_symbol()) // Do not select named parameters in for instance Python
+          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert + *symbol);
         else {
           get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
           int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
@@ -1720,10 +1734,10 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 }
 
-bool Source::LanguageProtocolView::has_named_parameters() {
+boost::optional<char> Source::LanguageProtocolView::get_named_parameter_symbol() {
   if(language_id == "python") // TODO: add more languages that supports named parameters
-    return true;
-  return false;
+    return '=';
+  return {};
 }
 
 void Source::LanguageProtocolView::update_type_coverage() {

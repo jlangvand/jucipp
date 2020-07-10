@@ -125,14 +125,21 @@ namespace Source {
 
     std::vector<FixIt> fix_its;
 
+    /// Returns true if code iter (not part of comment or string, and not whitespace) is found.
+    /// Iter will not be moved if iter is already a code iter.
     bool backward_to_code(Gtk::TextIter &iter);
+    /// Returns true if code iter (not part of comment or string, and not whitespace) is found.
+    /// Iter will not be moved if iter is already a code iter.
     bool forward_to_code(Gtk::TextIter &iter);
+    /// Iter will not be moved if iter is already a code iter (not part of comment or string, and not whitespace) or at line start
     void backward_to_code_or_line_start(Gtk::TextIter &iter);
     /// If closing bracket is found, continues until the open bracket.
     /// Returns if open bracket is found that has no corresponding closing bracket.
     /// Else, return at start of line.
     Gtk::TextIter get_start_of_expression(Gtk::TextIter iter);
+    /// Iter will not be moved if iter is already at close symbol.
     bool find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
+    /// Iter will not be moved if iter is already at open symbol.
     bool find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &found_iter, unsigned int positive_char, unsigned int negative_char);
     long symbol_count(Gtk::TextIter iter, unsigned int positive_char, unsigned int negative_char = 0);
     bool is_templated_function(Gtk::TextIter iter, Gtk::TextIter &parenthesis_end_iter);

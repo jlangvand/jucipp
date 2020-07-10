@@ -210,7 +210,9 @@ namespace Source {
     bool autocomplete_show_arguments = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
 
-    bool has_named_parameters();
+    /// If language supports named parameters, returns the symbol separating the named parameter and value,
+    /// for instance '=' for Python
+    boost::optional<char> get_named_parameter_symbol();
 
     std::vector<LanguageProtocol::Diagnostic> last_diagnostics;
 
