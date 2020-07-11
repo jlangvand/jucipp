@@ -1628,7 +1628,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   insert = label;
                 if(!insert.empty()) {
                   auto kind = it->second.get<int>("kind", 0);
-                  if(kind >= 2 && kind <= 3 && insert.find('(') == std::string::npos) // If kind is method or function, but parentheses are missing
+                  if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
                     insert += "(${1:})";
                   autocomplete->rows.emplace_back(std::move(label));
                   autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind)});
