@@ -1531,8 +1531,11 @@ void Source::LanguageProtocolView::setup_autocomplete() {
           std::set<std::string> used_named_parameters;
           auto iter = get_buffer()->get_insert()->get_iter();
           int para_count = 0;
+          int square_count = 0;
+          int angle_count = 0;
+          int curly_count = 0;
           while(iter.backward_char() && backward_to_code(iter)) {
-            if(para_count == 0) {
+            if(para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0) {
               if(named_parameter_symbol && (*iter == ',' || *iter == '(')) {
                 auto next = iter;
                 if(next.forward_char() && forward_to_code(next)) {
@@ -1553,6 +1556,18 @@ void Source::LanguageProtocolView::setup_autocomplete() {
               ++para_count;
             else if(*iter == ')')
               --para_count;
+            else if(*iter == '[')
+              ++square_count;
+            else if(*iter == ']')
+              --square_count;
+            else if(*iter == '<')
+              ++angle_count;
+            else if(*iter == '>')
+              --angle_count;
+            else if(*iter == '{')
+              ++curly_count;
+            else if(*iter == '}')
+              --curly_count;
           }
           bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
 
