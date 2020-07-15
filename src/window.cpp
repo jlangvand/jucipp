@@ -1598,6 +1598,42 @@ void Window::set_menu_actions() {
   menu.add_action("window_previous_tab", []() {
     Notebook::get().previous();
   });
+  menu.add_action("window_goto_tab", []() {
+    auto directory_folder = Project::get_preferably_directory_folder();
+    auto build = Project::Build::create(directory_folder);
+    if(!build->project_path.empty())
+      directory_folder = build->project_path;
+
+    auto current_view = Notebook::get().get_current_view();
+    if(current_view)
+      SelectionDialog::create(current_view, true, true);
+    else
+      SelectionDialog::create(true, true);
+
+    std::vector<Source::View *> views;
+    for(auto view : Notebook::get().get_views()) {
+      views.emplace_back(view);
+      SelectionDialog::get()->add_row(filesystem::get_relative_path(view->file_path, directory_folder).string());
+      if(view == current_view)
+        SelectionDialog::get()->set_cursor_at_last_row();
+    }
+
+    if(views.empty()) {
+      Info::get().print("No tabs open");
+      return;
+    }
+
+    SelectionDialog::get()->on_select = [views = std::move(views)](unsigned int index, const std::string &text, bool hide_window) {
+      if(Notebook::get().open(views[index])) {
+        auto view = Notebook::get().get_current_view();
+        view->hide_tooltips();
+      }
+    };
+
+    if(current_view)
+      current_view->hide_tooltips();
+    SelectionDialog::get()->show();
+  });
   menu.add_action("window_toggle_split", [] {
     Notebook::get().toggle_split();
   });

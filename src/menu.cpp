@@ -497,6 +497,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Previous _Tab</attribute>
           <attribute name='action'>app.window_previous_tab</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Go _to _Tab</attribute>
+          <attribute name='action'>app.window_goto_tab</attribute>
+        </item>
       </section>
       <section>
         <item>

@@ -161,6 +161,7 @@ const std::string default_config_file = R"RAW({
         "window_previous_tab": "<primary><alt>Left",)RAW"
 #endif
                                                     R"RAW(
+        "window_goto_tab": "",
         "window_toggle_split": "",
         "window_split_source_buffer": "",)RAW"
 #ifdef __APPLE__
