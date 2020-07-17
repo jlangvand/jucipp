@@ -925,12 +925,9 @@ void Window::set_menu_actions() {
   menu.add_action("source_find_file", []() {
     auto view_folder = Project::get_preferably_view_folder();
     auto build = Project::Build::create(view_folder);
-    boost::filesystem::path default_path, debug_path;
-    if(!build->project_path.empty()) {
+    auto exclude_paths = build->get_exclude_paths();
+    if(!build->project_path.empty())
       view_folder = build->project_path;
-      default_path = build->get_default_path();
-      debug_path = build->get_debug_path();
-    }
 
     auto view = Notebook::get().get_current_view();
     if(view)
@@ -949,7 +946,9 @@ void Window::set_menu_actions() {
       auto path = iter->path();
       // ignore folders
       if(!boost::filesystem::is_regular_file(path, ec)) {
-        if(path == default_path || path == debug_path || path.filename() == ".git")
+        if(std::any_of(exclude_paths.begin(), exclude_paths.end(), [&path](const boost::filesystem::path &exclude_path) {
+             return path == exclude_path;
+           }))
           iter.no_push();
         continue;
       }

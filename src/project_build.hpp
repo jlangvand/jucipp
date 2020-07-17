@@ -18,6 +18,8 @@ namespace Project {
     virtual std::string get_compile_command() { return std::string(); }
     virtual boost::filesystem::path get_executable(const boost::filesystem::path &path) { return boost::filesystem::path(); }
 
+    virtual std::vector<boost::filesystem::path> get_exclude_paths();
+
     static std::unique_ptr<Build> create(const boost::filesystem::path &path);
   };
 
@@ -32,6 +34,8 @@ namespace Project {
 
     std::string get_compile_command() override;
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
+
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class MesonBuild : public Build {
@@ -45,11 +49,13 @@ namespace Project {
 
     std::string get_compile_command() override;
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
+
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class CompileCommandsBuild : public Build {
   public:
-    CompileCommandsBuild(const boost::filesystem::path &path);
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class CargoBuild : public Build {
@@ -61,9 +67,17 @@ namespace Project {
 
     std::string get_compile_command() override { return "cargo build"; }
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override { return get_debug_path() / project_path.filename(); }
+
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
-  class NpmBuild : public Build {};
+  class NpmBuild : public Build {
+  public:
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
+  };
 
-  class PythonMain : public Build {};
+  class PythonMain : public Build {
+  public:
+    std::vector<boost::filesystem::path> get_exclude_paths() override;
+  };
 } // namespace Project

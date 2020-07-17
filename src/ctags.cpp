@@ -19,11 +19,11 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
   boost::system::error_code ec;
   if(boost::filesystem::is_directory(path, ec)) {
     auto build = Project::Build::create(path);
-    std::string exclude = " --exclude=node_modules";
+    std::string exclude;
     if(!build->project_path.empty()) {
       project_path = build->project_path;
-      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_default_path(), project_path).string());
-      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(build->get_debug_path(), project_path).string());
+      for(auto &exclude_path : build->get_exclude_paths())
+        exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(exclude_path, project_path).string());
     }
     else
       project_path = path;

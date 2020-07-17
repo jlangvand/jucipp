@@ -26,7 +26,8 @@ std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::
     }
 
     if(boost::filesystem::exists(search_path / Config::get().project.default_build_path / "compile_commands.json", ec)) {
-      std::unique_ptr<Project::Build> build(new CompileCommandsBuild(search_path));
+      std::unique_ptr<Project::Build> build(new CompileCommandsBuild());
+      build->project_path = search_path;
       return build;
     }
 
@@ -90,6 +91,12 @@ boost::filesystem::path Project::Build::get_debug_path() {
   return filesystem::get_normal_path(debug_build_path);
 }
 
+std::vector<boost::filesystem::path> Project::Build::get_exclude_paths() {
+  if(!project_path.empty())
+    return {project_path / ".git"};
+  return {};
+}
+
 Project::CMakeBuild::CMakeBuild(const boost::filesystem::path &path) : Project::Build(), cmake(path) {
   project_path = cmake.project_path;
 }
@@ -116,6 +123,13 @@ boost::filesystem::path Project::CMakeBuild::get_executable(const boost::filesys
       executable = CMake(src_path).get_executable(default_path, src_path);
   }
   return executable;
+}
+
+std::vector<boost::filesystem::path> Project::CMakeBuild::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(get_default_path());
+  exclude_paths.emplace_back(get_debug_path());
+  return exclude_paths;
 }
 
 Project::MesonBuild::MesonBuild(const boost::filesystem::path &path) : Project::Build(), meson(path) {
@@ -146,6 +160,35 @@ boost::filesystem::path Project::MesonBuild::get_executable(const boost::filesys
   return executable;
 }
 
-Project::CompileCommandsBuild::CompileCommandsBuild(const boost::filesystem::path &path) {
-  project_path = path;
+std::vector<boost::filesystem::path> Project::MesonBuild::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(get_default_path());
+  exclude_paths.emplace_back(get_debug_path());
+  return exclude_paths;
+}
+
+std::vector<boost::filesystem::path> Project::CompileCommandsBuild::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(get_default_path());
+  exclude_paths.emplace_back(get_debug_path());
+  return exclude_paths;
+}
+
+std::vector<boost::filesystem::path> Project::CargoBuild::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(project_path / "target");
+  return exclude_paths;
+}
+
+std::vector<boost::filesystem::path> Project::NpmBuild::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(project_path / "node_modules");
+  return exclude_paths;
+}
+
+std::vector<boost::filesystem::path> Project::PythonMain::get_exclude_paths() {
+  auto exclude_paths = Project::Build::get_exclude_paths();
+  exclude_paths.emplace_back(project_path / ".mypy_cache");
+  exclude_paths.emplace_back(project_path / "__pycache__");
+  return exclude_paths;
 }
