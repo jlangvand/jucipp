@@ -171,16 +171,16 @@ std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesy
   std::atomic<size_t> tasks_completed = {0};
   if(tasks != 0) {
     message = create_message();
-    while(cache_in_progress_count != 0) {
+    while(cache_in_progress_count != 0 && !canceled) {
       message->set_fraction((static_cast<double>(tasks - cache_in_progress_count) / tasks) / 10.0);
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
-  tasks_completed = tasks;
   if(canceled)
     return {};
+  tasks_completed = tasks;
 
   // Use cache
   for(auto it = potential_paths.begin(); it != potential_paths.end();) {

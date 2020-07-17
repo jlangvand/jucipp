@@ -1088,7 +1088,8 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
     }
     auto identifier = get_identifier();
     if(identifier) {
-      wait_parsing();
+      if(!wait_parsing())
+        return;
 
       std::vector<clangmm::TranslationUnit *> translation_units;
       translation_units.emplace_back(clang_tu.get());
@@ -1336,7 +1337,8 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
     std::vector<Offset> offsets;
     if(identifier) {
       if(parsed) {
-        wait_parsing(); // Wait for other views to finish parsing
+        if(!wait_parsing())
+          return offsets;
 
         // First, look for a definition cursor that is equal
         auto identifier_usr = identifier.cursor.get_usr();
@@ -1528,7 +1530,8 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
     }
     auto identifier = get_identifier();
     if(identifier) {
-      wait_parsing();
+      if(!wait_parsing())
+        return usages;
 
       auto embolden_token = [](std::string &line, unsigned token_start_pos, unsigned token_end_pos) {
         //markup token as bold
@@ -1844,36 +1847,44 @@ Source::ClangViewRefactor::Identifier Source::ClangViewRefactor::get_identifier(
   return Identifier();
 }
 
-void Source::ClangViewRefactor::wait_parsing() {
+bool Source::ClangViewRefactor::wait_parsing() {
   hide_tooltips();
-  std::unique_ptr<Dialog::Message> message;
-  std::vector<Source::ClangView *> clang_views;
+  std::vector<Source::ClangView *> not_parsed_clang_views;
   for(auto &view : views) {
     if(auto clang_view = dynamic_cast<Source::ClangView *>(view)) {
-      if(!clang_view->parsed && !clang_view->selected_completion_string) {
-        clang_views.emplace_back(clang_view);
-        if(!message)
-          message = std::make_unique<Dialog::Message>("Please wait while all buffers finish parsing");
-      }
+      if(!clang_view->parsed && !clang_view->selected_completion_string)
+        not_parsed_clang_views.emplace_back(clang_view);
     }
   }
-  if(message) {
+  if(!not_parsed_clang_views.empty()) {
+    bool canceled = false;
+    auto message = std::make_unique<Dialog::Message>("Please wait while all buffers finish parsing", [&canceled] {
+      canceled = true;
+    }, true);
+    ScopeGuard guard{[&message] {
+      message->hide();
+    }};
     while(true) {
-      bool all_parsed = true;
-      for(auto &clang_view : clang_views) {
-        if(!clang_view->parsed) {
-          all_parsed = false;
-          break;
+      size_t not_parsed = 0;
+      for(auto &clang_view : not_parsed_clang_views) {
+        if(clang_view->parse_state == ParseState::stop) {
+          Info::get().print("Canceled due to parsing error in " + clang_view->file_path.string());
+          return false;
         }
+        if(!clang_view->parsed)
+          ++not_parsed;
       }
-      if(all_parsed)
-        break;
+      if(not_parsed == 0)
+        return true;
+      if(canceled)
+        return false;
+      message->set_fraction(static_cast<double>(not_parsed_clang_views.size() - not_parsed) / not_parsed_clang_views.size());
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    message->hide();
   }
+  return true;
 }
 
 void Source::ClangViewRefactor::apply_similar_symbol_tag() {

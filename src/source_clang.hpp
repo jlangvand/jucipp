@@ -100,7 +100,7 @@ namespace Source {
 
   private:
     Identifier get_identifier();
-    void wait_parsing();
+    bool wait_parsing();
   };
 
   class ClangView : public ClangViewAutocomplete, public ClangViewRefactor {
