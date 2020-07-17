@@ -115,12 +115,12 @@ std::vector<std::pair<clangmm::Offset, clangmm::Offset>> Usages::Clang::Cache::g
   return offsets;
 }
 
-std::vector<Usages::Clang::Usages> Usages::Clang::get_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &debug_path,
-                                                             const std::string &spelling, const clangmm::Cursor &cursor, const std::vector<clangmm::TranslationUnit *> &translation_units) {
+boost::optional<std::vector<Usages::Clang::Usages>> Usages::Clang::get_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &debug_path,
+                                                                              const std::string &spelling, const clangmm::Cursor &cursor, const std::vector<clangmm::TranslationUnit *> &translation_units) {
   std::vector<Usages> usages;
 
   if(spelling.empty())
-    return usages;
+    return {};
 
   PathSet visited;
 

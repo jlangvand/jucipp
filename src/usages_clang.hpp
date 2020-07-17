@@ -5,6 +5,7 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/unordered_set.hpp>
 #include <boost/serialization/vector.hpp>
@@ -108,8 +109,8 @@ namespace Usages {
     static std::atomic<size_t> cache_in_progress_count;
 
   public:
-    static std::vector<Usages> get_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &debug_path,
-                                          const std::string &spelling, const clangmm::Cursor &cursor, const std::vector<clangmm::TranslationUnit *> &translation_units);
+    static boost::optional<std::vector<Usages>> get_usages(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &debug_path,
+                                                           const std::string &spelling, const clangmm::Cursor &cursor, const std::vector<clangmm::TranslationUnit *> &translation_units);
 
     static void cache(const boost::filesystem::path &project_path, const boost::filesystem::path &build_path, const boost::filesystem::path &path,
                       std::time_t before_parse_time, const PathSet &project_paths_in_use, clangmm::TranslationUnit *translation_unit, clangmm::Tokens *tokens);

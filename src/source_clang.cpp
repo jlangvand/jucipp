@@ -1102,10 +1102,12 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
 
       auto build = Project::Build::create(this->file_path);
       auto usages = Usages::Clang::get_usages(build->project_path, build->get_default_path(), build->get_debug_path(), identifier.spelling, identifier.cursor, translation_units);
+      if(!usages)
+        return;
 
       std::vector<Source::View *> renamed_views;
       std::vector<Usages::Clang::Usages *> usages_renamed;
-      for(auto &usage : usages) {
+      for(auto &usage : *usages) {
         size_t line_c = usage.lines.size() - 1;
         auto view_it = views.end();
         for(auto it = views.begin(); it != views.end(); ++it) {
@@ -1569,7 +1571,10 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
 
       auto build = Project::Build::create(this->file_path);
       auto usages_clang = Usages::Clang::get_usages(build->project_path, build->get_default_path(), build->get_debug_path(), {identifier.spelling}, {identifier.cursor}, translation_units);
-      for(auto &usage : usages_clang) {
+      if(!usages_clang)
+        return usages;
+
+      for(auto &usage : *usages_clang) {
         for(size_t c = 0; c < usage.offsets.size(); ++c) {
           std::string line = Glib::Markup::escape_text(usage.lines[c]);
           embolden_token(line, usage.offsets[c].first.index - 1, usage.offsets[c].second.index - 1);
