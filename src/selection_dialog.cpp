@@ -88,8 +88,6 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::
       row_width = this->text_view->get_width() * 2 / 3;
     else if(row_width > application_window->get_width() / 2)
       row_width = application_window->get_width() / 2;
-    else
-      scrolled_window.set_policy(Gtk::PolicyType::POLICY_NEVER, Gtk::PolicyType::POLICY_AUTOMATIC);
 
     if(this->show_search_entry)
       window_height += search_entry.get_height();
