@@ -521,6 +521,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Toggle _Tabs _Visibility</attribute>
           <attribute name='action'>app.window_toggle_tabs</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Toggle _Zen _Mode</attribute>
+          <attribute name='action'>app.window_toggle_zen_mode</attribute>
+        </item>
       </section>
       <section>
         <item>

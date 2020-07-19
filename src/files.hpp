@@ -173,6 +173,7 @@ const std::string default_config_file = R"RAW({
 #endif
                                                     R"RAW(
         "window_toggle_tabs": "",
+        "window_toggle_zen_mode": "",
         "window_clear_terminal": ""
     },
     "project": {

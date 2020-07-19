@@ -1658,7 +1658,26 @@ void Window::set_menu_actions() {
       fullscreen();
   });
   menu.add_action("window_toggle_tabs", [] {
-    Notebook::get().toggle_tabs();
+    for(auto &notebook : Notebook::get().notebooks)
+      notebook.set_show_tabs(!notebook.get_show_tabs());
+  });
+  menu.add_action("window_toggle_zen_mode", [this] {
+    bool not_zen_mode = std::any_of(Notebook::get().notebooks.begin(),
+                                    Notebook::get().notebooks.end(),
+                                    [](const Gtk::Notebook &notebook) { return notebook.get_show_tabs(); }) ||
+                        directories_scrolled_window.is_visible() || terminal_scrolled_window.is_visible() || get_show_menubar();
+
+    for(auto &notebook : Notebook::get().notebooks)
+      notebook.set_show_tabs(!not_zen_mode);
+    if(not_zen_mode) {
+      directories_scrolled_window.hide();
+      terminal_scrolled_window.hide();
+    }
+    else {
+      directories_scrolled_window.show();
+      terminal_scrolled_window.show();
+    }
+    set_show_menubar(!not_zen_mode);
   });
   menu.add_action("window_clear_terminal", [] {
     Terminal::get().clear();
@@ -1699,16 +1718,14 @@ void Window::set_menu_actions() {
 }
 
 void Window::add_widgets() {
-  auto directories_scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
-  directories_scrolled_window->add(Directories::get());
+  directories_scrolled_window.add(Directories::get());
 
   auto notebook_vbox = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_VERTICAL));
   notebook_vbox->pack_start(Notebook::get());
   notebook_vbox->pack_end(EntryBox::get(), Gtk::PACK_SHRINK);
 
-  auto terminal_scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
-  terminal_scrolled_window->get_style_context()->add_class("juci_terminal_scrolledwindow");
-  terminal_scrolled_window->add(Terminal::get());
+  terminal_scrolled_window.get_style_context()->add_class("juci_terminal_scrolledwindow");
+  terminal_scrolled_window.add(Terminal::get());
 
   int width, height;
   get_default_size(width, height);
@@ -1716,11 +1733,11 @@ void Window::add_widgets() {
   auto notebook_and_terminal_vpaned = Gtk::manage(new Gtk::Paned(Gtk::Orientation::ORIENTATION_VERTICAL));
   notebook_and_terminal_vpaned->set_position(static_cast<int>(0.75 * height));
   notebook_and_terminal_vpaned->pack1(*notebook_vbox, Gtk::SHRINK);
-  notebook_and_terminal_vpaned->pack2(*terminal_scrolled_window, Gtk::SHRINK);
+  notebook_and_terminal_vpaned->pack2(terminal_scrolled_window, Gtk::SHRINK);
 
   auto hpaned = Gtk::manage(new Gtk::Paned());
   hpaned->set_position(static_cast<int>(0.2 * width));
-  hpaned->pack1(*directories_scrolled_window, Gtk::SHRINK);
+  hpaned->pack1(directories_scrolled_window, Gtk::SHRINK);
   hpaned->pack2(*notebook_and_terminal_vpaned, Gtk::SHRINK);
 
   auto status_hbox = Gtk::manage(new Gtk::Box());
@@ -1769,18 +1786,18 @@ void Window::add_widgets() {
 
   // Scroll to end of terminal whenever info is printed and end of terminal is shown
   auto scrolled_to_bottom = std::make_shared<bool>(true);
-  terminal_scrolled_window->get_vadjustment()->signal_value_changed().connect([terminal_scrolled_window, scrolled_to_bottom] {
-    auto adjustment = terminal_scrolled_window->get_vadjustment();
+  terminal_scrolled_window.get_vadjustment()->signal_value_changed().connect([this, scrolled_to_bottom] {
+    auto adjustment = terminal_scrolled_window.get_vadjustment();
     *scrolled_to_bottom = adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size();
   });
-  terminal_scrolled_window->get_vadjustment()->signal_changed().connect([terminal_scrolled_window, scrolled_to_bottom] {
-    auto adjustment = terminal_scrolled_window->get_vadjustment();
+  terminal_scrolled_window.get_vadjustment()->signal_changed().connect([this, scrolled_to_bottom] {
+    auto adjustment = terminal_scrolled_window.get_vadjustment();
     if(adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size()) // If for instance the terminal has been cleared
       *scrolled_to_bottom = true;
   });
-  Terminal::get().signal_size_allocate().connect([terminal_scrolled_window, scrolled_to_bottom](Gtk::Allocation &allocation) mutable {
+  Terminal::get().signal_size_allocate().connect([this, scrolled_to_bottom](Gtk::Allocation &allocation) mutable {
     if(*scrolled_to_bottom) {
-      auto adjustment = terminal_scrolled_window->get_vadjustment();
+      auto adjustment = terminal_scrolled_window.get_vadjustment();
       adjustment->set_value(adjustment->get_upper() - adjustment->get_page_size());
       *scrolled_to_bottom = true;
       Terminal::get().queue_draw();

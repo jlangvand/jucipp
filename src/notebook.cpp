@@ -632,11 +632,6 @@ void Notebook::toggle_split() {
   }
   split = !split;
 }
-void Notebook::toggle_tabs() {
-  //Show / Hide tabs for each notebook.
-  for(auto &notebook : Notebook::notebooks)
-    notebook.set_show_tabs(!notebook.get_show_tabs());
-}
 
 std::vector<std::pair<size_t, Source::View *>> Notebook::get_notebook_views() {
   std::vector<std::pair<size_t, Source::View *>> notebook_views;

@@ -43,6 +43,7 @@ can use juCi++ through POSIX compatibility layers such as MSYS2.
 * Auto-indentation through [clang-format](http://clang.llvm.org/docs/ClangFormat.html) or [Prettier](https://github.com/prettier/prettier) if installed
 * Source minimap
 * Split view
+* Zen mode
 * Full UTF-8 support
 * Wayland supported with GTK+ 3.20 or newer
 

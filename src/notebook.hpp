@@ -23,7 +23,6 @@ class Notebook : public Gtk::Paned {
     Source::Mark mark;
   };
 
-private:
   Notebook();
 
 public:
@@ -31,6 +30,8 @@ public:
     static Notebook singleton;
     return singleton;
   }
+
+  std::vector<Gtk::Notebook> notebooks;
 
   size_t size();
   Source::View *get_view(size_t index);
@@ -49,8 +50,6 @@ public:
   void next();
   void previous();
   void toggle_split();
-  /// Hide/Show tabs.
-  void toggle_tabs();
   std::vector<std::pair<size_t, Source::View *>> get_notebook_views();
 
   Gtk::Label status_location;
@@ -82,7 +81,6 @@ private:
   /// Throws if view is not found
   std::pair<size_t, int> get_notebook_page(Source::View *view);
 
-  std::vector<Gtk::Notebook> notebooks;
   std::vector<Source::View *> source_views; //Is NOT freed in destructor, this is intended for quick program exit.
   std::vector<std::unique_ptr<Gtk::Widget>> source_maps;
   std::vector<std::unique_ptr<Gtk::ScrolledWindow>> scrolled_windows;

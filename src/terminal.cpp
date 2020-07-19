@@ -259,6 +259,14 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
 }
 
 void Terminal::print(std::string message, bool bold) {
+  if(message.empty())
+    return;
+
+  if(auto parent = get_parent()) {
+    if(!parent->is_visible())
+      parent->show();
+  }
+
 #ifdef _WIN32
   // Remove color codes
   size_t pos = 0;
