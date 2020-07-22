@@ -164,7 +164,7 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   source.default_tab_size = source_json.get<unsigned>("default_tab_size");
   source.auto_tab_char_and_size = source_json.get<bool>("auto_tab_char_and_size");
   source.tab_indents_line = source_json.get<bool>("tab_indents_line");
-  source.wrap_lines = source_json.get<bool>("wrap_lines");
+  source.word_wrap = source_json.get<std::string>("word_wrap");
   source.highlight_current_line = source_json.get<bool>("highlight_current_line");
   source.show_line_numbers = source_json.get<bool>("show_line_numbers");
   source.enable_multiple_cursors = source_json.get<bool>("enable_multiple_cursors");

@@ -437,11 +437,18 @@ void Source::View::configure() {
   }
 
   set_draw_spaces(parse_show_whitespace_characters(Config::get().source.show_whitespace_characters));
-
-  if(Config::get().source.wrap_lines || (language && (language->get_id() == "markdown" || language->get_id() == "latex")))
-    set_wrap_mode(Gtk::WrapMode::WRAP_WORD_CHAR);
-  else
-    set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
+  { // Set Word Wrap
+    auto language_id = language ? language->get_id() : "";
+    namespace qi = boost::spirit::qi;
+    std::set<std::string> word_wrap_language_ids;
+    qi::phrase_parse(Config::get().source.word_wrap.begin(), Config::get().source.word_wrap.end(), (+(~qi::char_(','))) % ',', qi::space, word_wrap_language_ids);
+    if(std::any_of(word_wrap_language_ids.begin(), word_wrap_language_ids.end(), [&language_id](const std::string &word_wrap_language_id) {
+         return word_wrap_language_id == language_id || word_wrap_language_id == "all";
+       }))
+      set_wrap_mode(Gtk::WrapMode::WRAP_WORD_CHAR);
+    else
+      set_wrap_mode(Gtk::WrapMode::WRAP_NONE);
+  }
   property_highlight_current_line() = Config::get().source.highlight_current_line;
   line_renderer->set_visible(Config::get().source.show_line_numbers);
 

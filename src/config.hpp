@@ -85,7 +85,7 @@ public:
     char default_tab_char;
     unsigned default_tab_size;
     bool tab_indents_line;
-    bool wrap_lines;
+    std::string word_wrap;
     bool highlight_current_line;
     bool show_line_numbers;
     bool enable_multiple_cursors;
