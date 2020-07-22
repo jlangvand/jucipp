@@ -513,8 +513,72 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
               auto cursor = token.get_cursor();
               auto type_description = cursor.get_type_description();
               size_t pos = 0;
+              // Remove ::_1 from type description
               while((pos = type_description.find("::__1", pos)) != std::string::npos)
                 type_description.erase(pos, 5);
+              pos = 0;
+              // Simplify std::basic_string types
+              while((pos = type_description.find("std::basic_string<char"), pos) != std::string::npos) {
+                pos += 22;
+                if(pos < type_description.size()) {
+                  if(type_description[pos] == '>') {
+                    pos -= 5;
+                    type_description.erase(pos, 5 + 1);
+                    type_description.erase(pos - 12, 6); // Remove: basic_
+                    // Remove space before ending angle bracket
+                    if(pos + 1 < type_description.size() && type_description[pos] == ' ' && type_description[pos + 1] == '>')
+                      type_description.erase(pos, 1);
+                  }
+                  else if((starts_with(type_description, pos, ", std::char_traits<char>, std::allocator<char> >"))) {
+                    pos -= 5;
+                    type_description.erase(pos, 5 + 48);
+                    type_description.erase(pos - 12, 6); // Remove: basic_
+                    // Remove space before ending angle bracket
+                    if(pos + 1 < type_description.size() && type_description[pos] == ' ' && type_description[pos + 1] == '>')
+                      type_description.erase(pos, 1);
+                  }
+                }
+              }
+              // Add parameter names
+              if((pos = type_description.find('(')) != std::string::npos) {
+                pos++;
+                if(pos < type_description.size() && type_description[pos] != ')') {
+                  auto arguments = cursor.get_referenced().get_arguments();
+                  size_t current_argument = 0;
+                  int para_count = 0;
+                  int angle_count = 0;
+                  do {
+                    if(para_count == 0 && angle_count == 0 && (type_description[pos] == ',' || type_description[pos] == ')')) {
+                      if(current_argument < arguments.size()) {
+                        auto argument_spelling = arguments[current_argument].get_spelling();
+                        if(!argument_spelling.empty()) {
+                          if(type_description[pos - 1] != '*' && type_description[pos - 1] != '&')
+                            type_description.insert(pos++, " ");
+                          type_description.insert(pos, argument_spelling);
+                          pos += argument_spelling.size();
+                        }
+                      }
+                      if(type_description[pos] == ',') {
+                        ++current_argument;
+                        ++pos; // skip ' ' after ','
+                      }
+                      else
+                        break;
+                    }
+                    else if(type_description[pos] == '(')
+                      ++para_count;
+                    else if(type_description[pos] == ')')
+                      --para_count;
+                    else if(type_description[pos] == '<')
+                      ++angle_count;
+                    else if(type_description[pos] == '>')
+                      --angle_count;
+                    ++pos;
+                  }
+                  while(pos < type_description.size())
+                      ;
+                }
+              }
               tooltip.insert_code(type_description, language);
               auto brief_comment = cursor.get_brief_comments();
               if(brief_comment != "")
