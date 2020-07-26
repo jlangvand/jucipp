@@ -2926,23 +2926,25 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
       left = '"';
       right = '"';
     }
-    else if(language && language->get_id() == "markdown") {
-      if(event->keyval == GDK_KEY_dead_grave) {
-        left = '`';
-        right = '`';
-      }
-      if(event->keyval == GDK_KEY_asterisk) {
-        left = '*';
-        right = '*';
-      }
-      if(event->keyval == GDK_KEY_underscore) {
-        left = '_';
-        right = '_';
-      }
-      if(event->keyval == GDK_KEY_dead_tilde) {
-        left = '~';
-        right = '~';
-      }
+    // Insert `` around selection
+    else if(event->keyval == GDK_KEY_dead_grave) {
+      left = '`';
+      right = '`';
+    }
+    // Insert ** around selection
+    else if(event->keyval == GDK_KEY_asterisk) {
+      left = '*';
+      right = '*';
+    }
+    // Insert __ around selection
+    else if(event->keyval == GDK_KEY_underscore) {
+      left = '_';
+      right = '_';
+    }
+    // Insert ~~ around selection
+    else if(event->keyval == GDK_KEY_dead_tilde) {
+      left = '~';
+      right = '~';
     }
     else if(is_bracket_language) {
       // Insert /**/ around selection
