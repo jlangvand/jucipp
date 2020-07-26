@@ -26,8 +26,9 @@ public:
 
   void insert_with_links_tagged(const std::string &text);
   void insert_markdown(const std::string &text);
-  // TODO, c++17: use std::monostate instead of Void
   void insert_code(const std::string &code, boost::variant<std::string, Glib::RefPtr<Gsv::Language>> language = Glib::RefPtr<Gsv::Language>{}, bool block = false);
+  void insert_doxygen(const std::string &input, bool remove_delimiters);
+
   /// Remove empty lines at end of buffer
   void remove_trailing_newlines();
 

@@ -1,6 +1,7 @@
 #include "tooltips.hpp"
 #include <glib.h>
 #include <gtkmm.h>
+#include <iostream>
 
 int main() {
   auto app = Gtk::Application::create();
@@ -9,6 +10,14 @@ int main() {
   auto get_markdown_tooltip = [](const std::string &input) {
     auto tooltip = std::make_unique<Tooltip>([&](Tooltip &tooltip) {
       tooltip.insert_markdown(input);
+    });
+    tooltip->show();
+    return tooltip;
+  };
+
+  auto get_doxygen_tooltip = [](const std::string &input, bool remove_delimiters) {
+    auto tooltip = std::make_unique<Tooltip>([&](Tooltip &tooltip) {
+      tooltip.insert_doxygen(input, remove_delimiters);
     });
     tooltip->show();
     return tooltip;
@@ -25,7 +34,7 @@ int main() {
   }
   {
     auto tooltip = get_markdown_tooltip("test\ntest");
-    g_assert(tooltip->buffer->get_text() == "test\ntest");
+    g_assert(tooltip->buffer->get_text() == "test test");
   }
   {
     auto tooltip = get_markdown_tooltip("test\n\ntest");
@@ -122,6 +131,20 @@ int main() {
     g_assert(!buffer->get_iter_at_offset(4).ends_tag(tooltip->bold_tag));
   }
   {
+    auto tooltip = get_markdown_tooltip("test*test*test");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "testtesttest");
+    g_assert(buffer->get_iter_at_offset(4).starts_tag(tooltip->italic_tag));
+    g_assert(buffer->get_iter_at_offset(8).ends_tag(tooltip->italic_tag));
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test**test**test");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "testtesttest");
+    g_assert(buffer->get_iter_at_offset(4).starts_tag(tooltip->bold_tag));
+    g_assert(buffer->get_iter_at_offset(8).ends_tag(tooltip->bold_tag));
+  }
+  {
     auto tooltip = get_markdown_tooltip("**test**");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "test");
@@ -140,13 +163,13 @@ int main() {
     g_assert(!buffer->get_iter_at_offset(4).ends_tag(tooltip->italic_tag));
   }
   {
-    auto tooltip = get_markdown_tooltip("*_test_*");
+    auto tooltip = get_markdown_tooltip("_*test*_");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "test");
-    g_assert(buffer->begin().starts_tag(tooltip->bold_tag));
-    g_assert(buffer->get_iter_at_offset(4).ends_tag(tooltip->bold_tag));
-    g_assert(!buffer->begin().starts_tag(tooltip->italic_tag));
-    g_assert(!buffer->get_iter_at_offset(4).ends_tag(tooltip->italic_tag));
+    g_assert(!buffer->begin().starts_tag(tooltip->bold_tag));
+    g_assert(!buffer->get_iter_at_offset(4).ends_tag(tooltip->bold_tag));
+    g_assert(buffer->begin().starts_tag(tooltip->italic_tag));
+    g_assert(buffer->get_iter_at_offset(4).ends_tag(tooltip->italic_tag));
   }
   {
     auto tooltip = get_markdown_tooltip("***test***");
@@ -253,6 +276,11 @@ int main() {
     g_assert(buffer->get_text() == "_test test");
   }
   {
+    auto tooltip = get_markdown_tooltip("_test _test __test __test");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "_test _test __test __test");
+  }
+  {
     auto tooltip = get_markdown_tooltip("`test`");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "test");
@@ -274,6 +302,11 @@ int main() {
     g_assert(buffer->get_iter_at_offset(5).ends_tag(tooltip->code_tag));
   }
   {
+    auto tooltip = get_markdown_tooltip("# Test");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "Test");
+  }
+  {
     auto tooltip = get_markdown_tooltip("# Test\ntest");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "Test\n\ntest");
@@ -284,18 +317,31 @@ int main() {
     g_assert(buffer->get_text() == "test\n\nTest\n\ntest");
   }
   {
+    auto tooltip = get_markdown_tooltip("```\ntest\n```");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "test");
+    g_assert(buffer->begin().starts_tag(tooltip->code_block_tag));
+  }
+  {
     auto tooltip = get_markdown_tooltip("```\ntest\n```\ntest");
     auto buffer = tooltip->buffer;
-    g_assert(buffer->get_text() == "test\n\ntest");
+    g_assert(buffer->get_text() == "test\ntest");
     g_assert(buffer->begin().starts_tag(tooltip->code_block_tag));
     g_assert(buffer->get_iter_at_offset(5).ends_tag(tooltip->code_block_tag));
   }
   {
-    auto tooltip = get_markdown_tooltip("test\n```c++\ntest\n```\ntest");
+    auto tooltip = get_markdown_tooltip("test\n\n```c++\ntest\n```\n\ntest");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "test\n\ntest\n\ntest");
     g_assert(buffer->get_iter_at_offset(6).starts_tag(tooltip->code_block_tag));
     g_assert(buffer->get_iter_at_offset(11).ends_tag(tooltip->code_block_tag));
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n```c++\ntest\n```\ntest");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->get_text() == "test\ntest\ntest");
+    g_assert(buffer->get_iter_at_offset(5).starts_tag(tooltip->code_block_tag));
+    g_assert(buffer->get_iter_at_offset(10).ends_tag(tooltip->code_block_tag));
   }
   {
     auto tooltip = get_markdown_tooltip("http://test.com");
@@ -346,6 +392,17 @@ int main() {
     g_assert(tooltip->references.begin()->second == "http://test.com");
   }
   {
+    auto tooltip = get_markdown_tooltip("[]");
+    g_assert(tooltip->buffer->get_text() == "[]");
+    g_assert(!tooltip->buffer->get_iter_at_offset(1).has_tag(tooltip->link_tag));
+  }
+  {
+    auto tooltip = get_markdown_tooltip("[`test`]");
+    g_assert(tooltip->buffer->get_text() == "[test]");
+    g_assert(!tooltip->buffer->get_iter_at_offset(3).has_tag(tooltip->link_tag));
+    g_assert(tooltip->buffer->get_iter_at_offset(3).has_tag(tooltip->code_tag));
+  }
+  {
     auto tooltip = get_markdown_tooltip("[`text`][test]\n\n[test]: http://test.com");
     g_assert(tooltip->buffer->get_text() == "text");
     auto buffer = tooltip->buffer;
@@ -359,6 +416,34 @@ int main() {
     g_assert(tooltip->references.size() == 1);
     g_assert(tooltip->references.begin()->second == "http://test.com");
   }
+  {
+    auto tooltip = get_markdown_tooltip("- test");
+    g_assert(tooltip->buffer->get_text() == "- test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n- test");
+    g_assert(tooltip->buffer->get_text() == "test\n- test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n- test");
+    g_assert(tooltip->buffer->get_text() == "test\n\n- test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("- test\ntest");
+    g_assert(tooltip->buffer->get_text() == "- test test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("- test\n\ntest");
+    g_assert(tooltip->buffer->get_text() == "- test\n\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("- test\n  - test");
+    g_assert(tooltip->buffer->get_text() == "- test\n  - test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("1. test\n2. test\n  30. test\n42. test");
+    g_assert(tooltip->buffer->get_text() == "1. test\n2. test\n  30. test\n42. test");
+  }
 
   // Testing wrap_lines():
   {
@@ -369,7 +454,7 @@ int main() {
   {
     auto tooltip = get_markdown_tooltip("test\ntest");
     tooltip->wrap_lines();
-    g_assert(tooltip->buffer->get_text() == "test\ntest");
+    g_assert(tooltip->buffer->get_text() == "test test");
   }
   {
     auto tooltip = get_markdown_tooltip("test test test test test test test test test test test test test test test test test test test test test");
@@ -395,5 +480,278 @@ int main() {
     auto tooltip = get_markdown_tooltip("testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest test test");
     tooltip->wrap_lines();
     g_assert(tooltip->buffer->get_text() == "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest\ntest test");
+  }
+
+  // Testing insert_doxygen
+  {
+    auto tooltip = get_doxygen_tooltip("", false);
+    g_assert(tooltip->buffer->get_text() == "");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("", true);
+    g_assert(tooltip->buffer->get_text() == "");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("test", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("`test`", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("*test*", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("**test**", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\ test", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\%test", false);
+    g_assert(tooltip->buffer->get_text() == "%test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\\\test", false);
+    g_assert(tooltip->buffer->get_text() == "\\test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\@test", false);
+    g_assert(tooltip->buffer->get_text() == "@test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("%test", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\a test", false);
+    g_assert(tooltip->buffer->get_text() == "test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\a __test", false);
+    g_assert(tooltip->buffer->get_text() == "__test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\a &str[0]", false);
+    g_assert(tooltip->buffer->get_text() == "&str[0]");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\a str.data()", false);
+    g_assert(tooltip->buffer->get_text() == "str.data()");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("@a str@data()", false);
+    g_assert(tooltip->buffer->get_text() == "str@data()");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\"@a str@data()\"", false);
+    g_assert(tooltip->buffer->get_text() == "\"@a str@data()\"");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("\\a str.data().", false);
+    g_assert(tooltip->buffer->begin().starts_tag(tooltip->italic_tag));
+    auto it = tooltip->buffer->end();
+    it.backward_char();
+    g_assert(it.ends_tag(tooltip->italic_tag));
+    g_assert(tooltip->buffer->get_text() == "str.data().");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("<tt>_test_</tt>", false);
+    g_assert(tooltip->buffer->get_text() == "_test_");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("<em>_test_</em>", false);
+    g_assert(tooltip->buffer->get_text() == "_test_");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("<b>_test_</b>", false);
+    g_assert(tooltip->buffer->get_text() == "_test_");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* Constructor that sets the time to a given value.
+*
+* @param timemillis is a number of milliseconds
+*        passed since Jan 1, 1970.
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == R"(Constructor that sets the time to a given value.
+
+Parameters:
+- timemillis is a number of milliseconds passed since Jan 1, 1970.)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/** Returns <tt>true</tt> if @a test points to the start.
+* Test pointing to the \\n of a \\r\\n pair will not.
+*
+*
+* @return Whether @a test is at the end of a line.
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == R"(Returns true if test points to the start. Test pointing to the \n of a \r\n pair
+will not.
+
+Returns Whether test is at the end of a line.)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* test
+* \a test
+* test
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == "test test test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* Testing
+* - t
+*   - t2
+* - asd
+* 
+* More testing
+* end
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == R"(Testing
+- t
+  - t2
+- asd
+
+More testing end)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+  * Testing
+  * 
+  * - t
+  *   - t2
+  * - asd
+  * 
+  * More testing
+  * end
+  */)", true);
+    g_assert(tooltip->buffer->get_text() == R"(Testing
+
+- t
+  - t2
+- asd
+
+More testing end)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(    //! A normal member taking two arguments and returning an integer value.
+    /*!
+      \param a an integer argument.
+      \param s a constant character pointer.
+      \return The test results
+      \sa Test(), ~Test(), testMeToo() and publicVar()
+      \test testing
+      @test testing
+    */)", true);
+    g_assert(tooltip->buffer->get_text() == R"(A normal member taking two arguments and returning an integer value.
+
+Parameters:
+- a an integer argument.
+- s a constant character pointer.
+
+Returns The test results
+
+See also Test(), ~Test(), testMeToo() and publicVar()
+
+\test testing
+
+@test testing)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/*! \brief Brief description.
+  *          Brief description continued.
+  *          Brief description continued.
+  *          Brief description continued.
+  *
+  *     Detailed description starts here.
+  */)", true);
+    g_assert(tooltip->buffer->get_text() == R"(Brief description. Brief description continued. Brief description continued.
+Brief description continued.
+
+Detailed description starts here.)");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* \code
+* int a = 2;
+* \endcode
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == "int a = 2;");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* @code
+* int a = 2;
+* @endcode
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == "int a = 2;");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* test
+* \code
+* int a = 2;
+* \endcode
+* test
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == "test\nint a = 2;\ntest");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip(R"(/**
+* test
+*
+* \code
+* int a = 2;
+* \endcode
+*
+* test
+*/)", true);
+    g_assert(tooltip->buffer->get_text() == "test\n\nint a = 2;\n\ntest");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("<code>*this == \"\"</code>", false);
+    g_assert(tooltip->buffer->get_text() == "*this == \"\"");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("In some cases (`@{<-n>}` or `<branchname>@{upstream}`), the expression", false);
+    g_assert(tooltip->buffer->get_text() == "In some cases (@{<-n>} or <branchname>@{upstream}), the expression");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** The intent of test*/", true);
+    g_assert(tooltip->buffer->get_text() == "The intent of test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** The intent of test  */", true);
+    g_assert(tooltip->buffer->get_text() == "The intent of test");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** Don't insert \"[PATCH]\" in testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "Don't insert \"[PATCH]\" in testing");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** Don't insert \"[PAT\\\\CH]\" in testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "Don't insert \"[PAT\\CH]\" in testing");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** Don't insert \"[PAT\\\"CH]\" in testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "Don't insert \"[PAT\"CH]\" in testing");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/** Don't insert \" *test* \" in testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "Don't insert \" *test* \" in testing");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/**         testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "testing");
+  }
+  {
+    auto tooltip = get_doxygen_tooltip("/**   # testing*/", true);
+    g_assert(tooltip->buffer->get_text() == "testing");
   }
 }

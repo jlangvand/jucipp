@@ -6,6 +6,7 @@
 #include "selection_dialog.hpp"
 #include "utility.hpp"
 #include <algorithm>
+#include <limits>
 #include <regex>
 
 std::set<Tooltip *> Tooltips::shown_tooltips;
@@ -404,6 +405,8 @@ void Tooltip::create_tags() {
 }
 
 void Tooltip::insert_with_links_tagged(const std::string &text) {
+  if(text.empty())
+    return;
   const static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])", std::regex::optimize);
   std::smatch sm;
   std::sregex_iterator it(text.begin(), text.end(), http_regex);
@@ -448,6 +451,9 @@ void Tooltip::insert_markdown(const std::string &input) {
   };
 
   std::function<void(size_t, size_t)> insert_text = [&](size_t from, size_t to) {
+    if(from == to)
+      return;
+
     auto i = from;
 
     std::string partial;
@@ -456,40 +462,75 @@ void Tooltip::insert_markdown(const std::string &input) {
       return input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r' || input[i] == '\f';
     };
 
+    auto is_punctuation_character = [&](size_t i) {
+      static std::set<char> punctuation_characters = {'!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~'};
+      return punctuation_characters.find(input[i]) != punctuation_characters.end();
+    };
+
+    auto left_flanking_delimiter_run = [&](size_t i, size_t n) {
+      return !(i + n >= to || is_whitespace_character(i + n)) &&
+             (!is_punctuation_character(i + n) ||
+              (i == from || is_whitespace_character(i - 1) || is_punctuation_character(i - 1)));
+    };
+    auto right_flanking_delimiter_run = [&](size_t i, size_t n) {
+      return !(i == from || is_whitespace_character(i - 1)) &&
+             (!is_punctuation_character(i - 1) ||
+              (i + n >= to || is_whitespace_character(i + n) || is_punctuation_character(i + n)));
+    };
+
+    /// Using rules in https://spec.commonmark.org/0.29/#emphasis-and-strong-emphasis
     auto insert_emphasis = [&] {
-      if(i > from && !is_whitespace_character(i - 1)) // Do not emphasis: normal_text
-        return false;
       auto i_saved = i;
       std::string prefix;
-      for(; i < to && prefix.size() < 3 && (input[i] == '*' || input[i] == '_'); i++)
+      if(input[i] == '*' || input[i] == '_') {
         prefix += input[i];
+        ++i;
+        for(; prefix.size() < 3 && input[i] == prefix.back(); ++i)
+          prefix += input[i];
+      }
       if(prefix.empty())
         return false;
-      if(prefix.size() == 2)
-        std::swap(prefix[0], prefix[1]); // To match: *_test_*
-      else if(prefix.size() == 3)
-        std::swap(prefix[0], prefix[2]);         // To match: **_test_**
-      if(i < to && is_whitespace_character(i)) { // Do not emphasis for instance: 2 * 2 * 2
-        i = i_saved;
-        return false;
+      if(prefix.back() == '*') { // Rule 1 and 5
+        if(!left_flanking_delimiter_run(i - prefix.size(), prefix.size())) {
+          i = i_saved;
+          return false;
+        }
+      }
+      else { // Rule 2 and 6
+        if(!(left_flanking_delimiter_run(i - prefix.size(), prefix.size()) &&
+             (!right_flanking_delimiter_run(i - prefix.size(), prefix.size()) || i - prefix.size() == from || is_punctuation_character(i - prefix.size() - 1)))) {
+          i = i_saved;
+          return false;
+        }
       }
       insert_with_links_tagged(partial);
       partial.clear();
       auto start = i;
-      for(; i < to; i++) {
+      for(; i < to - (prefix.size() - 1); i++) {
         if(!unescape(i)) {
           if(starts_with(input, i, prefix)) {
-            if(i - 1 > from && is_whitespace_character(i - 1)) { // Do not emphasis _test in: _test _test_
-              i = i_saved;
-              return false;
+            if(prefix.back() == '*') { // Rule 3 and 7
+              if(right_flanking_delimiter_run(i, prefix.size()))
+                break;
+              else if(left_flanking_delimiter_run(i, prefix.size())) {
+                i = i_saved;
+                return false;
+              }
             }
-            if(i + prefix.size() < to && !is_whitespace_character(i + prefix.size())) // Emphasis italic_text in: _italic_text_
-              continue;
-            break;
+            else { // Rule 4 and 8
+              if(right_flanking_delimiter_run(i, prefix.size()) &&
+                 (!left_flanking_delimiter_run(i, prefix.size()) || i + prefix.size() == to || is_punctuation_character(i + prefix.size())))
+                break;
+              else if(left_flanking_delimiter_run(i, prefix.size()) &&
+                      (!right_flanking_delimiter_run(i, prefix.size()) || i == from || is_punctuation_character(i - 1))) {
+                i = i_saved;
+                return false;
+              }
+            }
           }
         }
       }
-      if(i == to) {
+      if(i >= to - (prefix.size() - 1)) {
         i = i_saved;
         return false;
       }
@@ -631,7 +672,7 @@ void Tooltip::insert_markdown(const std::string &input) {
             reference_links.emplace(tag, input.substr(link_start, i - link_start));
             return true;
           }
-          else {
+          else if(text_start != text_end) {
             auto start_offset = buffer->get_insert()->get_iter().get_offset();
             insert_text(text_start, text_end);
             auto start = buffer->get_iter_at_offset(start_offset);
@@ -652,7 +693,12 @@ void Tooltip::insert_markdown(const std::string &input) {
     for(; i < to; i++) {
       if(!unescape(i) && (insert_code() || insert_emphasis() || insert_strikethrough() || insert_link()))
         continue;
-      partial += input[i];
+      if(input[i] == '\n' && i + 1 < to)
+        partial += ' ';
+      else if(input[i] == ' ' && ((i > from && (input[i - 1] == '\n' || input[i - 1] == ' '))))
+        continue;
+      else
+        partial += input[i];
     }
     insert_with_links_tagged(partial);
   };
@@ -700,6 +746,13 @@ void Tooltip::insert_markdown(const std::string &input) {
     return true;
   };
 
+  auto is_empty_line = [&] {
+    auto i_saved = i;
+    if(forward_passed({' ', '\t'}) && input[i] == '\n')
+      return true;
+    i = i_saved;
+    return false;
+  };
 
   auto insert_code_block = [&] {
     if(starts_with(input, i, "```")) {
@@ -715,12 +768,10 @@ void Tooltip::insert_markdown(const std::string &input) {
             i = i_saved;
             return false;
           }
-          auto end = buffer->end();
-          if(end.backward_char() && !end.starts_line())
-            buffer->insert_at_cursor("\n");
           insert_code(input.substr(start, i - start), language, true);
-          buffer->insert_at_cursor("\n");
-          i += 3;
+          i += 4;
+          if(is_empty_line())
+            buffer->insert_at_cursor("\n");
           return true;
         }
       }
@@ -765,18 +816,102 @@ void Tooltip::insert_markdown(const std::string &input) {
     return false;
   };
 
-  while(forward_passed({'\n'})) {
-    if(insert_header() || insert_code_block() || insert_reference())
+  auto is_number = [&] {
+    return input[i] >= '0' && input[i] <= '9';
+  };
+
+  auto forward_passed_number = [&] {
+    while(i < input.size() && is_number())
+      ++i;
+    return i < input.size();
+  };
+
+  std::function<bool()> insert_list = [&] {
+    auto i_saved = i;
+    if(starts_with(input, i, "- ") || starts_with(input, i, "+ ") || starts_with(input, i, "* ") || (is_number() && forward_passed_number() && starts_with(input, i, ". "))) {
+      auto start = i_saved;
+      while(true) {
+        forward_to({'\n'});
+        ++i;
+        if(i >= input.size()) {
+          insert_text(start, i - 1);
+          break;
+        }
+        if(is_empty_line()) {
+          insert_text(start, i - 1);
+          buffer->insert_at_cursor("\n\n");
+          break;
+        }
+        auto i_saved = i;
+        // TODO: Fix check: starts_with(input, i, "1. ")
+        if(forward_passed({' ', '\t'})) {
+          auto i_saved2 = i;
+          if(starts_with(input, i, "- ") || starts_with(input, i, "+ ") || starts_with(input, i, "* ") || (is_number() && forward_passed_number() && starts_with(input, i, ". "))) {
+            i = i_saved2;
+            insert_text(start, i_saved - 1);
+            buffer->insert_at_cursor('\n' + input.substr(i_saved, i - i_saved));
+            insert_list();
+            break;
+          }
+        }
+        i = i_saved;
+      }
+      return true;
+    }
+    i = i_saved;
+    return false;
+  };
+
+  auto forward_passed_empty_line = [&] {
+    while(is_empty_line())
+      ++i;
+    return i < input.size();
+  };
+
+  while(forward_passed_empty_line()) {
+    if(insert_header() || insert_code_block() || insert_reference() || insert_list())
       continue;
     // Insert paragraph:
     auto start = i;
+    bool ends_with_empty_line = false;
     for(; forward_to({'\n'}); i++) {
-      if(i + 1 < input.size() && (input[i + 1] == '\n' || input[i + 1] == '#' || starts_with(input, i + 1, "```")))
+      ++i;
+      ScopeGuard guard{[&i] { --i; }};
+      if(is_empty_line()) {
+        ends_with_empty_line = true;
         break;
+      }
+      if(i < input.size() && (input[i] == '#' ||
+                              starts_with(input, i, "```") || starts_with(input, i, "- ") ||
+                              starts_with(input, i, "+ ") || starts_with(input, i, "* ") ||
+                              starts_with(input, i, "1. "))) {
+        break;
+      }
     }
+    while(start < i && (input[start] == ' ' || input[start] == '\t' || input[start] == '\n'))
+      ++start;
     insert_text(start, i);
-    if(i < input.size())
-      buffer->insert_at_cursor("\n\n");
+    buffer->insert_at_cursor(ends_with_empty_line ? "\n\n" : "\n");
+  }
+
+  // Remove invalid reference links
+  for(auto link_it = reference_links.begin(); link_it != reference_links.end();) {
+    auto reference_it = references.find(link_it->second);
+    if(reference_it == references.end()) {
+      auto it = buffer->begin();
+      if(it.begins_tag(link_it->first) || it.forward_to_tag_toggle(link_it->first)) {
+        auto start = it;
+        it.forward_to_tag_toggle(link_it->first);
+        buffer->remove_tag(link_tag, start, it);
+        buffer->remove_tag(link_it->first, buffer->begin(), buffer->end());
+        auto start_mark = Source::Mark(start);
+        buffer->insert(it, "]");
+        buffer->insert(start_mark->get_iter(), "[");
+        link_it = reference_links.erase(link_it);
+        continue;
+      }
+    }
+    ++link_it;
   }
 
   remove_trailing_newlines();
@@ -808,6 +943,8 @@ void Tooltip::insert_code(const std::string &code, boost::variant<std::string, G
     else if(auto language_identifier = boost::get<std::string>(&language_variant)) {
       if(!language_identifier->empty()) {
         language = Source::LanguageManager::get_default()->get_language(*language_identifier);
+        if(!language)
+          language = Source::guess_language('.' + *language_identifier);
         if(!language) {
           if(auto source_view = dynamic_cast<Source::View *>(view))
             language = source_view->language;
@@ -885,6 +1022,367 @@ void Tooltip::insert_code(const std::string &code, boost::variant<std::string, G
       max_columns = std::max(max_columns, iter.get_line_offset() + 1);
     }
   }
+}
+
+void Tooltip::insert_doxygen(const std::string &input_, bool remove_delimiters) {
+  create_tags();
+
+  auto get_text = [&] {
+    auto &input = input_;
+    size_t i = 0;
+    auto forward_passed = [&](const std::vector<char> chars) {
+      for(; i < input.size(); i++) {
+        if(std::none_of(chars.begin(), chars.end(), [&](char chr) { return input[i] == chr; }))
+          return true;
+      }
+      return false;
+    };
+
+    size_t min_indent = std::numeric_limits<size_t>::max();
+    auto forward_to_text = [&](bool first_line) -> bool {
+      auto line_start = i;
+      auto after_delimiter = i;
+      forward_passed({' ', '\t'});
+      if(i < input.size() && (input[i] == '/' || input[i] == '*')) {
+        forward_passed({'/'});
+        if(i < input.size() && input[i] == '*' && forward_passed({'*'})) {
+          if(input[i] == '/')
+            return false;
+        }
+        forward_passed({'!'});
+        after_delimiter = i;
+      }
+      forward_passed({' ', '\t'});
+      if(!first_line && i < input.size() && input[i] != '\n') {
+        min_indent = std::min(min_indent, i - line_start);
+        if(i - line_start > min_indent && line_start + min_indent >= after_delimiter)
+          i = line_start + min_indent;
+      }
+      return i < input.size();
+    };
+
+    std::string text;
+    text.reserve(input.size());
+    bool first_line = true;
+    for(; i < input.size(); ++i) {
+      if(!forward_to_text(first_line))
+        break;
+      if(!(first_line && input[i] == '\n')) {
+        for(; i < input.size(); ++i) {
+          text += input[i];
+          if(input[i] == '\n')
+            break;
+        }
+      }
+      first_line = false;
+    }
+    if(text.size() >= 2 && text[text.size() - 2] == '*' && text[text.size() - 1] == '/') {
+      text.erase(text.size() - 2, 2);
+      while(!text.empty() && text.back() == ' ')
+        text.pop_back();
+    }
+    return text;
+  };
+
+  const auto &input = remove_delimiters ? get_text() : input_;
+  size_t i = 0;
+  auto forward_passed = [&](const std::vector<char> chars) {
+    for(; i < input.size(); i++) {
+      if(std::none_of(chars.begin(), chars.end(), [&](char chr) { return input[i] == chr; }))
+        return true;
+    }
+    return false;
+  };
+
+  auto get_token = [&] {
+    auto start = i;
+    while(i < input.size() && ((input[i] >= 'a' && input[i] <= 'z') || (input[i] >= 'A' && input[i] <= 'Z') || (input[i] >= '0' && input[i] <= '9') || input[i] == '_'))
+      ++i;
+    return input.substr(start, i - start);
+  };
+
+  auto is_escape_character = [&] {
+    static std::set<char> escape_characters{'\\', '`', '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!', '|'};
+    return escape_characters.find(input[i]) != escape_characters.end();
+  };
+
+  auto get_word = [&](bool escape) {
+    std::string word;
+    for(; i < input.size() && input[i] != ' ' && input[i] != '\t' && input[i] != '\n'; ++i) {
+      if((input[i] == '.' || input[i] == ',' || input[i] == ':' || input[i] == ';' || input[i] == '!' || input[i] == '?') &&
+         (i + 1 >= input.size() || input[i + 1] == ' ' || input[i + 1] == '\t' || input[i + 1] == '\n')) {
+        break;
+      }
+      if(escape && is_escape_character())
+        word += "\\";
+      word += input[i];
+    }
+    return word;
+  };
+
+  std::string markdown;
+  markdown.reserve(input.size());
+  bool first_parameter = true;
+
+  while(i < input.size()) {
+    if(input[i] == '\\' || input[i] == '@') {
+      auto i_saved = i;
+      ++i;
+      auto token = get_token();
+      if(token.empty()) {
+        if(i < input.size()) {
+          if(input[i] == '\\')
+            markdown += "\\\\";
+          else
+            markdown += input[i];
+        }
+        ++i;
+      }
+      else if(token == "a" || token == "e" || token == "em") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += '*' + get_word(true) + '*';
+      }
+      else if(token == "b") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "**" + get_word(true) + "**";
+      }
+      else if(token == "c" || token == "p") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += '`' + get_word(false) + '`';
+      }
+      else if(token == "brief")
+        forward_passed({' ', '\t', '\n'});
+      else if(token == "param") {
+        std::string direction;
+        if(input[i] == '[') {
+          ++i;
+          if(i >= input.size())
+            break;
+          auto pos = input.find(']', i);
+          if(pos != std::string::npos) {
+            direction = input.substr(i, pos - i);
+            i = pos + 1;
+          }
+        }
+        forward_passed({' ', '\t', '\n'});
+        if(first_parameter) {
+          markdown += "\n\n**Parameters:**\n";
+          first_parameter = false;
+        }
+        markdown += "- `" + get_word(false) + '`';
+        if(!direction.empty())
+          markdown += " (" + direction + ')';
+      }
+      else if(token == "return" || token == "returns" || token == "result") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "\n\n**Returns** ";
+      }
+      else if(token == "sa" || token == "see") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "\n\nSee also ";
+      }
+      else if(token == "throw" || token == "throws" || token == "exception") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "\n\n**Throws** ";
+      }
+      else if(token == "deprecated") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "\n\n**Deprecated** ";
+      }
+      else if(token == "note") {
+        forward_passed({' ', '\t', '\n'});
+        markdown += "\n\n**Note** ";
+      }
+      else if(token == "code") {
+        std::string language_id;
+        if(input[i] == '{') {
+          ++i;
+          if(i >= input.size())
+            break;
+          if(input[i] == '.') {
+            auto pos = input.find('}', i + 1);
+            if(pos != std::string::npos) {
+              language_id = input.substr(i + 1, pos - (i + 1));
+              i = pos + 1;
+            }
+          }
+        }
+        auto start = i + 1;
+        for(; i < input.size(); ++i) {
+          if(input[i] == '\n') {
+            ++i;
+            if(i >= input.size())
+              break;
+            if(input[i] == '\\' || input[i] == '@') {
+              auto end = i - 1;
+              ++i;
+              auto token = get_token();
+              if(token == "endcode") {
+                if(language_id.empty() && view) {
+                  if(auto source_view = dynamic_cast<Source::View *>(view)) {
+                    if(source_view->language)
+                      language_id = source_view->language->get_id();
+                  }
+                }
+                markdown += "```" + language_id + '\n' + input.substr(start, end - start) + "\n```\n";
+                ++i;
+                break;
+              }
+            }
+          }
+        }
+      }
+      else if(token == "dot") {
+        for(; i < input.size(); ++i) {
+          if(input[i] == '\n') {
+            ++i;
+            if(i >= input.size())
+              break;
+            if(input[i] == '\\') {
+              ++i;
+              auto token = get_token();
+              if(token == "enddot") {
+                markdown += "\n\n";
+                ++i;
+                break;
+              }
+            }
+          }
+        }
+      }
+      else if(token == "verbatim") {
+        auto start = i + 1;
+        for(; i < input.size(); ++i) {
+          if(input[i] == '\n') {
+            ++i;
+            if(i >= input.size())
+              break;
+            if(input[i] == '\\') {
+              auto end = i - 1;
+              ++i;
+              auto token = get_token();
+              if(token == "endverbatim") {
+                markdown += "```\n" + input.substr(start, end - start) + "\n```\n";
+                ++i;
+                break;
+              }
+            }
+          }
+        }
+      }
+      else {
+        auto i2 = i_saved;
+        --i2;
+        while(i2 > 0 && (input[i2] == ' ' || input[i2] == '\t'))
+          --i2;
+        if(input[i2] == '\n' || i2 == 0)
+          markdown += "\n\n";
+        if(input[i_saved] == '\\')
+          markdown += '\\';
+        markdown += input[i_saved];
+        markdown += token;
+      }
+    }
+    else if(input[i] == '%')
+      ++i;
+    else if(starts_with(input, i, "<tt>")) {
+      i += 4;
+      auto pos = input.find("</tt>", i);
+      if(pos != std::string::npos) {
+        markdown += '`' + input.substr(i, pos - i) + '`';
+        i = pos + 5;
+      }
+    }
+    else if(starts_with(input, i, "<code>")) {
+      i += 6;
+      auto pos = input.find("</code>", i);
+      if(pos != std::string::npos) {
+        markdown += '`' + input.substr(i, pos - i) + '`';
+        i = pos + 7;
+      }
+    }
+    else if(starts_with(input, i, "<em>")) {
+      i += 4;
+      markdown += '*';
+      for(; i < input.size(); ++i) {
+        if(input[i] == '\\' && i + 1 < input.size()) {
+          markdown += input[i];
+          markdown += input[i + 1];
+          ++i;
+        }
+        else {
+          if(starts_with(input, i, "</em>")) {
+            i += 5;
+            break;
+          }
+          if(is_escape_character())
+            markdown += '\\';
+          markdown += input[i];
+        }
+      }
+      markdown += '*';
+    }
+    else if(starts_with(input, i, "<b>")) {
+      i += 3;
+      markdown += "**";
+      for(; i < input.size(); ++i) {
+        if(input[i] == '\\' && i + 1 < input.size()) {
+          markdown += input[i];
+          markdown += input[i + 1];
+          ++i;
+        }
+        else {
+          if(starts_with(input, i, "</b>")) {
+            i += 4;
+            break;
+          }
+          if(is_escape_character())
+            markdown += '\\';
+          markdown += input[i];
+        }
+      }
+      markdown += "**";
+    }
+    else if(input[i] == '`') {
+      auto i_saved = i;
+      std::string graves;
+      do {
+        graves += input[i];
+        ++i;
+      } while(i < input.size() && input[i] == '`');
+      auto pos = input.find(graves, i);
+      if(pos != std::string::npos) {
+        markdown += input.substr(i_saved, pos + graves.size() - i_saved);
+        i = pos + graves.size();
+      }
+    }
+    else if(input[i] == '"') {
+      markdown += "\"";
+      ++i;
+      for(; i < input.size(); ++i) {
+        if(input[i] == '\\' && i + 1 < input.size()) {
+          markdown += input[i];
+          markdown += input[i + 1];
+          ++i;
+        }
+        else {
+          if(is_escape_character())
+            markdown += '\\';
+          markdown += input[i];
+          if(input[i] == '"')
+            break;
+        }
+      }
+      ++i;
+    }
+    else {
+      markdown += input[i];
+      ++i;
+    }
+  }
+
+  if(!markdown.empty())
+    insert_markdown(markdown);
 }
 
 void Tooltip::remove_trailing_newlines() {

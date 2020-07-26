@@ -580,9 +580,14 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                 }
               }
               tooltip.insert_code(type_description, language);
-              auto brief_comment = cursor.get_brief_comments();
-              if(brief_comment != "")
-                tooltip.insert_with_links_tagged("\n\n" + brief_comment);
+
+              {
+                auto doxygen = clangmm::to_string(clang_Cursor_getRawCommentText(cursor.get_referenced().cx_cursor));
+                if(!doxygen.empty()) {
+                  tooltip.buffer->insert_at_cursor("\n\n");
+                  tooltip.insert_doxygen(doxygen, true);
+                }
+              }
 
 #ifdef JUCI_ENABLE_DEBUG
               if(Debug::LLDB::get().is_stopped()) {
@@ -1108,7 +1113,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(tooltip_str.empty())
       return nullptr;
     return [tooltip_str = std::move(tooltip_str)](Tooltip &tooltip) {
-      tooltip.insert_with_links_tagged(tooltip_str);
+      tooltip.insert_doxygen(tooltip_str, false);
     };
   };
 }
