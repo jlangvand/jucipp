@@ -1181,19 +1181,44 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           type_tooltips.clear();
 
           auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
-          type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) {
+          type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) mutable {
             bool first = true;
-            for(auto &content : contents) {
-              if(!first)
-                tooltip.buffer->insert_at_cursor("\n\n");
-              first = false;
-              if(content.kind == "plaintext" || content.kind.empty() || (language_id == "python" && content.kind == "markdown")) // Python might support markdown in the future
-                tooltip.insert_with_links_tagged(content.value);
-              else if(content.kind == "markdown")
-                tooltip.insert_markdown(content.value);
-              else
-                tooltip.insert_code(content.value, content.kind);
-              tooltip.remove_trailing_newlines();
+            if(language_id == "python") {
+              std::string function;
+              for(auto &content : contents) {
+                if(!first)
+                  tooltip.buffer->insert_at_cursor("\n\n");
+                first = false;
+                if(content.kind == "python") {
+                  tooltip.insert_code(content.value, content.kind);
+                  auto pos = content.value.find('(');
+                  if(pos != std::string::npos)
+                    function = content.value.substr(0, pos + 1);
+                }
+                else {
+                  if(!function.empty()) {
+                    while(starts_with(content.value, function)) {
+                      auto pos = content.value.find("\n\n");
+                      content.value.erase(0, pos != std::string::npos ? pos + 2 : pos);
+                    }
+                  }
+                  tooltip.insert_with_links_tagged(content.value);
+                }
+              }
+            }
+            else {
+              for(auto &content : contents) {
+                if(!first)
+                  tooltip.buffer->insert_at_cursor("\n\n");
+                first = false;
+                if(content.kind == "plaintext" || content.kind.empty() || (language_id == "python" && content.kind == "markdown")) // Python might support markdown in the future
+                  tooltip.insert_with_links_tagged(content.value);
+                else if(content.kind == "markdown")
+                  tooltip.insert_markdown(content.value);
+                else
+                  tooltip.insert_code(content.value, content.kind);
+                tooltip.remove_trailing_newlines();
+              }
             }
 
 #ifdef JUCI_ENABLE_DEBUG
@@ -1730,20 +1755,33 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     auto autocomplete = autocomplete_rows[index];
     if(autocomplete.detail.empty() && autocomplete.documentation.empty())
       return nullptr;
-    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) {
-      if(!autocomplete.detail.empty()) {
-        tooltip.insert_code(autocomplete.detail, language);
-        tooltip.remove_trailing_newlines();
+    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
+      if(language_id == "python") {
+        auto pos = autocomplete.insert.find('(');
+        if(pos != std::string::npos) {
+          auto function = autocomplete.insert.substr(0, pos + 1);
+          while(starts_with(autocomplete.documentation, function)) {
+            auto pos = autocomplete.documentation.find("\n\n");
+            autocomplete.documentation.erase(0, pos != std::string::npos ? pos + 2 : pos);
+          }
+        }
+        tooltip.insert_with_links_tagged(autocomplete.documentation);
       }
-      if(!autocomplete.documentation.empty()) {
-        if(tooltip.buffer->size() > 0)
-          tooltip.buffer->insert_at_cursor("\n\n");
-        if(autocomplete.kind == "plaintext" || autocomplete.kind.empty() || (language_id == "python" && autocomplete.kind == "markdown")) // Python might support markdown in the future
-          tooltip.insert_with_links_tagged(autocomplete.documentation);
-        else if(autocomplete.kind == "markdown")
-          tooltip.insert_markdown(autocomplete.documentation);
-        else
-          tooltip.insert_code(autocomplete.documentation, autocomplete.kind);
+      else {
+        if(!autocomplete.detail.empty()) {
+          tooltip.insert_code(autocomplete.detail, language);
+          tooltip.remove_trailing_newlines();
+        }
+        if(!autocomplete.documentation.empty()) {
+          if(tooltip.buffer->size() > 0)
+            tooltip.buffer->insert_at_cursor("\n\n");
+          if(autocomplete.kind == "plaintext" || autocomplete.kind.empty() || (language_id == "python" && autocomplete.kind == "markdown")) // Python might support markdown in the future
+            tooltip.insert_with_links_tagged(autocomplete.documentation);
+          else if(autocomplete.kind == "markdown")
+            tooltip.insert_markdown(autocomplete.documentation);
+          else
+            tooltip.insert_code(autocomplete.documentation, autocomplete.kind);
+        }
       }
     };
   };
