@@ -928,7 +928,7 @@ void Tooltip::insert_code(const std::string &code, boost::variant<std::string, G
     auto pos = code.find("\n");
     if(pos != std::string::npos)
       block = true;
-    else if(insert_iter == buffer->begin() && !block && utf8_character_count(code) > static_cast<size_t>(max_columns)) {
+    else if(insert_iter == buffer->begin() && utf8_character_count(code) > static_cast<size_t>(max_columns)) {
       block = true;
       style_format_type_description = true;
     }
