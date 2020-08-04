@@ -1427,19 +1427,17 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     }, false);
 
     // Remove argument completions
-    if(!get_named_parameter_symbol()) { // Do not remove named parameters in for instance Python
-      signal_key_press_event().connect([this](GdkEventKey *event) {
-        if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
-           event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
-           event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
-           event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
-           (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
-          get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
-          CompletionDialog::get()->hide();
-        }
-        return false;
-      }, false);
-    }
+    signal_key_press_event().connect([this](GdkEventKey *event) {
+      if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
+         event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
+         event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
+         event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
+         (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
+        get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+        CompletionDialog::get()->hide();
+      }
+      return false;
+    }, false);
   }
 
   autocomplete->is_restart_key = [this](guint keyval) {
