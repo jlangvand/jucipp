@@ -1198,7 +1198,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                 else {
                   if(!function.empty()) {
                     while(starts_with(content.value, function)) {
-                      auto pos = content.value.find("\n\n");
+                      auto pos = content.value.find("\n\n", function.size());
                       content.value.erase(0, pos != std::string::npos ? pos + 2 : pos);
                     }
                   }
@@ -1759,7 +1759,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         if(pos != std::string::npos) {
           auto function = autocomplete.insert.substr(0, pos + 1);
           while(starts_with(autocomplete.documentation, function)) {
-            auto pos = autocomplete.documentation.find("\n\n");
+            auto pos = autocomplete.documentation.find("\n\n", function.size());
             autocomplete.documentation.erase(0, pos != std::string::npos ? pos + 2 : pos);
           }
         }
