@@ -582,16 +582,16 @@ void Tooltip::insert_markdown(const std::string &input) {
         auto i_saved = i;
         i++;
         if(i < to) {
-          bool escaped = false;
+          bool two_backticks = false;
           if(input[i] == '`') {
-            escaped = true;
+            two_backticks = true;
             i++;
           }
           if(i < to) {
             auto start = i;
             for(; i < to; i++) {
               if(input[i] == '`') {
-                if(!escaped)
+                if(!two_backticks)
                   break;
                 if(i + 1 < to && input[i + 1] == '`')
                   break;
@@ -602,7 +602,7 @@ void Tooltip::insert_markdown(const std::string &input) {
               return false;
             }
             buffer->insert_with_tag(buffer->get_insert()->get_iter(), input.substr(start, i - start), code_tag);
-            if(escaped)
+            if(two_backticks)
               i++;
             return true;
           }
@@ -1383,6 +1383,94 @@ void Tooltip::insert_doxygen(const std::string &input_, bool remove_delimiters) 
 
   if(!markdown.empty())
     insert_markdown(markdown);
+}
+
+void Tooltip::insert_docstring(const std::string &input_) {
+  create_tags();
+
+  // Workaround for python-language-server that returns unnecessary function signatures
+  const static std::regex regex("^([a-zA-Z0-9_]+\\([^\n]*\\)( -> [^\n]+)?(\n|$))+(\n|$)", std::regex::extended | std::regex::optimize);
+  std::smatch sm;
+  const std::string &input = std::regex_search(input_, sm, regex) ? sm.suffix() : input_;
+
+  std::string partial;
+  partial.reserve(input.size());
+  size_t i = 0;
+
+  auto parse_backtick = [&] {
+    if(input[i] == '`') {
+      insert_with_links_tagged(partial);
+      partial.clear();
+      auto i_saved = i;
+      i++;
+      if(i < input.size()) {
+        bool two_backticks = false;
+        if(input[i] == '`') {
+          two_backticks = true;
+          i++;
+        }
+        if(i < input.size()) {
+          auto start = i;
+          for(; i < input.size(); i++) {
+            if(input[i] == '`') {
+              if(!two_backticks)
+                break;
+              if(i + 1 < input.size() && input[i + 1] == '`')
+                break;
+            }
+          }
+          if(i == input.size()) {
+            i = i_saved;
+            return false;
+          }
+          if(!two_backticks && i + 1 < input.size() && input[i + 1] == '_') { // Is a link
+            insert_with_links_tagged(input.substr(start, i - start));
+            ++i;
+          }
+          else {
+            buffer->insert_with_tag(buffer->get_insert()->get_iter(), input.substr(start, i - start), code_tag);
+            if(two_backticks)
+              i++;
+          }
+          return true;
+        }
+      }
+      i = i_saved;
+    }
+    return false;
+  };
+
+  bool after_newline = true;
+  for(; i < input.size(); ++i) {
+    if(parse_backtick())
+      continue;
+    if(after_newline) {
+      after_newline = false;
+      auto i_saved = i;
+      static std::string utf8_space = " ";
+      while(starts_with(input, i, utf8_space))
+        i += utf8_space.size();
+      while(i < input.size() && (input[i] == ' ' || input[i] == '\t'))
+        ++i;
+      if(starts_with(input, i, ">>>")) {
+        insert_with_links_tagged(partial);
+        partial.clear();
+        auto pos = input.find("\n\n", i + 3);
+        insert_code(input.substr(i_saved, pos != std::string::npos ? pos - i_saved : pos), {}, true);
+        buffer->insert_at_cursor("\n\n");
+        if(pos == std::string::npos)
+          break;
+        i = pos + 1;
+        continue;
+      }
+      i = i_saved;
+    }
+    if(input[i] == '\n')
+      after_newline = true;
+    partial += input[i];
+  }
+  if(!partial.empty())
+    insert_with_links_tagged(partial);
 }
 
 void Tooltip::remove_trailing_newlines() {

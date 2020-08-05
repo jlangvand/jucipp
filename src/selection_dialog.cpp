@@ -390,7 +390,8 @@ void CompletionDialog::select(bool hide_window) {
 }
 
 bool CompletionDialog::on_key_release(GdkEventKey *event) {
-  if(event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down || event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up)
+  if(event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down || event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up ||
+     (event->keyval >= GDK_KEY_Shift_L && event->keyval <= GDK_KEY_Hyper_R))
     return false;
 
   if(show_offset > text_view->get_buffer()->get_insert()->get_iter().get_offset())

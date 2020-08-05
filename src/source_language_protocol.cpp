@@ -1183,27 +1183,15 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
           type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) mutable {
             bool first = true;
-            if(language_id == "python") {
-              std::string function;
+            if(language_id == "python") { // Python might support markdown in the future
               for(auto &content : contents) {
                 if(!first)
                   tooltip.buffer->insert_at_cursor("\n\n");
                 first = false;
-                if(content.kind == "python") {
+                if(content.kind == "python")
                   tooltip.insert_code(content.value, content.kind);
-                  auto pos = content.value.find('(');
-                  if(pos != std::string::npos)
-                    function = content.value.substr(0, pos + 1);
-                }
-                else {
-                  if(!function.empty()) {
-                    while(starts_with(content.value, function)) {
-                      auto pos = content.value.find("\n\n", function.size());
-                      content.value.erase(0, pos != std::string::npos ? pos + 2 : pos);
-                    }
-                  }
-                  tooltip.insert_with_links_tagged(content.value);
-                }
+                else
+                  tooltip.insert_docstring(content.value);
               }
             }
             else {
@@ -1211,7 +1199,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
                 if(!first)
                   tooltip.buffer->insert_at_cursor("\n\n");
                 first = false;
-                if(content.kind == "plaintext" || content.kind.empty() || (language_id == "python" && content.kind == "markdown")) // Python might support markdown in the future
+                if(content.kind == "plaintext" || content.kind.empty())
                   tooltip.insert_with_links_tagged(content.value);
                 else if(content.kind == "markdown")
                   tooltip.insert_markdown(content.value);
@@ -1754,17 +1742,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     if(autocomplete.detail.empty() && autocomplete.documentation.empty())
       return nullptr;
     return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
-      if(language_id == "python") {
-        auto pos = autocomplete.insert.find('(');
-        if(pos != std::string::npos) {
-          auto function = autocomplete.insert.substr(0, pos + 1);
-          while(starts_with(autocomplete.documentation, function)) {
-            auto pos = autocomplete.documentation.find("\n\n", function.size());
-            autocomplete.documentation.erase(0, pos != std::string::npos ? pos + 2 : pos);
-          }
-        }
-        tooltip.insert_with_links_tagged(autocomplete.documentation);
-      }
+      if(language_id == "python") // Python might support markdown in the future
+        tooltip.insert_docstring(autocomplete.documentation);
       else {
         if(!autocomplete.detail.empty()) {
           tooltip.insert_code(autocomplete.detail, language);
@@ -1773,7 +1752,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         if(!autocomplete.documentation.empty()) {
           if(tooltip.buffer->size() > 0)
             tooltip.buffer->insert_at_cursor("\n\n");
-          if(autocomplete.kind == "plaintext" || autocomplete.kind.empty() || (language_id == "python" && autocomplete.kind == "markdown")) // Python might support markdown in the future
+          if(autocomplete.kind == "plaintext" || autocomplete.kind.empty())
             tooltip.insert_with_links_tagged(autocomplete.documentation);
           else if(autocomplete.kind == "markdown")
             tooltip.insert_markdown(autocomplete.documentation);

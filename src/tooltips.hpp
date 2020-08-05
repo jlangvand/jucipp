@@ -28,6 +28,8 @@ public:
   void insert_markdown(const std::string &text);
   void insert_code(const std::string &code, boost::variant<std::string, Glib::RefPtr<Gsv::Language>> language = Glib::RefPtr<Gsv::Language>{}, bool block = false);
   void insert_doxygen(const std::string &input, bool remove_delimiters);
+  /// Inserts python docstring
+  void insert_docstring(const std::string &input);
 
   /// Remove empty lines at end of buffer
   void remove_trailing_newlines();
