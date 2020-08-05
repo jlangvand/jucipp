@@ -407,17 +407,18 @@ void Tooltip::create_tags() {
 void Tooltip::insert_with_links_tagged(const std::string &text) {
   if(text.empty())
     return;
-  const static std::regex http_regex("(https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=]+[a-zA-Z0-9\\-_~/@$*+;=])", std::regex::optimize);
+  const static std::regex http_regex("https?://[\\w\\-.~:/?#%\\[\\]@!$&'()*+,;=]+[\\w\\-~/#@$*+;=]", std::regex::optimize);
   std::smatch sm;
   std::sregex_iterator it(text.begin(), text.end(), http_regex);
   std::sregex_iterator end;
   size_t start_pos = 0;
   for(; it != end; ++it) {
     buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[it->position()]);
-    buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], &text[it->position() + it->length()], link_tag);
+    buffer->insert_with_tag(buffer->get_insert()->get_iter(), &text[it->position()], text.c_str() + it->position() + it->length(), link_tag);
     start_pos = it->position() + it->length();
   }
-  buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], &text[text.size()]);
+  if(start_pos < text.size())
+    buffer->insert(buffer->get_insert()->get_iter(), &text[start_pos], text.c_str() + text.size());
 }
 
 void Tooltip::insert_markdown(const std::string &input) {
@@ -503,8 +504,6 @@ void Tooltip::insert_markdown(const std::string &input) {
           return false;
         }
       }
-      insert_with_links_tagged(partial);
-      partial.clear();
       auto start = i;
       for(; i < to - (prefix.size() - 1); i++) {
         if(!unescape(i)) {
@@ -534,6 +533,8 @@ void Tooltip::insert_markdown(const std::string &input) {
         i = i_saved;
         return false;
       }
+      insert_with_links_tagged(partial);
+      partial.clear();
       auto start_offset = buffer->get_insert()->get_iter().get_offset();
       insert_text(start, i);
       if(prefix.size() == 1)
@@ -550,8 +551,6 @@ void Tooltip::insert_markdown(const std::string &input) {
 
     auto insert_strikethrough = [&] {
       if(starts_with(input, i, "~~")) {
-        insert_with_links_tagged(partial);
-        partial.clear();
         auto i_saved = i;
         i += 2;
         if(i < to) {
@@ -564,6 +563,8 @@ void Tooltip::insert_markdown(const std::string &input) {
             i = i_saved;
             return false;
           }
+          insert_with_links_tagged(partial);
+          partial.clear();
           auto start_offset = buffer->get_insert()->get_iter().get_offset();
           insert_text(start, i);
           buffer->apply_tag(strikethrough_tag, buffer->get_iter_at_offset(start_offset), buffer->get_insert()->get_iter());
@@ -577,8 +578,6 @@ void Tooltip::insert_markdown(const std::string &input) {
 
     auto insert_code = [&] {
       if(input[i] == '`') {
-        insert_with_links_tagged(partial);
-        partial.clear();
         auto i_saved = i;
         i++;
         if(i < to) {
@@ -601,6 +600,8 @@ void Tooltip::insert_markdown(const std::string &input) {
               i = i_saved;
               return false;
             }
+            insert_with_links_tagged(partial);
+            partial.clear();
             buffer->insert_with_tag(buffer->get_insert()->get_iter(), input.substr(start, i - start), code_tag);
             if(two_backticks)
               i++;
@@ -614,8 +615,6 @@ void Tooltip::insert_markdown(const std::string &input) {
 
     auto insert_link = [&] {
       if(input[i] == '[') {
-        insert_with_links_tagged(partial);
-        partial.clear();
         auto i_saved = i;
         i++;
         if(i < to) {
@@ -641,6 +640,8 @@ void Tooltip::insert_markdown(const std::string &input) {
               i = i_saved;
               return false;
             }
+            insert_with_links_tagged(partial);
+            partial.clear();
             auto start_offset = buffer->get_insert()->get_iter().get_offset();
             insert_text(text_start, text_end);
             auto start = buffer->get_iter_at_offset(start_offset);
@@ -662,6 +663,8 @@ void Tooltip::insert_markdown(const std::string &input) {
               i = i_saved;
               return false;
             }
+            insert_with_links_tagged(partial);
+            partial.clear();
             auto start_offset = buffer->get_insert()->get_iter().get_offset();
             insert_text(text_start, text_end);
             auto start = buffer->get_iter_at_offset(start_offset);
@@ -673,6 +676,8 @@ void Tooltip::insert_markdown(const std::string &input) {
             return true;
           }
           else if(text_start != text_end) {
+            insert_with_links_tagged(partial);
+            partial.clear();
             auto start_offset = buffer->get_insert()->get_iter().get_offset();
             insert_text(text_start, text_end);
             auto start = buffer->get_iter_at_offset(start_offset);
@@ -1399,8 +1404,6 @@ void Tooltip::insert_docstring(const std::string &input_) {
 
   auto parse_backtick = [&] {
     if(input[i] == '`') {
-      insert_with_links_tagged(partial);
-      partial.clear();
       auto i_saved = i;
       i++;
       if(i < input.size()) {
@@ -1423,6 +1426,8 @@ void Tooltip::insert_docstring(const std::string &input_) {
             i = i_saved;
             return false;
           }
+          insert_with_links_tagged(partial);
+          partial.clear();
           if(!two_backticks && i + 1 < input.size() && input[i + 1] == '_') { // Is a link
             insert_with_links_tagged(input.substr(start, i - start));
             ++i;

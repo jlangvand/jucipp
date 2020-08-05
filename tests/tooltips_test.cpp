@@ -358,6 +358,13 @@ int main() {
     g_assert(buffer->get_iter_at_offset(15).ends_tag(tooltip->link_tag));
   }
   {
+    auto tooltip = get_markdown_tooltip("http://test.com#test.");
+    g_assert(tooltip->buffer->get_text() == "http://test.com#test.");
+    auto buffer = tooltip->buffer;
+    g_assert(buffer->begin().starts_tag(tooltip->link_tag));
+    g_assert(buffer->get_iter_at_offset(20).ends_tag(tooltip->link_tag));
+  }
+  {
     auto tooltip = get_markdown_tooltip("[test](http://test.com)");
     g_assert(tooltip->buffer->get_text() == "test");
     auto buffer = tooltip->buffer;
