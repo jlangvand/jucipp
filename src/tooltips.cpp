@@ -367,14 +367,13 @@ void Tooltip::create_tags() {
   if(!h1_tag) {
     h1_tag = buffer->create_tag();
     h1_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
-    h1_tag->property_underline() = Pango::UNDERLINE_DOUBLE;
+    h1_tag->property_underline() = Pango::UNDERLINE_SINGLE;
 
     h2_tag = buffer->create_tag();
     h2_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
-    h2_tag->property_underline() = Pango::UNDERLINE_SINGLE;
 
     h3_tag = buffer->create_tag();
-    h3_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
+    h3_tag->property_style() = Pango::Style::STYLE_ITALIC;
 
     auto source_font_family = Pango::FontDescription(Config::get().source.font).get_family();
 
@@ -1402,7 +1401,132 @@ void Tooltip::insert_docstring(const std::string &input_) {
   partial.reserve(input.size());
   size_t i = 0;
 
-  auto parse_backtick = [&] {
+  auto unescape = [&](size_t &i) {
+    if(input[i] == '\\') {
+      if(i + 1 < input.size())
+        i++;
+      return true;
+    }
+    return false;
+  };
+
+  auto forward_to = [&](const std::vector<char> chars) {
+    for(; i < input.size(); i++) {
+      if(std::any_of(chars.begin(), chars.end(), [&input, &i](char chr) { return input[i] == chr; }))
+        return true;
+    }
+    return false;
+  };
+
+  auto forward_passed = [&](const std::vector<char> chars) {
+    for(; i < input.size(); i++) {
+      if(std::none_of(chars.begin(), chars.end(), [&input, &i](char chr) { return input[i] == chr; }))
+        return true;
+    }
+    return false;
+  };
+
+  auto is_whitespace_character = [&](size_t i) {
+    return input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r' || input[i] == '\f';
+  };
+
+  auto insert_header = [&] {
+    if(is_whitespace_character(i))
+      return false;
+    auto i_saved = i;
+    forward_to({'\n'});
+    auto end_header = i;
+    i++;
+    int header = 0;
+    if(i < input.size() && (input[i] == '=' || input[i] == '-')) {
+      forward_passed({input[i]});
+      if(i == input.size() || input[i] == '\n') {
+        if(input[i - 1] == '=')
+          header = 1;
+        else
+          header = 2;
+      }
+    }
+    if(header == 0) {
+      i = i_saved;
+      return false;
+    }
+    insert_with_links_tagged(partial);
+    partial.clear();
+    auto start_offset = buffer->get_insert()->get_iter().get_offset();
+    insert_with_links_tagged(input.substr(i_saved, end_header - i_saved));
+    if(header == 1)
+      buffer->apply_tag(h1_tag, buffer->get_iter_at_offset(start_offset), buffer->get_insert()->get_iter());
+    else if(header == 2)
+      buffer->apply_tag(h2_tag, buffer->get_iter_at_offset(start_offset), buffer->get_insert()->get_iter());
+    buffer->insert_at_cursor("\n");
+    return true;
+  };
+
+  auto is_punctuation_character = [&](size_t i) {
+    static std::set<char> punctuation_characters = {'!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '}', '~'};
+    return punctuation_characters.find(input[i]) != punctuation_characters.end();
+  };
+
+  auto left_flanking_delimiter_run = [&](size_t i, size_t n) {
+    return !(i + n >= input.size() || is_whitespace_character(i + n)) &&
+           (!is_punctuation_character(i + n) ||
+            (i == 0 || is_whitespace_character(i - 1) || is_punctuation_character(i - 1)));
+  };
+  auto right_flanking_delimiter_run = [&](size_t i, size_t n) {
+    return !(i == 0 || is_whitespace_character(i - 1)) &&
+           (!is_punctuation_character(i - 1) ||
+            (i + n >= input.size() || is_whitespace_character(i + n) || is_punctuation_character(i + n)));
+  };
+
+  /// Using rules in https://spec.commonmark.org/0.29/#emphasis-and-strong-emphasis
+  auto insert_emphasis = [&] {
+    auto i_saved = i;
+    std::string prefix;
+    if(input[i] == '*') {
+      prefix += input[i];
+      ++i;
+      for(; prefix.size() < 2 && input[i] == prefix.back(); ++i)
+        prefix += input[i];
+    }
+    if(prefix.empty())
+      return false;
+    // Rule 1 and 5
+    if(!left_flanking_delimiter_run(i - prefix.size(), prefix.size())) {
+      i = i_saved;
+      return false;
+    }
+    auto start = i;
+    for(; i < input.size() - (prefix.size() - 1); i++) {
+      if(!unescape(i)) {
+        if(starts_with(input, i, prefix)) {
+          // Rule 3 and 7
+          if(right_flanking_delimiter_run(i, prefix.size()))
+            break;
+          else if(left_flanking_delimiter_run(i, prefix.size())) {
+            i = i_saved;
+            return false;
+          }
+        }
+      }
+    }
+    if(i >= input.size() - (prefix.size() - 1)) {
+      i = i_saved;
+      return false;
+    }
+    insert_with_links_tagged(partial);
+    partial.clear();
+    auto start_offset = buffer->get_insert()->get_iter().get_offset();
+    insert_with_links_tagged(input.substr(start, i - start));
+    if(prefix.size() == 1)
+      buffer->apply_tag(italic_tag, buffer->get_iter_at_offset(start_offset), buffer->get_insert()->get_iter());
+    else if(prefix.size() == 2)
+      buffer->apply_tag(bold_tag, buffer->get_iter_at_offset(start_offset), buffer->get_insert()->get_iter());
+    i += prefix.size() - 1;
+    return true;
+  };
+
+  auto insert_code_or_link = [&] {
     if(input[i] == '`') {
       auto i_saved = i;
       i++;
@@ -1428,8 +1552,25 @@ void Tooltip::insert_docstring(const std::string &input_) {
           }
           insert_with_links_tagged(partial);
           partial.clear();
-          if(!two_backticks && i + 1 < input.size() && input[i + 1] == '_') { // Is a link
-            insert_with_links_tagged(input.substr(start, i - start));
+          if(!two_backticks && i + 1 < input.size() && input[i + 1] == '_') { // Insert link
+            const static std::regex regex("^([^<]*?) ?<([^>]+)>$");
+            std::smatch sm;
+            if(std::regex_match(input.begin() + start, input.begin() + i, sm, regex)) {
+              if(sm[1].length() == 0)
+                insert_with_links_tagged(sm[2].str());
+              else {
+                auto start_offset = buffer->get_insert()->get_iter().get_offset();
+                buffer->insert_at_cursor(sm[1].str());
+                auto start = buffer->get_iter_at_offset(start_offset);
+                auto end = buffer->get_insert()->get_iter();
+                buffer->apply_tag(link_tag, start, end);
+                auto tag = buffer->create_tag();
+                buffer->apply_tag(tag, start, end);
+                links.emplace(tag, sm[2].str());
+              }
+            }
+            else
+              insert_with_links_tagged(input.substr(start, i - start));
             ++i;
           }
           else {
@@ -1445,33 +1586,33 @@ void Tooltip::insert_docstring(const std::string &input_) {
     return false;
   };
 
-  bool after_newline = true;
-  for(; i < input.size(); ++i) {
-    if(parse_backtick())
-      continue;
-    if(after_newline) {
-      after_newline = false;
-      auto i_saved = i;
-      static std::string utf8_space = " ";
-      while(starts_with(input, i, utf8_space))
-        i += utf8_space.size();
-      while(i < input.size() && (input[i] == ' ' || input[i] == '\t'))
-        ++i;
-      if(starts_with(input, i, ">>>")) {
-        insert_with_links_tagged(partial);
-        partial.clear();
-        auto pos = input.find("\n\n", i + 3);
-        insert_code(input.substr(i_saved, pos != std::string::npos ? pos - i_saved : pos), {}, true);
-        buffer->insert_at_cursor("\n\n");
-        if(pos == std::string::npos)
-          break;
-        i = pos + 1;
-        continue;
-      }
-      i = i_saved;
+  auto insert_code_block = [&] {
+    auto i_saved = i;
+    static std::string utf8_space = " ";
+    while(starts_with(input, i, utf8_space))
+      i += utf8_space.size();
+    while(i < input.size() && (input[i] == ' ' || input[i] == '\t'))
+      ++i;
+    if(starts_with(input, i, ">>>")) {
+      insert_with_links_tagged(partial);
+      partial.clear();
+      auto pos = input.find("\n\n", i + 3);
+      insert_code(input.substr(i_saved, pos != std::string::npos ? pos - i_saved : pos), {}, true);
+      buffer->insert_at_cursor("\n");
+      i = pos != std::string::npos ? pos : input.size() - 1;
+      return true;
     }
-    if(input[i] == '\n')
-      after_newline = true;
+    i = i_saved;
+    return false;
+  };
+
+  for(; i < input.size(); ++i) {
+    if(!unescape(i) && (insert_code_or_link() || insert_emphasis()))
+      continue;
+    if(i == 0 || input[i - 1] == '\n') {
+      if(insert_header() || insert_code_block())
+        continue;
+    }
     partial += input[i];
   }
   if(!partial.empty())

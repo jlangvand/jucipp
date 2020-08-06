@@ -23,6 +23,14 @@ int main() {
     return tooltip;
   };
 
+  auto get_docstring_tooltip = [](const std::string &input) {
+    auto tooltip = std::make_unique<Tooltip>([&](Tooltip &tooltip) {
+      tooltip.insert_docstring(input);
+    });
+    tooltip->show();
+    return tooltip;
+  };
+
   // Testing insert_markdown():
   {
     auto tooltip = get_markdown_tooltip("");
@@ -760,5 +768,60 @@ Detailed description starts here.)");
   {
     auto tooltip = get_doxygen_tooltip("/**   # testing*/", true);
     g_assert(tooltip->buffer->get_text() == "testing");
+  }
+
+  // Testing insert_docstring
+  {
+    auto tooltip = get_docstring_tooltip(R"(**Some** *Python* \` ``testing`` `routine`.
+Section
+====
+>>> test
+test
+
+Subsection
+----
+
+A `link <https://test.test>`_)");
+    g_assert(tooltip->buffer->get_text() == R"(Some Python ` testing routine.
+Section
+>>> test
+test
+
+Subsection
+
+A link)");
+    auto it = tooltip->buffer->begin();
+    g_assert(it.starts_tag(tooltip->bold_tag));
+    it.forward_chars(4);
+    g_assert(it.ends_tag(tooltip->bold_tag));
+    it.forward_chars(1);
+    g_assert(it.starts_tag(tooltip->italic_tag));
+    it.forward_chars(6);
+    g_assert(it.ends_tag(tooltip->italic_tag));
+    it.forward_chars(3);
+    g_assert(it.starts_tag(tooltip->code_tag));
+    it.forward_chars(7);
+    g_assert(it.ends_tag(tooltip->code_tag));
+    it.forward_chars(1);
+    g_assert(it.starts_tag(tooltip->code_tag));
+    it.forward_chars(7);
+    g_assert(it.ends_tag(tooltip->code_tag));
+    it.forward_chars(2);
+    g_assert(it.starts_tag(tooltip->h1_tag));
+    it.forward_chars(7);
+    g_assert(it.ends_tag(tooltip->h1_tag));
+    it.forward_chars(1);
+    g_assert(it.starts_tag(tooltip->code_block_tag));
+    it.forward_chars(13);
+    g_assert(it.ends_tag(tooltip->code_block_tag));
+    it.forward_chars(2);
+    g_assert(it.starts_tag(tooltip->h2_tag));
+    it.forward_chars(10);
+    g_assert(it.ends_tag(tooltip->h2_tag));
+    it.forward_chars(4);
+    g_assert(it.starts_tag(tooltip->link_tag));
+    it.forward_chars(4);
+    g_assert(it.ends_tag(tooltip->link_tag));
+    g_assert(tooltip->links.begin()->second == "https://test.test");
   }
 }
