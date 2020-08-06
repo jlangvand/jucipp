@@ -516,20 +516,20 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
               size_t pos = 0;
               // Simplify std::basic_string types
               while((pos = type_description.find("std::basic_string<char", pos)) != std::string::npos) {
-                pos += 22;
+                pos += 22; // Move to after std::basic_string<char
                 if(pos < type_description.size()) {
                   if(type_description[pos] == '>') {
-                    pos -= 5;
-                    type_description.erase(pos, 5 + 1);
-                    type_description.erase(pos - 12, 6); // Remove: basic_
+                    pos -= 17; // Move to after std::
+                    type_description.replace(pos, 17 + 1, "string");
+                    pos += 6; // Move to after std::string
                     // Remove space before ending angle bracket
                     if(pos + 1 < type_description.size() && type_description[pos] == ' ' && type_description[pos + 1] == '>')
                       type_description.erase(pos, 1);
                   }
                   else if((starts_with(type_description, pos, ", std::char_traits<char>, std::allocator<char> >"))) {
-                    pos -= 5;
-                    type_description.erase(pos, 5 + 48);
-                    type_description.erase(pos - 12, 6); // Remove: basic_
+                    pos -= 17; // Move to after std::
+                    type_description.replace(pos, 17 + 48, "string");
+                    pos += 6; // Move to after std::string
                     // Remove space before ending angle bracket
                     if(pos + 1 < type_description.size() && type_description[pos] == ' ' && type_description[pos + 1] == '>')
                       type_description.erase(pos, 1);
