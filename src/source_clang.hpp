@@ -52,6 +52,9 @@ namespace Source {
 
     void update_diagnostics() REQUIRES(parse_mutex);
     std::vector<clangmm::Diagnostic> clang_diagnostics GUARDED_BY(parse_mutex);
+
+    /// Removes for instance ::__1:: and ::__cxx11:: from type
+    void remove_internal_namespaces(std::string &type);
   };
 
   class ClangViewAutocomplete : public virtual ClangViewParse {

@@ -512,13 +512,10 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
             type_tooltips.emplace_back(this, start, end, [this, token](Tooltip &tooltip) {
               auto cursor = token.get_cursor();
               auto type_description = cursor.get_type_description();
+              remove_internal_namespaces(type_description);
               size_t pos = 0;
-              // Remove ::_1 from type description
-              while((pos = type_description.find("::__1", pos)) != std::string::npos)
-                type_description.erase(pos, 5);
-              pos = 0;
               // Simplify std::basic_string types
-              while((pos = type_description.find("std::basic_string<char"), pos) != std::string::npos) {
+              while((pos = type_description.find("std::basic_string<char", pos)) != std::string::npos) {
                 pos += 22;
                 if(pos < type_description.size()) {
                   if(type_description[pos] == '>') {
@@ -721,10 +718,8 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       debug_value.replace(iter, next_char_iter, "?");
                     }
                     tooltip.buffer->insert(tooltip.buffer->get_insert()->get_iter(), (tooltip.buffer->size() > 0 ? "\n\n" : "") + value_type + ":\n");
-                    auto value = debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1);
-                    size_t pos = 0;
-                    while((pos = value.find("::__1", pos)) != std::string::npos)
-                      value.erase(pos, 5);
+                    auto value = debug_value.substr(pos + 3, debug_value.size() - (pos + 3) - 1).raw();
+                    remove_internal_namespaces(value);
                     tooltip.insert_code(value);
                   }
                 }
@@ -737,6 +732,22 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
         }
       }
     }
+  }
+}
+
+void Source::ClangViewParse::remove_internal_namespaces(std::string &type) {
+  size_t pos = 0;
+  while((pos = type.find("::__", pos)) != std::string::npos) {
+    if(starts_with(type, pos + 4, "1::"))
+      type.erase(pos, 5);
+    else if(starts_with(type, pos + 4, "cxx")) {
+      auto end_pos = type.find("::", pos + 7);
+      if(end_pos == std::string::npos)
+        break;
+      type.erase(pos, end_pos - pos);
+    }
+    else
+      pos += 4;
   }
 }
 
