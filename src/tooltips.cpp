@@ -1607,12 +1607,12 @@ void Tooltip::insert_docstring(const std::string &input_) {
   };
 
   for(; i < input.size(); ++i) {
-    if(!unescape(i) && (insert_code_or_link() || insert_emphasis()))
-      continue;
     if(i == 0 || input[i - 1] == '\n') {
-      if(insert_header() || insert_code_block())
+      if(insert_code_block() || insert_header())
         continue;
     }
+    if(!unescape(i) && (insert_code_or_link() || insert_emphasis()))
+      continue;
     partial += input[i];
   }
   if(!partial.empty())
