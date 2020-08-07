@@ -71,7 +71,7 @@ Grep::Location Grep::get_location(std::string line, bool color_codes_to_markup, 
       return false;
     };
     bool open = false;
-    size_t start;
+    size_t start = 0;
     line.clear();
     line.reserve(escaped.size());
     for(size_t i = 0; i < escaped.size(); ++i) {
