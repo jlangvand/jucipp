@@ -6,6 +6,8 @@
 #include "utility.hpp"
 
 Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool case_sensitive, bool extended_regex) {
+  if(path.empty())
+    return;
   auto build = Project::Build::create(path);
   std::string exclude;
   if(!build->project_path.empty()) {

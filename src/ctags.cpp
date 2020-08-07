@@ -8,6 +8,8 @@
 #include <vector>
 
 Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable_kind, const std::string &languages) : enable_scope(enable_scope), enable_kind(enable_kind) {
+  if(path.empty())
+    return;
   // TODO: When universal ctags is available on all platforms (Ubuntu 20.04 LTS does), add: --pattern-length-limit=0
   auto options = " --sort=foldcase -I \"override noexcept\" -f -" + (!languages.empty() ? " --languages=" + languages : std::string());
   std::string fields(" --fields=n");
@@ -57,10 +59,8 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   auto &line = line_;
 #endif
   auto symbol_end = line.find('\t');
-  if(symbol_end == std::string::npos) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(symbol_end == std::string::npos)
     return location;
-  }
   location.symbol = line.substr(0, symbol_end);
   if(9 < location.symbol.size() && location.symbol[8] == ' ' && starts_with(location.symbol, "operator")) {
     auto &chr = location.symbol[9];
@@ -69,68 +69,56 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   }
 
   auto file_start = symbol_end + 1;
-  if(file_start >= line.size()) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(file_start >= line.size())
     return location;
-  }
   auto file_end = line.find('\t', file_start);
-  if(file_end == std::string::npos) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(file_end == std::string::npos)
     return location;
-  }
   location.file_path = line.substr(file_start, file_end - file_start);
 
   auto source_start = file_end + 3;
-  if(source_start >= line.size()) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(source_start >= line.size())
     return location;
-  }
   location.index = 0;
   while(source_start < line.size() && (line[source_start] == ' ' || line[source_start] == '\t')) {
     ++source_start;
     ++location.index;
   }
   auto source_end = line.find("/;\"\t", source_start);
-  if(source_end == std::string::npos) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(source_end == std::string::npos)
     return location;
-  }
 
   // Unescape source
-  auto end = source_end - (line[source_end - 1] == '$' ? 1 : 0);
-  location.source.reserve(end - source_start);
-  bool escaped = false;
-  for(auto i = source_start; i < end; ++i) {
-    if(!escaped && line[i] == '\\') {
-      escaped = true;
-      continue;
+  if(source_end > source_start) {
+    auto end = source_end - (line[source_end - 1] == '$' ? 1 : 0);
+    location.source.reserve(end - source_start);
+    bool escaped = false;
+    for(auto i = source_start; i < end; ++i) {
+      if(!escaped && line[i] == '\\') {
+        escaped = true;
+        continue;
+      }
+      escaped = false;
+      location.source += line[i];
     }
-    escaped = false;
-    location.source += line[i];
   }
 
   size_t line_start;
   if(enable_kind) {
     auto kind_start = source_end + 4;
-    if(kind_start >= line.size()) {
-      std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    if(kind_start >= line.size())
       return location;
-    }
     auto kind_end = line.find('\t', kind_start);
-    if(kind_end == std::string::npos) {
-      std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+    if(kind_end == std::string::npos)
       return location;
-    }
     location.kind = line.substr(kind_start, kind_end - kind_start);
     line_start = kind_start + location.kind.size() + 6;
   }
   else
     line_start = source_end + 9;
 
-  if(line_start >= line.size()) {
-    std::cerr << "Warning (ctags): could not parse line: " << line << std::endl;
+  if(line_start >= line.size())
     return location;
-  }
   auto line_end = line.find('\t', line_start);
   size_t line_size = line_end == std::string::npos ? std::string::npos : line_end - line_start;
   try {
@@ -146,39 +134,40 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
       location.scope = line.substr(scope_start + 1);
   }
 
-  if(add_markup) {
-    location.source = Glib::Markup::escape_text(location.source);
-    std::string symbol = Glib::Markup::escape_text(location.symbol);
-    if(symbol_ends_with_open_parenthesis)
-      symbol += '(';
-    bool first = true;
-    bool escaped = false;
-    for(size_t i = 0; i < location.source.size(); i++) {
-      if(!escaped) {
-        if(starts_with(location.source, i, symbol)) {
-          location.source.insert(i + symbol.size(), "</b>");
-          location.source.insert(i, "<b>");
-          i += 7 + symbol.size() - 1;
-          if(first)
+  if(!location.symbol.empty()) {
+    if(add_markup) {
+      location.source = Glib::Markup::escape_text(location.source);
+      std::string symbol = Glib::Markup::escape_text(location.symbol);
+      if(symbol_ends_with_open_parenthesis)
+        symbol += '(';
+      bool first = true;
+      bool escaped = false;
+      for(size_t i = 0; i < location.source.size(); i++) {
+        if(!escaped) {
+          if(starts_with(location.source, i, symbol)) {
+            location.source.insert(i + symbol.size(), "</b>");
+            location.source.insert(i, "<b>");
+            i += 7 + symbol.size() - 1;
             first = false;
-        }
-        else {
-          if(location.source[i] == '&') {
-            escaped = true;
-            i += 2; // Minimum character entities: &lt; and &gt;
           }
-          if(first)
-            location.index++;
+          else {
+            if(location.source[i] == '&') {
+              escaped = true;
+              i += 2; // Minimum character entities: &lt; and &gt;
+            }
+            if(first)
+              location.index++;
+          }
         }
+        else if(location.source[i] == ';')
+          escaped = false;
       }
-      else if(location.source[i] == ';')
-        escaped = false;
     }
-  }
-  else {
-    auto pos = location.source.find(location.symbol);
-    if(pos != std::string::npos)
-      location.index += pos;
+    else {
+      auto pos = location.source.find(location.symbol);
+      if(pos != std::string::npos)
+        location.index += pos;
+    }
   }
 
   return location;

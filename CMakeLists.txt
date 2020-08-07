@@ -44,6 +44,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES FreeBSD)
 endif()
 
 option(BUILD_TESTING "Build tests")
+option(BUILD_FUZZING "Build tests")
 option(LIBCLANG_PATH "Use custom path for libclang")
 option(LIBLLDB_PATH "Use custom path for liblldb")
 
@@ -115,7 +116,9 @@ include_directories(
 
 add_subdirectory("src")
 
-if(BUILD_TESTING)
-  enable_testing()
+if(BUILD_TESTING OR BUILD_FUZZING)
+  if(BUILD_TESTING)
+    enable_testing()
+  endif()
   add_subdirectory(tests)
 endif()

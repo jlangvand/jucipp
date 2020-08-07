@@ -311,7 +311,8 @@ void CMake::parse_file(const std::string &src, std::map<std::string, std::list<s
           variables.emplace("PROJECT_NAME", function->parameters);
         }
       }
-      on_function(std::move(*function));
+      if(on_function)
+        on_function(std::move(*function));
     }
   }
 }
