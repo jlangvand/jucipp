@@ -1159,6 +1159,16 @@ void Source::View::extend_selection() {
       return;
     }
   }
+  else { // Complete token selection
+    Gtk::TextIter start, end;
+    get_buffer()->get_selection_bounds(start, end);
+    auto start_token = get_token_iters(start);
+    auto end_token = get_token_iters(end);
+    if(start_token.first < start || end_token.second > end) {
+      get_buffer()->select_range(start_token.first, end_token.second);
+      return;
+    }
+  }
 
   // Select string or comment block
   auto before_start = start;
