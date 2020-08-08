@@ -2936,31 +2936,32 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
       left = '"';
       right = '"';
     }
-    // Insert `` around selection
-    else if(event->keyval == GDK_KEY_dead_grave) {
-      left = '`';
-      right = '`';
+    // Insert /**/ around selection
+    else if(is_bracket_language && event->keyval == GDK_KEY_slash) {
+      left = "/*";
+      right = "*/";
     }
-    // Insert ** around selection
-    else if(event->keyval == GDK_KEY_asterisk) {
-      left = '*';
-      right = '*';
-    }
-    // Insert __ around selection
-    else if(event->keyval == GDK_KEY_underscore) {
-      left = '_';
-      right = '_';
-    }
-    // Insert ~~ around selection
-    else if(event->keyval == GDK_KEY_dead_tilde) {
-      left = '~';
-      right = '~';
-    }
-    else if(is_bracket_language) {
-      // Insert /**/ around selection
-      if(event->keyval == GDK_KEY_slash) {
-        left = "/*";
-        right = "*/";
+    else if((language && language->get_id() == "markdown") ||
+            !is_code_iter(get_buffer()->get_insert()->get_iter()) || !is_code_iter(get_buffer()->get_selection_bound()->get_iter())) {
+      // Insert `` around selection
+      if(event->keyval == GDK_KEY_dead_grave) {
+        left = '`';
+        right = '`';
+      }
+      // Insert ** around selection
+      else if(event->keyval == GDK_KEY_asterisk) {
+        left = '*';
+        right = '*';
+      }
+      // Insert __ around selection
+      else if(event->keyval == GDK_KEY_underscore) {
+        left = '_';
+        right = '_';
+      }
+      // Insert ~~ around selection
+      else if(event->keyval == GDK_KEY_dead_tilde) {
+        left = '~';
+        right = '~';
       }
     }
     if(!left.empty() && !right.empty()) {
