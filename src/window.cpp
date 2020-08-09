@@ -123,15 +123,14 @@ Window::Window() {
     return false;
   });
 
-  signal_delete_event().connect([](GdkEventAny *) {
+  signal_delete_event().connect([this](GdkEventAny *) {
     if(!Source::View::non_deleted_views.empty()) {
-      Dialog::Message message("Please wait while completing background processes");
+      hide();
       while(!Source::View::non_deleted_views.empty()) {
         while(Gtk::Main::events_pending())
           Gtk::Main::iteration();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
-      message.hide();
     }
     // TODO 2022 (after Debian Stretch LTS has ended, see issue #354): remove:
     Project::current = nullptr;
