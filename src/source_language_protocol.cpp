@@ -377,7 +377,7 @@ void Source::LanguageProtocolView::initialize() {
     update_status_state(this);
 
   set_editable(false);
-  thread_pool.push([this] {
+  initialize_thread = std::thread([this] {
     auto capabilities = client->initialize(this);
 
     dispatcher.post([this, capabilities] {
@@ -412,13 +412,14 @@ void Source::LanguageProtocolView::close() {
   autocomplete_delayed_show_arguments_connection.disconnect();
   update_type_coverage_connection.disconnect();
 
+  if(initialize_thread.joinable())
+    initialize_thread.join();
+
   if(autocomplete) {
     autocomplete->state = Autocomplete::State::idle;
     if(autocomplete->thread.joinable())
       autocomplete->thread.join();
   }
-
-  thread_pool.shutdown(true);
 
   client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri + "\"}");
   client->close(this);
@@ -427,6 +428,7 @@ void Source::LanguageProtocolView::close() {
 
 Source::LanguageProtocolView::~LanguageProtocolView() {
   close();
+  thread_pool.shutdown(true);
 }
 
 void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {

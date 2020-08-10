@@ -183,6 +183,7 @@ namespace Source {
 
     size_t document_version = 1;
 
+    std::thread initialize_thread;
     Dispatcher dispatcher;
     Glib::ThreadPool thread_pool;
 
