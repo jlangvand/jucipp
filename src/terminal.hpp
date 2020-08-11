@@ -32,6 +32,8 @@ public:
 
   void clear();
 
+  std::function<void()> scroll_to_bottom;
+
 protected:
   bool on_motion_notify_event(GdkEventMotion *motion_event) override;
   bool on_button_press_event(GdkEventButton *button_event) override;
@@ -55,4 +57,6 @@ private:
   Mutex processes_mutex;
   std::vector<std::shared_ptr<TinyProcessLib::Process>> processes GUARDED_BY(processes_mutex);
   Glib::ustring stdin_buffer;
+
+  std::atomic<bool> perform_scroll_to_bottom = {false};
 };

@@ -1794,12 +1794,15 @@ void Window::add_widgets() {
     if(adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size()) // If for instance the terminal has been cleared
       *scrolled_to_bottom = true;
   });
-  Terminal::get().signal_size_allocate().connect([this, scrolled_to_bottom](Gtk::Allocation &allocation) mutable {
+  Terminal::get().scroll_to_bottom = [this, scrolled_to_bottom] {
+    auto adjustment = terminal_scrolled_window.get_vadjustment();
+    adjustment->set_value(adjustment->get_upper() - adjustment->get_page_size());
+    *scrolled_to_bottom = true;
+    Terminal::get().queue_draw();
+  };
+  Terminal::get().signal_size_allocate().connect([scrolled_to_bottom](Gtk::Allocation & /*allocation*/) {
     if(*scrolled_to_bottom) {
-      auto adjustment = terminal_scrolled_window.get_vadjustment();
-      adjustment->set_value(adjustment->get_upper() - adjustment->get_page_size());
-      *scrolled_to_bottom = true;
-      Terminal::get().queue_draw();
+      Terminal::get().scroll_to_bottom();
     }
   });
 

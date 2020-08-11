@@ -76,6 +76,7 @@ Terminal::Terminal() : Source::SearchView() {
 }
 
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
+  perform_scroll_to_bottom = true;
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(command, path.string(), [this](const char *bytes, size_t n) {
@@ -95,6 +96,7 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
 }
 
 int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, const std::string &command, const boost::filesystem::path &path, std::ostream *stderr_stream) {
+  perform_scroll_to_bottom = true;
   TinyProcessLib::Process process(command, path.string(), [&stdout_stream](const char *bytes, size_t n) {
     Glib::ustring umessage(std::string(bytes, n));
     Glib::ustring::iterator iter;
@@ -133,6 +135,7 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
 
 void Terminal::async_process(const std::string &command, const boost::filesystem::path &path, const std::function<void(int exit_status)> &callback, bool quiet) {
   std::thread async_execute_thread([this, command, path, callback, quiet]() {
+    perform_scroll_to_bottom = true;
     LockGuard lock(processes_mutex);
     stdin_buffer.clear();
     auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
@@ -265,6 +268,10 @@ void Terminal::print(std::string message, bool bold) {
   if(auto parent = get_parent()) {
     if(!parent->is_visible())
       parent->show();
+
+    bool expected = true;
+    if(perform_scroll_to_bottom.compare_exchange_strong(expected, false) && scroll_to_bottom)
+      scroll_to_bottom();
   }
 
 #ifdef _WIN32
