@@ -24,44 +24,6 @@ Terminal::Terminal() : Source::SearchView() {
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
 
-  message_queue_thread = std::thread([this] {
-    while(true) {
-      std::unique_lock<std::mutex> lock(message_queue_mutex);
-
-      while(message_queue.empty() && !message_queue_stop)
-        message_queue_condition_variable.wait(lock);
-      if(message_queue_stop)
-        break;
-
-      // Combine messages to avoid overloading GUI thread
-      for(auto it = message_queue.begin(); it != message_queue.end();) {
-        auto next = std::next(it);
-        if(next == message_queue.end())
-          break;
-        if(it->second == next->second) {
-          it->first += next->first;
-          message_queue.erase(next);
-        }
-        else
-          ++it;
-      }
-
-      std::promise<void> messages_printed;
-      dispatcher.post([message_queue = std::move(message_queue), &messages_printed]() mutable {
-        while(!message_queue.empty()) {
-          Terminal::get().print(std::move(message_queue.begin()->first), message_queue.begin()->second);
-          message_queue.pop_front();
-        }
-        messages_printed.set_value();
-      });
-      message_queue.clear();
-
-      // Wait until messages have been printed
-      lock.unlock();
-      messages_printed.get_future().get();
-    }
-  });
-
   // Apply link tags
   get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int /*bytes*/) {
     std::string line_start;
@@ -114,23 +76,14 @@ Terminal::Terminal() : Source::SearchView() {
   });
 }
 
-Terminal::~Terminal() {
-  {
-    std::unique_lock<std::mutex> lock(message_queue_mutex);
-    message_queue_stop = true;
-  }
-  message_queue_condition_variable.notify_one();
-  message_queue_thread.join();
-}
-
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
   perform_scroll_to_bottom = true;
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(command, path.string(), [this](const char *bytes, size_t n) {
-      async_print(std::string(bytes, n));
+      sync_print(std::string(bytes, n));
     }, [this](const char *bytes, size_t n) {
-      async_print(std::string(bytes, n), true);
+      sync_print(std::string(bytes, n), true);
     });
   else
     process = std::make_unique<TinyProcessLib::Process>(command, path.string());
@@ -158,7 +111,7 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
     if(stderr_stream)
       stderr_stream->write(bytes, n);
     else
-      async_print(std::string(bytes, n), true);
+      sync_print(std::string(bytes, n), true);
   }, true);
 
   if(process.get_id() <= 0) {
@@ -188,10 +141,10 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
     stdin_buffer.clear();
     auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
       if(!quiet)
-        async_print(std::string(bytes, n));
+        sync_print(std::string(bytes, n));
     }, [this, quiet](const char *bytes, size_t n) {
       if(!quiet)
-        async_print(std::string(bytes, n), true);
+        sync_print(std::string(bytes, n), true);
     }, true);
     auto pid = process->get_id();
     if(pid <= 0) {
@@ -370,11 +323,18 @@ void Terminal::print(std::string message, bool bold) {
 }
 
 void Terminal::async_print(std::string message, bool bold) {
-  {
-    std::unique_lock<std::mutex> lock(message_queue_mutex);
-    message_queue.emplace_back(std::move(message), bold);
-  }
-  message_queue_condition_variable.notify_one();
+  dispatcher.post([message = std::move(message), bold]() mutable {
+    Terminal::get().print(std::move(message), bold);
+  });
+}
+
+void Terminal::sync_print(std::string message, bool bold) {
+  std::promise<void> done;
+  dispatcher.post([message = std::move(message), bold, &done]() mutable {
+    Terminal::get().print(std::move(message), bold);
+    done.set_value();
+  });
+  done.get_future().get();
 }
 
 void Terminal::configure() {
