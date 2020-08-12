@@ -5,6 +5,7 @@
 #include "source_base.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
+#include <condition_variable>
 #include <functional>
 #include <gtkmm.h>
 #include <iostream>
@@ -18,6 +19,8 @@ public:
     static Terminal singleton;
     return singleton;
   }
+
+  ~Terminal() override;
 
   int process(const std::string &command, const boost::filesystem::path &path = "", bool use_pipes = true);
   int process(std::istream &stdin_stream, std::ostream &stdout_stream, const std::string &command, const boost::filesystem::path &path = "", std::ostream *stderr_stream = nullptr);
@@ -46,6 +49,12 @@ private:
   Glib::RefPtr<Gdk::Cursor> link_mouse_cursor;
   Glib::RefPtr<Gdk::Cursor> default_mouse_cursor;
   size_t deleted_lines = 0;
+
+  std::thread message_queue_thread;
+  bool message_queue_stop = false;
+  std::condition_variable message_queue_condition_variable;
+  std::mutex message_queue_mutex;
+  std::list<std::pair<std::string, bool>> message_queue;
 
   struct Link {
     int start_pos, end_pos;

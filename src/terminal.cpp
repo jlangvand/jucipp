@@ -5,6 +5,7 @@
 #include "notebook.hpp"
 #include "project.hpp"
 #include "utility.hpp"
+#include <future>
 #include <iostream>
 #include <regex>
 #include <thread>
@@ -22,6 +23,44 @@ Terminal::Terminal() : Source::SearchView() {
 
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
+
+  message_queue_thread = std::thread([this] {
+    while(true) {
+      std::unique_lock<std::mutex> lock(message_queue_mutex);
+
+      while(message_queue.empty() && !message_queue_stop)
+        message_queue_condition_variable.wait(lock);
+      if(message_queue_stop)
+        break;
+
+      // Combine messages to avoid overloading GUI thread
+      for(auto it = message_queue.begin(); it != message_queue.end();) {
+        auto next = std::next(it);
+        if(next == message_queue.end())
+          break;
+        if(it->second == next->second) {
+          it->first += next->first;
+          message_queue.erase(next);
+        }
+        else
+          ++it;
+      }
+
+      std::promise<void> messages_printed;
+      dispatcher.post([message_queue = std::move(message_queue), &messages_printed]() mutable {
+        while(!message_queue.empty()) {
+          Terminal::get().print(std::move(message_queue.begin()->first), message_queue.begin()->second);
+          message_queue.pop_front();
+        }
+        messages_printed.set_value();
+      });
+      message_queue.clear();
+
+      // Wait until messages have been printed
+      lock.unlock();
+      messages_printed.get_future().get();
+    }
+  });
 
   // Apply link tags
   get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int /*bytes*/) {
@@ -73,6 +112,15 @@ Terminal::Terminal() : Source::SearchView() {
     }
     parse_text(text.raw());
   });
+}
+
+Terminal::~Terminal() {
+  {
+    std::unique_lock<std::mutex> lock(message_queue_mutex);
+    message_queue_stop = true;
+  }
+  message_queue_condition_variable.notify_one();
+  message_queue_thread.join();
 }
 
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
@@ -322,9 +370,11 @@ void Terminal::print(std::string message, bool bold) {
 }
 
 void Terminal::async_print(std::string message, bool bold) {
-  dispatcher.post([message = std::move(message), bold]() mutable {
-    Terminal::get().print(std::move(message), bold);
-  });
+  {
+    std::unique_lock<std::mutex> lock(message_queue_mutex);
+    message_queue.emplace_back(std::move(message), bold);
+  }
+  message_queue_condition_variable.notify_one();
 }
 
 void Terminal::configure() {
