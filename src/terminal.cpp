@@ -329,12 +329,12 @@ void Terminal::async_print(std::string message, bool bold) {
 }
 
 void Terminal::sync_print(std::string message, bool bold) {
-  std::promise<void> done;
-  dispatcher.post([message = std::move(message), bold, &done]() mutable {
+  std::promise<void> message_printed;
+  dispatcher.post([message = std::move(message), bold, &message_printed]() mutable {
     Terminal::get().print(std::move(message), bold);
-    done.set_value();
+    message_printed.set_value();
   });
-  done.get_future().get();
+  message_printed.get_future().get();
 }
 
 void Terminal::configure() {
