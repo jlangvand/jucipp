@@ -1783,16 +1783,23 @@ void Window::add_widgets() {
   EntryBox::get().hide();
   Info::get().hide();
 
-  // Scroll to end of terminal whenever info is printed and end of terminal is shown
   auto scrolled_to_bottom = std::make_shared<bool>(true);
-  terminal_scrolled_window.get_vadjustment()->signal_value_changed().connect([this, scrolled_to_bottom] {
-    auto adjustment = terminal_scrolled_window.get_vadjustment();
-    *scrolled_to_bottom = adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size();
+  terminal_scrolled_window.signal_edge_reached().connect([scrolled_to_bottom](Gtk::PositionType position) {
+    if(position == Gtk::PositionType::POS_BOTTOM)
+      *scrolled_to_bottom = true;
   });
-  terminal_scrolled_window.get_vadjustment()->signal_changed().connect([this, scrolled_to_bottom] {
+  auto last_value = std::make_shared<double>(terminal_scrolled_window.get_vadjustment()->get_value());
+  terminal_scrolled_window.get_vadjustment()->signal_value_changed().connect([this, scrolled_to_bottom, last_value] {
+    auto adjustment = terminal_scrolled_window.get_vadjustment();
+    if(adjustment->get_value() < *last_value)
+      *scrolled_to_bottom = false;
+    *last_value = adjustment->get_value();
+  });
+  terminal_scrolled_window.get_vadjustment()->signal_changed().connect([this, scrolled_to_bottom, last_value] {
     auto adjustment = terminal_scrolled_window.get_vadjustment();
     if(adjustment->get_value() == adjustment->get_upper() - adjustment->get_page_size()) // If for instance the terminal has been cleared
       *scrolled_to_bottom = true;
+    *last_value = adjustment->get_value();
   });
   Terminal::get().scroll_to_bottom = [this, scrolled_to_bottom] {
     auto adjustment = terminal_scrolled_window.get_vadjustment();
@@ -1801,9 +1808,8 @@ void Window::add_widgets() {
     Terminal::get().queue_draw();
   };
   Terminal::get().signal_size_allocate().connect([scrolled_to_bottom](Gtk::Allocation & /*allocation*/) {
-    if(*scrolled_to_bottom) {
+    if(*scrolled_to_bottom)
       Terminal::get().scroll_to_bottom();
-    }
   });
 
   EntryBox::get().signal_show().connect([hpaned, notebook_and_terminal_vpaned, notebook_vbox]() {
