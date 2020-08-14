@@ -2988,7 +2988,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
 
   auto allow_insertion = [](const Gtk::TextIter &iter) {
     if(iter.ends_line() || *iter == ' ' || *iter == '\t' || *iter == ';' || *iter == ',' ||
-       *iter == ')' || *iter == '[' || *iter == ']' || *iter == '{' || *iter == '}' || *iter == '<' || *iter == '>' || *iter == '/')
+       *iter == ')' || *iter == ']' || *iter == '}' || *iter == '<' || *iter == '>' || *iter == '/')
       return true;
     return false;
   };
