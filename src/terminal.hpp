@@ -49,9 +49,6 @@ private:
   Glib::RefPtr<Gdk::Cursor> default_mouse_cursor;
   size_t deleted_lines = 0;
 
-  /// Made for tiny-process-library handlers: prints in GUI thread, and waits until the message has been printed. Callable from any thread.
-  void sync_print(std::string message, bool bold = false);
-
   struct Link {
     int start_pos, end_pos;
     std::string path;

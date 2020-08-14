@@ -81,9 +81,9 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(command, path.string(), [this](const char *bytes, size_t n) {
-      sync_print(std::string(bytes, n));
+      async_print(std::string(bytes, n));
     }, [this](const char *bytes, size_t n) {
-      sync_print(std::string(bytes, n), true);
+      async_print(std::string(bytes, n), true);
     });
   else
     process = std::make_unique<TinyProcessLib::Process>(command, path.string());
@@ -111,7 +111,7 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
     if(stderr_stream)
       stderr_stream->write(bytes, n);
     else
-      sync_print(std::string(bytes, n), true);
+      async_print(std::string(bytes, n), true);
   }, true);
 
   if(process.get_id() <= 0) {
@@ -140,11 +140,25 @@ void Terminal::async_process(const std::string &command, const boost::filesystem
     LockGuard lock(processes_mutex);
     stdin_buffer.clear();
     auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
-      if(!quiet)
-        sync_print(std::string(bytes, n));
+      if(!quiet) {
+        // Print stdout message sequentially to avoid the GUI becoming unresponsive
+        std::promise<void> message_printed;
+        dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+          Terminal::get().print(std::move(message));
+          message_printed.set_value();
+        });
+        message_printed.get_future().get();
+      }
     }, [this, quiet](const char *bytes, size_t n) {
-      if(!quiet)
-        sync_print(std::string(bytes, n), true);
+      if(!quiet) {
+        // Print stderr message sequentially to avoid the GUI becoming unresponsive
+        std::promise<void> message_printed;
+        dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+          Terminal::get().print(std::move(message), true);
+          message_printed.set_value();
+        });
+        message_printed.get_future().get();
+      }
     }, true);
     auto pid = process->get_id();
     if(pid <= 0) {
@@ -326,15 +340,6 @@ void Terminal::async_print(std::string message, bool bold) {
   dispatcher.post([message = std::move(message), bold]() mutable {
     Terminal::get().print(std::move(message), bold);
   });
-}
-
-void Terminal::sync_print(std::string message, bool bold) {
-  std::promise<void> message_printed;
-  dispatcher.post([message = std::move(message), bold, &message_printed]() mutable {
-    Terminal::get().print(std::move(message), bold);
-    message_printed.set_value();
-  });
-  message_printed.get_future().get();
 }
 
 void Terminal::configure() {
