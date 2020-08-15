@@ -35,6 +35,7 @@ can use juCi++ through POSIX compatibility layers such as MSYS2.
 * Find symbol through Ctags ([Universal Ctags](https://github.com/universal-ctags/ctags) is recommended)
 * Spell checking depending on file context
 * Run shell commands within juCi++
+* ANSI colors are supported. Enable for instance by setting the environment variables `CLICOLOR=1 CLICOLOR_FORCE=1` before starting juCi++. Colored diagnostics from clang is enabled through the flag `-fcolor-diagnostics`, and gcc uses the flag `-fdiagnostics-color`.
 * Regex search and replace
 * Smart paste, keys and indentation
 * Extend/shrink selection

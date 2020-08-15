@@ -75,7 +75,7 @@ const std::string default_config_file = R"RAW({
         "debug_place_cursor_at_stop": false
     },
     "terminal": {
-        "history_size": 1000,
+        "history_size": 10000,
         "font_comment": "Use \"\" to use source.font with slightly smaller size",
         "font": ""
     },
@@ -210,6 +210,7 @@ const std::string default_config_file = R"RAW({
 #endif
                                                     R"RAW(
         "grep_command": "grep",
+        "cargo_command": "cargo",
         "python_command": "PYTHONUNBUFFERED=1 python",
         "markdown_command": "grip -b"
     },

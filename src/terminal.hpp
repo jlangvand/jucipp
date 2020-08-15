@@ -45,9 +45,10 @@ private:
   Dispatcher dispatcher;
   Glib::RefPtr<Gtk::TextTag> bold_tag;
   Glib::RefPtr<Gtk::TextTag> link_tag;
+  Glib::RefPtr<Gtk::TextTag> invisible_tag;
+  Glib::RefPtr<Gtk::TextTag> red_tag, green_tag, yellow_tag, blue_tag, magenta_tag, cyan_tag;
   Glib::RefPtr<Gdk::Cursor> link_mouse_cursor;
   Glib::RefPtr<Gdk::Cursor> default_mouse_cursor;
-  size_t deleted_lines = 0;
 
   struct Link {
     int start_pos, end_pos;

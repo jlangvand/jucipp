@@ -65,7 +65,7 @@ namespace Project {
     boost::filesystem::path get_debug_path() override { return get_default_path(); }
     bool update_debug(bool force = false) override { return true; }
 
-    std::string get_compile_command() override { return "cargo build"; }
+    std::string get_compile_command() override;
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override { return get_debug_path() / project_path.filename(); }
 
     std::vector<boost::filesystem::path> get_exclude_paths() override;

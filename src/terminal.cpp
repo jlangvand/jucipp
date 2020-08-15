@@ -21,58 +21,178 @@ Terminal::Terminal() : Source::SearchView() {
   link_tag = get_buffer()->create_tag();
   link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
 
+  invisible_tag = get_buffer()->create_tag();
+  invisible_tag->property_invisible() = true;
+
+  red_tag = get_buffer()->create_tag();
+  green_tag = get_buffer()->create_tag();
+  yellow_tag = get_buffer()->create_tag();
+  blue_tag = get_buffer()->create_tag();
+  magenta_tag = get_buffer()->create_tag();
+  cyan_tag = get_buffer()->create_tag();
+
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
 
-  // Apply link tags
-  get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int /*bytes*/) {
-    std::string line_start;
-    size_t line_start_pos = 0;
-    bool delimiter_found = false;
-    bool dot_found = false;
-    bool number_found = false;
+  class DetectPossibleLink {
+    bool delimiter_found = false, dot_found = false, number_after_delimiter_and_dot_found = false;
 
-    auto start = iter;
-    start.backward_chars(text.size());
-    int line_nr = start.get_line();
-
-    auto parse_text = [&](const std::string &text) {
-      for(size_t i = 0; i < text.size(); ++i) {
-        if(text[i] == '\n') {
-          if(delimiter_found && dot_found && number_found) {
-            if(auto link = !line_start.empty()
-                               ? find_link(line_start + text.substr(0, i))
-                               : find_link(text, line_start_pos, i - line_start_pos)) {
-              auto link_start = get_buffer()->get_iter_at_line(line_nr);
-              auto link_end = link_start;
-              link_start.forward_chars(link->start_pos);
-              link_end.forward_chars(link->end_pos);
-              get_buffer()->apply_tag(link_tag, link_start, link_end);
-            }
-          }
-          line_start_pos = i + 1;
-          delimiter_found = false;
-          dot_found = false;
-          number_found = false;
-          ++line_nr;
-          line_start.clear();
-        }
-        else if(text[i] == '/' || text[i] == '\\')
-          delimiter_found = true;
-        else if(text[i] == '.')
-          dot_found = true;
-        else if(text[i] >= '0' && text[i] <= '9')
-          number_found = true;
+  public:
+    bool operator()(char chr) {
+      if(chr == '\n') {
+        auto all_found = delimiter_found && dot_found && number_after_delimiter_and_dot_found;
+        delimiter_found = dot_found = number_after_delimiter_and_dot_found = false;
+        return all_found;
       }
+      else if(chr == '/' || chr == '\\')
+        delimiter_found = true;
+      else if(chr == '.')
+        dot_found = true;
+      else if(delimiter_found && dot_found && chr >= '0' && chr <= '9')
+        number_after_delimiter_and_dot_found = true;
+      return false;
+    }
+  };
+  class ParseAnsiEscapeSequence {
+    enum class State { none = 1, escaped, parameter_bytes, intermediate_bytes };
+    State state = State::none;
+    std::string parameters;
+    size_t length = 0;
+
+  public:
+    struct Sequence {
+      std::string arguments;
+      size_t length;
+      char command;
     };
 
-    if(!start.starts_line()) {
-      auto end = start;
-      start = get_buffer()->get_iter_at_line(start.get_line());
-      line_start = get_buffer()->get_text(start, end).raw();
-      parse_text(line_start);
+    boost::optional<Sequence> operator()(char chr) {
+      if(chr == '\e') {
+        state = State::escaped;
+        parameters = {};
+        length = 1;
+      }
+      else if(state != State::none) {
+        ++length;
+        if(chr == '[') {
+          if(state == State::escaped)
+            state = State::parameter_bytes;
+          else
+            state = State::none;
+        }
+        else if(chr >= 0x30 && chr <= 0x3f) {
+          if(state == State::parameter_bytes)
+            parameters += chr;
+          else
+            state = State::none;
+        }
+        else if(chr >= 0x20 && chr <= 0x2f) {
+          if(state == State::parameter_bytes)
+            state = State::intermediate_bytes;
+          else if(state != State::intermediate_bytes)
+            state = State::none;
+        }
+        else if(chr >= 0x40 && chr <= 0x7e) {
+          if(state == State::parameter_bytes || state == State::intermediate_bytes) {
+            state = State::none;
+            return Sequence{std::move(parameters), length, chr};
+          }
+          else
+            state = State::none;
+        }
+        else
+          state = State::none;
+      }
+      return {};
     }
-    parse_text(text.raw());
+  };
+  get_buffer()->signal_insert().connect([this, detect_possible_link = DetectPossibleLink(), parse_ansi_escape_sequence = ParseAnsiEscapeSequence(), last_color = -1, last_color_sequence_mark = std::shared_ptr<Source::Mark>()](const Gtk::TextIter &iter, const Glib::ustring &text_, int /*bytes*/) mutable {
+    boost::optional<Gtk::TextIter> start_of_text;
+    int line_nr_offset = 0;
+    auto get_line_nr = [&] {
+      if(!start_of_text) {
+        start_of_text = iter;
+        start_of_text->backward_chars(text_.size());
+      }
+      return start_of_text->get_line() + line_nr_offset;
+    };
+    const auto &text = text_.raw();
+    for(size_t i = 0; i < text.size(); ++i) {
+      if(detect_possible_link(text[i])) {
+        auto start = get_buffer()->get_iter_at_line(get_line_nr());
+        auto end = start;
+        if(!end.ends_line())
+          end.forward_to_line_end();
+        if(auto link = find_link(get_buffer()->get_text(start, end, false).raw())) { // Apply link tags
+          auto link_start = start;
+          if(link_start.has_tag(invisible_tag))
+            link_start.forward_visible_cursor_position();
+          auto link_end = link_start;
+          link_start.forward_visible_cursor_positions(link->start_pos);
+          link_end.forward_visible_cursor_positions(link->end_pos);
+          get_buffer()->apply_tag(link_tag, link_start, link_end);
+        }
+      }
+      if(auto sequence = parse_ansi_escape_sequence(text[i])) {
+        auto end = iter;
+        end.backward_chars(utf8_character_count(text, i + 1));
+        auto start = end;
+        start.backward_chars(sequence->length);
+        get_buffer()->apply_tag(invisible_tag, start, end);
+        if(sequence->command == 'm') {
+          int color = -1;
+          if(sequence->arguments.empty())
+            color = 0;
+          else {
+            size_t pos = 0;
+            size_t start_pos = pos;
+            while(true) {
+              pos = sequence->arguments.find(";", pos);
+              try {
+                auto code = std::stoi(sequence->arguments.substr(start_pos, pos != std::string::npos ? pos - start_pos : pos));
+                if(code == 39)
+                  color = 0;
+                else if(code == 38) {
+                  color = 0;
+                  break; // Do not read next arguments
+                }
+                else if(code == 48 || code == 58)
+                  break; // Do not read next arguments
+                else if(code == 0 || (code >= 30 && code <= 37))
+                  color = code;
+              }
+              catch(...) {
+              }
+              if(pos == std::string::npos)
+                break;
+              pos += 1;
+              start_pos = pos;
+            }
+          }
+          if(last_color >= 0) {
+            if(last_color == 31)
+              get_buffer()->apply_tag(red_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 32)
+              get_buffer()->apply_tag(green_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 33)
+              get_buffer()->apply_tag(yellow_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 34)
+              get_buffer()->apply_tag(blue_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 35)
+              get_buffer()->apply_tag(magenta_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 36)
+              get_buffer()->apply_tag(cyan_tag, (*last_color_sequence_mark)->get_iter(), start);
+          }
+
+          if(color >= 0) {
+            last_color = color;
+            last_color_sequence_mark = std::make_shared<Source::Mark>(end);
+          }
+        }
+      }
+      if(text[i] == '\n')
+        ++line_nr_offset;
+    }
   });
 }
 
@@ -239,11 +359,13 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
   const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                      // C/C++ compile warning/error/rename usages
                                      "^In file included from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info
                                      "^                 from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info (gcc)
-                                     "^  --> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                    // Rust
+                                     "^ +--> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                    // Rust
                                      "^Assertion failed: .*file ([A-Z]:)?([^:]+), line ([0-9]+)\\.$|" // clang assert()
                                      "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|" // gcc assert()
                                      "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                          // g_assert (glib.h)
                                      "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
+                                     "^    at .*?\\(([A-Z]:)?([\\/][^:]+):([0-9]+):([0-9]+)\\)$|"     // Node.js stack trace
+                                     "^      at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\)$|"        // Node.js Jest
                                      "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$",          // Python
                                      std::regex::optimize);
   std::smatch sm;
@@ -251,7 +373,11 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
                       line.cbegin() + (length == std::string::npos ? line.size() : std::min(pos + length, line.size())),
                       sm, link_regex)) {
     for(size_t sub = 1; sub < link_regex.mark_count();) {
-      size_t subs = sub == 1 || sub == 4 + 3 + 3 + 1 ? 4 : 3;
+      size_t subs = (sub == 1 ||
+                     sub == 1 + 4 + 3 + 3 ||
+                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 ||
+                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4) ?
+                                                                   4 : 3;
       if(sm.length(sub + 1)) {
         auto start_pos = static_cast<int>(sm.position(sub + 1) - sm.length(sub));
         auto end_pos = static_cast<int>(sm.position(sub + subs - 1) + sm.length(sub + subs - 1));
@@ -289,33 +415,7 @@ void Terminal::print(std::string message, bool bold) {
       scroll_to_bottom();
   }
 
-#ifdef _WIN32
-  // Remove color codes
-  size_t pos = 0;
-  while((pos = message.find('\e', pos)) != std::string::npos) {
-    if((pos + 2) >= message.size())
-      break;
-    if(message[pos + 1] == '[') {
-      size_t end_pos = pos + 2;
-      bool color_code_found = false;
-      while(end_pos < message.size()) {
-        if((message[end_pos] >= '0' && message[end_pos] <= '9') || message[end_pos] == ';')
-          end_pos++;
-        else if(message[end_pos] == 'm') {
-          color_code_found = true;
-          break;
-        }
-        else
-          break;
-      }
-      if(color_code_found)
-        message.erase(pos, end_pos - pos + 1);
-    }
-  }
   Glib::ustring umessage = std::move(message);
-#else
-  Glib::ustring umessage = std::move(message);
-#endif
 
   Glib::ustring::iterator iter;
   while(!umessage.validate(iter)) {
@@ -329,11 +429,9 @@ void Terminal::print(std::string message, bool bold) {
   else
     get_buffer()->insert(get_buffer()->end(), umessage);
 
-  if(get_buffer()->get_line_count() > Config::get().terminal.history_size) {
-    int lines = get_buffer()->get_line_count() - Config::get().terminal.history_size;
-    get_buffer()->erase(get_buffer()->begin(), get_buffer()->get_iter_at_line(lines));
-    deleted_lines += static_cast<size_t>(lines);
-  }
+  auto excess_lines = get_buffer()->get_line_count() - Config::get().terminal.history_size;
+  if(excess_lines > 0)
+    get_buffer()->erase(get_buffer()->begin(), get_buffer()->get_iter_at_line(excess_lines));
 }
 
 void Terminal::async_print(std::string message, bool bold) {
@@ -344,6 +442,52 @@ void Terminal::async_print(std::string message, bool bold) {
 
 void Terminal::configure() {
   link_tag->property_foreground_rgba() = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_LINK);
+
+  auto normal_color = get_style_context()->get_color(Gtk::StateFlags::STATE_FLAG_NORMAL);
+  auto light_theme = (normal_color.get_red() + normal_color.get_green() + normal_color.get_blue()) / 3 < 0.5;
+
+  Gdk::RGBA rgba;
+  rgba.set_rgba(1.0, 0.0, 0.0);
+  double factor = light_theme ? 0.5 : 0.35;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  red_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(0.0, 1.0, 0.0);
+  factor = 0.4;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  green_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(1.0, 1.0, 0.2);
+  factor = 0.5;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  yellow_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(0.0, 0.0, 1.0);
+  factor = light_theme ? 0.8 : 0.2;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  blue_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(1.0, 0.0, 1.0);
+  factor = light_theme ? 0.45 : 0.25;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  magenta_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(0.0, 1.0, 1.0);
+  factor = light_theme ? 0.35 : 0.35;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  cyan_tag->property_foreground_rgba() = rgba;
 
   // Set search match style:
   get_buffer()->get_tag_table()->foreach([](const Glib::RefPtr<Gtk::TextTag> &tag) {
@@ -374,23 +518,25 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
     window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, button_event->x, button_event->y, location_x, location_y);
     get_iter_at_location(iter, location_x, location_y);
     if(iter.has_tag(link_tag)) {
-      auto start_iter = get_buffer()->get_iter_at_line(iter.get_line());
-      auto end_iter = start_iter;
-      while(!end_iter.ends_line() && end_iter.forward_char()) {
-      }
-      auto link = find_link(get_buffer()->get_text(start_iter, end_iter).raw());
-      if(link) {
+      auto start = get_buffer()->get_iter_at_line(iter.get_line());
+      auto end = start;
+      if(!end.ends_line())
+        end.forward_to_line_end();
+      if(auto link = find_link(get_buffer()->get_text(start, end, false).raw())) {
         auto path = filesystem::get_long_path(link->path);
 
         if(path.is_relative()) {
-          if(Project::current) {
+          auto project = Project::current;
+          if(!project)
+            project = Project::create();
+          if(project) {
             boost::system::error_code ec;
-            if(boost::filesystem::exists(Project::current->build->get_default_path() / path, ec))
-              path = Project::current->build->get_default_path() / path;
-            else if(boost::filesystem::exists(Project::current->build->get_debug_path() / path, ec))
-              path = Project::current->build->get_debug_path() / path;
-            else if(boost::filesystem::exists(Project::current->build->project_path / path, ec))
-              path = Project::current->build->project_path / path;
+            if(boost::filesystem::exists(project->build->get_default_path() / path, ec))
+              path = project->build->get_default_path() / path;
+            else if(boost::filesystem::exists(project->build->get_debug_path() / path, ec))
+              path = project->build->get_debug_path() / path;
+            else if(boost::filesystem::exists(project->build->project_path / path, ec))
+              path = project->build->project_path / path;
             else
               return Gtk::TextView::on_button_press_event(button_event);
           }
@@ -435,7 +581,7 @@ bool Terminal::on_key_press_event(GdkEventKey *event) {
       get_buffer()->place_cursor(get_buffer()->end());
       if(stdin_buffer.size() > 0 && get_buffer()->get_char_count() > 0) {
         auto iter = get_buffer()->end();
-        iter--;
+        iter.backward_char();
         stdin_buffer.erase(stdin_buffer.size() - 1);
         get_buffer()->erase(iter, get_buffer()->end());
       }

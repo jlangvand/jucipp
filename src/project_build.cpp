@@ -174,6 +174,10 @@ std::vector<boost::filesystem::path> Project::CompileCommandsBuild::get_exclude_
   return exclude_paths;
 }
 
+std::string Project::CargoBuild::get_compile_command() {
+  return Config::get().project.cargo_command + " build";
+}
+
 std::vector<boost::filesystem::path> Project::CargoBuild::get_exclude_paths() {
   auto exclude_paths = Project::Build::get_exclude_paths();
   exclude_paths.emplace_back(project_path / "target");
