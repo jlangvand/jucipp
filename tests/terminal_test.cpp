@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "terminal.hpp"
+#include <future>
 #include <glib.h>
 #include <gtksourceviewmm.h>
 
@@ -214,5 +215,136 @@ int main() {
     assert(iter.get_tags() == std::vector<Glib::RefPtr<Gtk::TextTag>>{terminal.red_tag});
     iter.forward_visible_cursor_positions(1);
     assert(iter.get_tags().empty());
+  }
+
+  // async_process tests
+  {
+    terminal.clear();
+    std::promise<int> done;
+    terminal.async_process("echo test", "", [&done](int exit_status) {
+      done.set_value(exit_status);
+    });
+    auto future = done.get_future();
+    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+    }
+
+    assert(future.get() == 0);
+    assert(buffer->get_text() == "test\n");
+    assert(!buffer->begin().starts_tag(terminal.bold_tag));
+    assert(!buffer->end().ends_tag(terminal.bold_tag));
+  }
+  {
+    terminal.clear();
+    std::promise<int> done;
+    terminal.async_process("echo test", "", [&done](int exit_status) {
+      done.set_value(exit_status);
+    }, true);
+    auto future = done.get_future();
+    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+    }
+
+    assert(future.get() == 0);
+    assert(buffer->get_text() == "");
+  }
+  {
+    terminal.clear();
+    std::promise<int> done;
+    terminal.async_process("testing_invalid_command", "", [&done](int exit_status) {
+      done.set_value(exit_status);
+    });
+    auto future = done.get_future();
+    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+    }
+    assert(future.get() != 0);
+    assert(buffer->begin().starts_tag(terminal.bold_tag));
+    assert(buffer->end().ends_tag(terminal.bold_tag));
+    assert(buffer->get_text() != "");
+  }
+  {
+    terminal.clear();
+    std::promise<int> done;
+    terminal.async_process("testing_invalid_command", "", [&done](int exit_status) {
+      done.set_value(exit_status);
+    }, true);
+    auto future = done.get_future();
+    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+    }
+    assert(future.get() != 0);
+    assert(buffer->get_text() == "");
+  }
+
+  // Testing process(const std::string &command, const boost::filesystem::path &path, bool use_pipes)
+  {
+    terminal.clear();
+    assert(terminal.process("echo test", "") == 0);
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+    assert(buffer->get_text() == "test\n");
+    assert(!buffer->begin().starts_tag(terminal.bold_tag));
+    assert(!buffer->end().ends_tag(terminal.bold_tag));
+  }
+  {
+    terminal.clear();
+    assert(terminal.process("echo test", "", false) == 0);
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+    assert(buffer->get_text() == "");
+  }
+  {
+    terminal.clear();
+    assert(terminal.process("testing_invalid_command", "") != 0);
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+    assert(buffer->get_text() != "");
+    assert(buffer->begin().starts_tag(terminal.bold_tag));
+    assert(buffer->end().ends_tag(terminal.bold_tag));
+  }
+  {
+    terminal.clear();
+    assert(terminal.process("testing_invalid_command", "", false) != 0);
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+    assert(buffer->get_text() == "");
+  }
+
+  // Testing process(std::istream &stdin_stream, std::ostream &stdout_stream, const std::string &command, const boost::filesystem::path &path, std::ostream *stderr_stream)
+  {
+    terminal.clear();
+    std::stringstream stdin_stream, stdout_stream;
+    assert(terminal.process(stdin_stream, stdout_stream, "echo test", "") == 0);
+    assert(stdout_stream.str() == "test\n");
+    assert(buffer->get_text() == "");
+  }
+  {
+    terminal.clear();
+    std::stringstream stdin_stream("test"), stdout_stream;
+    assert(terminal.process(stdin_stream, stdout_stream, "cat", "") == 0);
+    assert(stdout_stream.str() == "test");
+    assert(buffer->get_text() == "");
+  }
+  {
+    terminal.clear();
+    std::stringstream stdin_stream, stdout_stream, stderr_stream;
+    assert(terminal.process(stdin_stream, stdout_stream, "testing_invalid_command", "", &stderr_stream) != 0);
+    assert(stderr_stream.str() != "");
+    assert(buffer->get_text() == "");
+  }
+  {
+    terminal.clear();
+    std::stringstream stdin_stream, stdout_stream;
+    assert(terminal.process(stdin_stream, stdout_stream, "testing_invalid_command", "") != 0);
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+    assert(buffer->get_text() != "");
+    assert(buffer->begin().starts_tag(terminal.bold_tag));
+    assert(buffer->end().ends_tag(terminal.bold_tag));
   }
 }
