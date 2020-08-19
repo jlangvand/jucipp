@@ -1381,6 +1381,8 @@ void Window::set_menu_actions() {
       if(!content.empty()) {
         last_run_command = content;
         auto directory_folder = Project::get_preferably_directory_folder();
+        if(Config::get().terminal.clear_on_run_command)
+          Terminal::get().clear();
         Terminal::get().async_print("Running: " + content + '\n');
 
         Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
@@ -1489,8 +1491,11 @@ void Window::set_menu_actions() {
     EntryBox::get().clear();
     EntryBox::get().entries.emplace_back(last_run_debug_command, [this](const std::string &content) {
       if(!content.empty()) {
-        if(Project::current)
+        if(Project::current) {
+          if(Config::get().terminal.clear_on_run_command)
+            Terminal::get().clear();
           Project::current->debug_run_command(content);
+        }
         last_run_debug_command = content;
       }
       EntryBox::get().hide();

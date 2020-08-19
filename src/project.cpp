@@ -372,7 +372,7 @@ void Project::LLDB::debug_start() {
 
   debugging = true;
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Compiling and debugging " + *run_arguments + "\n");
@@ -843,7 +843,7 @@ void Project::Clang::compile() {
 
   compiling = true;
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Compiling project " + filesystem::get_short_path(build->project_path).string() + "\n");
@@ -877,7 +877,7 @@ void Project::Clang::compile_and_run() {
 
   compiling = true;
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Compiling and running " + arguments + "\n");
@@ -986,7 +986,7 @@ void Project::Python::compile_and_run() {
     path = view->file_path.parent_path();
   }
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Running " + command + "\n");
@@ -1012,7 +1012,7 @@ void Project::JavaScript::compile_and_run() {
     path = view->file_path.parent_path();
   }
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Running " + command + "\n");
@@ -1025,7 +1025,7 @@ void Project::HTML::compile_and_run() {
   if(dynamic_cast<NpmBuild *>(build.get())) {
     std::string command = "npm start";
 
-    if(Config::get().project.clear_terminal_on_compile)
+    if(Config::get().terminal.clear_on_compile)
       Terminal::get().clear();
 
     Terminal::get().print("Running " + command + "\n");
@@ -1053,7 +1053,7 @@ std::pair<std::string, std::string> Project::Rust::get_run_arguments() {
 void Project::Rust::compile() {
   compiling = true;
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("Compiling project " + filesystem::get_short_path(build->project_path).string() + "\n");
@@ -1067,7 +1067,7 @@ void Project::Rust::compile() {
 void Project::Rust::compile_and_run() {
   compiling = true;
 
-  if(Config::get().project.clear_terminal_on_compile)
+  if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   auto arguments = get_run_arguments().second;

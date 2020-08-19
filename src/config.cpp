@@ -198,7 +198,6 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   project.meson.compile_command = cfg.get<std::string>("project.meson.compile_command");
   project.default_build_management_system = cfg.get<std::string>("project.default_build_management_system");
   project.save_on_compile_or_run = cfg.get<bool>("project.save_on_compile_or_run");
-  project.clear_terminal_on_compile = cfg.get<bool>("project.clear_terminal_on_compile");
   project.ctags_command = cfg.get<std::string>("project.ctags_command");
   project.grep_command = cfg.get<std::string>("project.grep_command");
   project.cargo_command = cfg.get<std::string>("project.cargo_command");
@@ -207,6 +206,8 @@ void Config::read(const boost::property_tree::ptree &cfg) {
 
   terminal.history_size = cfg.get<int>("terminal.history_size");
   terminal.font = cfg.get<std::string>("terminal.font");
+  terminal.clear_on_compile = cfg.get<bool>("terminal.clear_on_compile");
+  terminal.clear_on_run_command = cfg.get<bool>("terminal.clear_on_run_command");
 
   log.libclang = cfg.get<bool>("log.libclang");
   log.language_server = cfg.get<bool>("log.language_server");

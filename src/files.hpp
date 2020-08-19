@@ -77,7 +77,45 @@ const std::string default_config_file = R"RAW({
     "terminal": {
         "history_size": 10000,
         "font_comment": "Use \"\" to use source.font with slightly smaller size",
-        "font": ""
+        "font": "",
+        "clear_on_compile": true,
+        "clear_on_run_command": false
+    },
+    "project": {
+        "default_build_path_comment": "Use <project_directory_name> to insert the project top level directory name",
+        "default_build_path": "./build",
+        "debug_build_path_comment": "Use <project_directory_name> to insert the project top level directory name, and <default_build_path> to insert your default_build_path setting.",
+        "debug_build_path": "<default_build_path>/debug",
+        "cmake": {)RAW"
+#ifdef _WIN32
+                                                    R"RAW(
+            "command": "cmake -G\"MSYS Makefiles\"",)RAW"
+#else
+                                                    R"RAW(
+            "command": "cmake",)RAW"
+#endif
+                                                    R"RAW(
+            "compile_command": "cmake --build ."
+        },
+        "meson": {
+            "command": "meson",
+            "compile_command": "ninja"
+        },
+        "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
+        "default_build_management_system": "cmake",
+        "save_on_compile_or_run": true,)RAW"
+#ifdef JUCI_USE_UCTAGS
+                                                    R"RAW(
+        "ctags_command": "uctags",)RAW"
+#else
+                                                    R"RAW(
+        "ctags_command": "ctags",)RAW"
+#endif
+                                                    R"RAW(
+        "grep_command": "grep",
+        "cargo_command": "cargo",
+        "python_command": "PYTHONUNBUFFERED=1 python",
+        "markdown_command": "grip -b"
     },
     "keybindings": {
         "preferences": "<primary>comma",
@@ -176,43 +214,6 @@ const std::string default_config_file = R"RAW({
         "window_toggle_tabs": "",
         "window_toggle_zen_mode": "",
         "window_clear_terminal": ""
-    },
-    "project": {
-        "default_build_path_comment": "Use <project_directory_name> to insert the project top level directory name",
-        "default_build_path": "./build",
-        "debug_build_path_comment": "Use <project_directory_name> to insert the project top level directory name, and <default_build_path> to insert your default_build_path setting.",
-        "debug_build_path": "<default_build_path>/debug",
-        "cmake": {)RAW"
-#ifdef _WIN32
-                                                    R"RAW(
-            "command": "cmake -G\"MSYS Makefiles\"",)RAW"
-#else
-                                                    R"RAW(
-            "command": "cmake",)RAW"
-#endif
-                                                    R"RAW(
-            "compile_command": "cmake --build ."
-        },
-        "meson": {
-            "command": "meson",
-            "compile_command": "ninja"
-        },
-        "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
-        "default_build_management_system": "cmake",
-        "save_on_compile_or_run": true,
-        "clear_terminal_on_compile": true,)RAW"
-#ifdef JUCI_USE_UCTAGS
-                                                    R"RAW(
-        "ctags_command": "uctags",)RAW"
-#else
-                                                    R"RAW(
-        "ctags_command": "ctags",)RAW"
-#endif
-                                                    R"RAW(
-        "grep_command": "grep",
-        "cargo_command": "cargo",
-        "python_command": "PYTHONUNBUFFERED=1 python",
-        "markdown_command": "grip -b"
     },
     "documentation_searches": {
         "clang": {

@@ -25,6 +25,8 @@ public:
   public:
     int history_size;
     std::string font;
+    bool clear_on_compile;
+    bool clear_on_run_command;
   };
 
   class Project {
@@ -46,7 +48,6 @@ public:
     Meson meson;
     std::string default_build_management_system;
     bool save_on_compile_or_run;
-    bool clear_terminal_on_compile;
     std::string ctags_command;
     std::string grep_command;
     std::string cargo_command;
