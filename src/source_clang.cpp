@@ -123,6 +123,7 @@ void Source::ClangViewParse::parse_initialize() {
     Info::get().print(file_path.filename().string() + ": could not find a supported build system");
   build->update_default();
   auto arguments = CompileCommands::get_arguments(build->get_default_path(), file_path);
+  clang_tokens.reset();
   clang_tu = std::make_unique<clangmm::TranslationUnit>(std::make_shared<clangmm::Index>(0, Config::get().log.libclang), file_path.string(), arguments, &buffer_raw);
   clang_tokens = clang_tu->get_tokens();
   clang_tokens_offsets.clear();
