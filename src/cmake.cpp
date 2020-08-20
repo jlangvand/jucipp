@@ -63,7 +63,7 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
   auto exit_status = Terminal::get().process(Config::get().project.cmake.command + ' ' +
                                                  filesystem::escape_argument(project_path.string()) + " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON", default_build_path);
   message.hide();
-  if(exit_status == EXIT_SUCCESS) {
+  if(exit_status == 0) {
 #ifdef _WIN32 //Temporary fix to MSYS2's libclang
     auto compile_commands_file = filesystem::read(compile_commands_path);
     auto replace_drive = [&compile_commands_file](const std::string &param) {
@@ -106,7 +106,7 @@ bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, 
   auto exit_status = Terminal::get().process(Config::get().project.cmake.command + ' ' +
                                                  filesystem::escape_argument(project_path.string()) + " -DCMAKE_BUILD_TYPE=Debug", debug_build_path);
   message.hide();
-  if(exit_status == EXIT_SUCCESS)
+  if(exit_status == 0)
     return true;
   return false;
 }
@@ -117,9 +117,9 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
   // are then used to identify if a file in compile_commands.json is part of an executable or not
 
   CompileCommands compile_commands(build_path);
-  std::vector<std::pair<boost::filesystem::path, boost::filesystem::path>> command_files_and_maybe_executables;
+  std::vector<std::pair<boost::filesystem::path, boost::filesystem::path>> source_files_and_maybe_executables;
   for(auto &command : compile_commands.commands) {
-    auto command_file = filesystem::get_normal_path(command.file);
+    auto source_file = filesystem::get_normal_path(command.file);
     auto values = command.parameter_values("-o");
     if(!values.empty()) {
       size_t pos;
@@ -127,7 +127,7 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
         values[0].erase(pos, 11);
       if((pos = values[0].find(".dir")) != std::string::npos) {
         auto executable = command.directory / values[0].substr(0, pos);
-        command_files_and_maybe_executables.emplace_back(command_file, executable);
+        source_files_and_maybe_executables.emplace_back(source_file, executable);
       }
     }
   }
@@ -155,15 +155,15 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
   boost::filesystem::path best_match_executable;
 
   for(auto &cmake_executable : cmake_executables) {
-    for(auto &command_file_and_maybe_executable : command_files_and_maybe_executables) {
-      auto &command_file = command_file_and_maybe_executable.first;
-      auto &maybe_executable = command_file_and_maybe_executable.second;
+    for(auto &source_file_and_maybe_executable : source_files_and_maybe_executables) {
+      auto &source_file = source_file_and_maybe_executable.first;
+      auto &maybe_executable = source_file_and_maybe_executable.second;
       if(cmake_executable == maybe_executable) {
-        if(command_file == file_path)
+        if(source_file == file_path)
           return maybe_executable;
-        auto command_file_directory = command_file.parent_path();
-        if(filesystem::file_in_path(file_path, command_file_directory)) {
-          auto size = std::distance(command_file_directory.begin(), command_file_directory.end());
+        auto source_file_directory = source_file.parent_path();
+        if(filesystem::file_in_path(file_path, source_file_directory)) {
+          auto size = std::distance(source_file_directory.begin(), source_file_directory.end());
           if(size > best_match_size) {
             best_match_size = size;
             best_match_executable = maybe_executable;
@@ -175,14 +175,14 @@ boost::filesystem::path CMake::get_executable(const boost::filesystem::path &bui
   if(!best_match_executable.empty())
     return best_match_executable;
 
-  for(auto &command_file_and_maybe_executable : command_files_and_maybe_executables) {
-    auto &command_file = command_file_and_maybe_executable.first;
-    auto &maybe_executable = command_file_and_maybe_executable.second;
-    if(command_file == file_path)
+  for(auto &source_file_and_maybe_executable : source_files_and_maybe_executables) {
+    auto &source_file = source_file_and_maybe_executable.first;
+    auto &maybe_executable = source_file_and_maybe_executable.second;
+    if(source_file == file_path)
       return maybe_executable;
-    auto command_file_directory = command_file.parent_path();
-    if(filesystem::file_in_path(file_path, command_file_directory)) {
-      auto size = std::distance(command_file_directory.begin(), command_file_directory.end());
+    auto source_file_directory = source_file.parent_path();
+    if(filesystem::file_in_path(file_path, source_file_directory)) {
+      auto size = std::distance(source_file_directory.begin(), source_file_directory.end());
       if(size > best_match_size) {
         best_match_size = size;
         best_match_executable = maybe_executable;

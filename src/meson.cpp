@@ -6,6 +6,7 @@
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <boost/optional.hpp>
+#include <boost/property_tree/json_parser.hpp>
 #include <regex>
 
 Meson::Meson(const boost::filesystem::path &path) {
@@ -63,7 +64,7 @@ bool Meson::update_default_build(const boost::filesystem::path &default_build_pa
                                                  (compile_commands_exists ? "--internal regenerate " : "") +
                                                  "--buildtype plain " + filesystem::escape_argument(project_path.string()), default_build_path);
   message.hide();
-  if(exit_status == EXIT_SUCCESS)
+  if(exit_status == 0)
     return true;
   return false;
 }
@@ -91,7 +92,7 @@ bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, 
                                                  (compile_commands_exists ? "--internal regenerate " : "") +
                                                  "--buildtype debug " + filesystem::escape_argument(project_path.string()), debug_build_path);
   message.hide();
-  if(exit_status == EXIT_SUCCESS)
+  if(exit_status == 0)
     return true;
   return false;
 }
@@ -101,19 +102,20 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
 
   ssize_t best_match_size = -1;
   boost::filesystem::path best_match_executable;
+
   for(auto &command : compile_commands.commands) {
-    auto command_file = filesystem::get_normal_path(command.file);
+    auto source_file = filesystem::get_normal_path(command.file);
     auto values = command.parameter_values("-o");
     if(!values.empty()) {
       size_t pos;
       if((pos = values[0].find('@')) != std::string::npos) {
         if(starts_with(values[0], pos + 1, "exe")) {
           auto executable = build_path / values[0].substr(0, pos);
-          if(command_file == file_path)
+          if(source_file == file_path)
             return executable;
-          auto command_file_directory = command_file.parent_path();
-          if(filesystem::file_in_path(file_path, command_file_directory)) {
-            auto size = std::distance(command_file_directory.begin(), command_file_directory.end());
+          auto source_file_directory = source_file.parent_path();
+          if(filesystem::file_in_path(file_path, source_file_directory)) {
+            auto size = std::distance(source_file_directory.begin(), source_file_directory.end());
             if(size > best_match_size) {
               best_match_size = size;
               best_match_executable = executable;
@@ -121,6 +123,38 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
           }
         }
       }
+    }
+  }
+
+  if(best_match_executable.empty()) { // Newer Meson outputs intro-targets.json that can be used to find executable
+    boost::property_tree::ptree pt;
+    try {
+      boost::property_tree::json_parser::read_json((build_path / "meson-info" / "intro-targets.json").string(), pt);
+      for(auto &target : pt) {
+        if(target.second.get<std::string>("type") == "executable") {
+          auto filenames = target.second.get_child("filename");
+          if(filenames.empty()) // No executable file found
+            break;
+          auto executable = filesystem::get_normal_path(filenames.begin()->second.get<std::string>(""));
+          for(auto &target_source : target.second.get_child("target_sources")) {
+            for(auto &source : target_source.second.get_child("sources")) {
+              auto source_file = filesystem::get_normal_path(source.second.get<std::string>(""));
+              if(source_file == file_path)
+                return executable;
+              auto source_file_directory = source_file.parent_path();
+              if(filesystem::file_in_path(file_path, source_file_directory)) {
+                auto size = std::distance(source_file_directory.begin(), source_file_directory.end());
+                if(size > best_match_size) {
+                  best_match_size = size;
+                  best_match_executable = executable;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    catch(...) {
     }
   }
 

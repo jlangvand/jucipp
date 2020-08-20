@@ -15,9 +15,9 @@ int main() {
     g_assert(!system_include_paths.include_paths.empty());
   }
   {
-    CompileCommands compile_commands(tests_path / "meson_test_files" / "build");
+    CompileCommands compile_commands(tests_path / "meson_old_test_files" / "build");
 
-    g_assert(compile_commands.commands.at(0).directory == "jucipp/tests/meson_test_files/build");
+    g_assert(compile_commands.commands.at(0).directory == "jucipp/tests/meson_old_test_files/build");
 
     g_assert_cmpuint(compile_commands.commands.size(), ==, 5);
 
@@ -31,7 +31,7 @@ int main() {
     g_assert_cmpuint(parameter_values.size(), ==, 1);
     g_assert_cmpstr(parameter_values.at(0).c_str(), ==, "hello_lib@sta/main.cpp.o");
 
-    g_assert(boost::filesystem::canonical(compile_commands.commands.at(0).file) == tests_path / "meson_test_files" / "main.cpp");
+    g_assert(boost::filesystem::canonical(compile_commands.commands.at(0).file) == tests_path / "meson_old_test_files" / "main.cpp");
   }
 
   {
