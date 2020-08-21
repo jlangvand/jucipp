@@ -344,9 +344,11 @@ Project::DebugOptions *Project::LLDB::debug_get_options() {
 }
 
 void Project::LLDB::debug_start() {
-  auto debug_build_path = build->get_debug_path();
   auto default_build_path = build->get_default_path();
-  if(debug_build_path.empty() || !build->update_debug() || default_build_path.empty())
+  if(default_build_path.empty() || !build->update_default())
+    return;
+  auto debug_build_path = build->get_debug_path();
+  if(debug_build_path.empty() || !build->update_debug())
     return;
 
   auto project_path = std::make_shared<boost::filesystem::path>(build->project_path);
