@@ -589,34 +589,39 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
 
 #ifdef JUCI_ENABLE_DEBUG
               if(Debug::LLDB::get().is_stopped()) {
+                auto is_variable = [](clangmm::Cursor::Kind kind) {
+                  return kind == clangmm::Cursor::Kind::FieldDecl || kind == clangmm::Cursor::Kind::EnumConstantDecl || kind == clangmm::Cursor::Kind::VarDecl || kind == clangmm::Cursor::Kind::ParmDecl;
+                };
+                auto is_function = [](clangmm::Cursor::Kind kind) {
+                  return kind == clangmm::Cursor::Kind::CXXMethod || kind == clangmm::Cursor::Kind::FunctionDecl ||
+                         kind == clangmm::Cursor::Kind::Constructor || kind == clangmm::Cursor::Kind::Destructor ||
+                         kind == clangmm::Cursor::Kind::FunctionTemplate || kind == clangmm::Cursor::Kind::ConversionFunction;
+                };
+
                 Glib::ustring value_type = "Value";
                 Glib::ustring debug_value;
                 auto referenced = cursor.get_referenced();
                 auto kind = clangmm::Cursor::Kind::UnexposedDecl;
                 if(referenced) {
                   kind = referenced.get_kind();
-                  auto location = referenced.get_source_location();
-                  debug_value = Debug::LLDB::get().get_value(token.get_spelling(), location.get_path(), location.get_offset().line, location.get_offset().index);
+                  if(is_variable(kind)) {
+                    auto location = referenced.get_source_location();
+                    auto offset = location.get_offset();
+                    debug_value = Debug::LLDB::get().get_value(token.get_spelling(), location.get_path(), offset.line, offset.index);
+                  }
                 }
-                if(debug_value.empty()) {
+                if(debug_value.empty() && (kind == clangmm::Cursor::Kind::UnexposedDecl || is_variable(kind) || is_function(kind))) {
                   // Attempt to get value from expression (for instance: (*a).b.c, or: (*d)[1 + 1])
-                  auto is_safe = [](const clangmm::Cursor &cursor) {
+                  auto is_safe = [&is_function](const clangmm::Cursor &cursor) {
                     auto referenced = cursor.get_referenced();
-                    if(referenced) {
-                      auto kind = referenced.get_kind();
-                      // operator[] is passed even without being const for convenience purposes
-                      if(!clang_CXXMethod_isConst(referenced.cx_cursor) && referenced.get_spelling() != "operator[]" &&
-                         (kind == clangmm::Cursor::Kind::CXXMethod || kind == clangmm::Cursor::Kind::FunctionDecl ||
-                          kind == clangmm::Cursor::Kind::Constructor || kind == clangmm::Cursor::Kind::Destructor ||
-                          kind == clangmm::Cursor::Kind::FunctionTemplate || kind == clangmm::Cursor::Kind::ConversionFunction)) {
-                        return false;
-                      }
-                    }
+                    if(!referenced)
+                      return true;
+                    if(is_function(referenced.get_kind()))
+                      return clang_CXXMethod_isConst(referenced.cx_cursor) || referenced.get_spelling() == "operator[]"; // operator[] is passed even without being const for convenience purposes
                     return true;
                   };
 
-                  // Do not call state altering expressions:
-                  if(is_safe(cursor)) {
+                  if(is_safe(cursor)) { // Do not call state altering expressions
                     auto offsets = cursor.get_source_range().get_offsets();
                     auto start = get_buffer()->get_iter_at_line_index(offsets.first.line - 1, offsets.first.index - 1);
                     auto end = get_buffer()->get_iter_at_line_index(offsets.second.line - 1, offsets.second.index - 1);
