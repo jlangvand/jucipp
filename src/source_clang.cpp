@@ -628,20 +628,23 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                                                                                       *start == '%' || *start == '&' || *start == '|' || *start == '^' ||
                                                                                       *end == '('))) {
                       struct VisitorData {
-                        std::pair<clangmm::Offset, clangmm::Offset> cursor_offsets;
-                        clangmm::Cursor parent;
+                        std::pair<clangmm::Offset, clangmm::Offset> offsets;
+                        std::string spelling;
+                        clangmm::Cursor parent; // Output
                       };
-                      VisitorData visitor_data{cursor.get_source_range().get_offsets(), {}};
+                      VisitorData visitor_data{cursor.get_source_range().get_offsets(), cursor.get_spelling(), {}};
                       auto start_cursor = cursor;
                       for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit &&
                                                                       parent.get_kind() != clangmm::Cursor::Kind::ClassDecl; parent = parent.get_semantic_parent())
                         start_cursor = parent;
                       clang_visitChildren(start_cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data_) {
                         auto data = static_cast<VisitorData *>(data_);
-                        auto offsets = clangmm::Cursor(cx_cursor).get_source_range().get_offsets();
-                        if(offsets == data->cursor_offsets) {
-                          data->parent = clangmm::Cursor(cx_parent);
-                          return CXChildVisit_Break;
+                        if(clangmm::Cursor(cx_cursor).get_source_range().get_offsets() == data->offsets) {
+                          auto parent = clangmm::Cursor(cx_parent);
+                          if(parent.get_spelling() == data->spelling) {
+                            data->parent = parent;
+                            return CXChildVisit_Break;
+                          }
                         }
                         return CXChildVisit_Recurse;
                       }, &visitor_data);
