@@ -123,7 +123,7 @@ namespace LanguageProtocol {
     size_t server_message_content_pos;
     bool header_read = false;
 
-    size_t message_id GUARDED_BY(read_write_mutex) = 1;
+    size_t message_id GUARDED_BY(read_write_mutex) = 0;
 
     std::map<size_t, std::pair<Source::LanguageProtocolView *, std::function<void(const boost::property_tree::ptree &, bool error)>>> handlers GUARDED_BY(read_write_mutex);
 
@@ -140,8 +140,10 @@ namespace LanguageProtocol {
 
     void parse_server_message();
     void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function = nullptr);
+    void write_response(size_t id, const std::string &result);
     void write_notification(const std::string &method, const std::string &params);
-    void handle_server_request(const std::string &method, const boost::property_tree::ptree &params);
+    void handle_server_notification(const std::string &method, const boost::property_tree::ptree &params);
+    void handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params);
   };
 } // namespace LanguageProtocol
 

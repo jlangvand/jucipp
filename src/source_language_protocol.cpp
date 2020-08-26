@@ -128,7 +128,48 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     LockGuard lock(read_write_mutex);
     process_id = process->get_id();
   }
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities":{"workspace":{"symbol":{"dynamicRegistration":true}},"textDocument":{"synchronization":{"dynamicRegistration":true,"didSave":true},"completion":{"dynamicRegistration":true,"completionItem":{"snippetSupport":true,"documentationFormat":["markdown", "plaintext"]}},"hover":{"dynamicRegistration":true,"contentFormat": ["markdown", "plaintext"]},"signatureHelp":{"dynamicRegistration":true,"signatureInformation":{"documentationFormat":["markdown", "plaintext"]}},"definition":{"dynamicRegistration":true},"references":{"dynamicRegistration":true},"documentHighlight":{"dynamicRegistration":true},"documentSymbol":{"dynamicRegistration":true},"formatting":{"dynamicRegistration":true},"rangeFormatting":{"dynamicRegistration":true},"rename":{"dynamicRegistration":true},"codeAction":{"dynamicRegistration":true,"codeActionLiteralSupport":{"codeActionKind":{"valueSet":["quickfix"]}}}}, "offsetEncoding": ["utf-8"]},"initializationOptions":{"omitInitBuild":true},"trace":"off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities": {
+  "workspace": { "symbol": { "dynamicRegistration": true } },
+  "textDocument": {
+    "synchronization": { "dynamicRegistration": true, "didSave": true },
+    "completion": {
+      "dynamicRegistration": true,
+      "completionItem": {
+        "snippetSupport": true,
+        "documentationFormat": ["markdown", "plaintext"]
+      }
+    },
+    "hover": {
+      "dynamicRegistration": true,
+      "contentFormat": ["markdown", "plaintext"]
+    },
+    "signatureHelp": {
+      "dynamicRegistration": true,
+      "signatureInformation": {
+        "documentationFormat": ["markdown", "plaintext"]
+      }
+    },
+    "definition": { "dynamicRegistration": true },
+    "references": { "dynamicRegistration": true },
+    "documentHighlight": { "dynamicRegistration": true },
+    "documentSymbol": { "dynamicRegistration": true },
+    "formatting": { "dynamicRegistration": true },
+    "rangeFormatting": { "dynamicRegistration": true },
+    "rename": { "dynamicRegistration": true },
+    "publishDiagnostics": { "relatedInformation":true },
+    "codeAction": {
+      "dynamicRegistration": true,
+      "codeActionLiteralSupport": {
+        "codeActionKind": { "valueSet": ["quickfix"] }
+      }
+    }
+  },
+  "offsetEncoding": ["utf-8"]
+},
+"initializationOptions": {
+  "checkOnSave": { "enable": true }
+},
+"trace": "off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       auto capabilities_pt = result.find("capabilities");
       if(capabilities_pt != result.not_found()) {
@@ -227,14 +268,14 @@ void LanguageProtocol::Client::parse_server_message() {
         boost::property_tree::write_json(std::cout, pt);
       }
 
-      auto message_id = pt.get<size_t>("id", 0);
+      auto message_id = pt.get_optional<size_t>("id");
       auto result_it = pt.find("result");
       auto error_it = pt.find("error");
       {
         LockGuard lock(read_write_mutex);
         if(result_it != pt.not_found()) {
           if(message_id) {
-            auto id_it = handlers.find(message_id);
+            auto id_it = handlers.find(*message_id);
             if(id_it != handlers.end()) {
               auto function = std::move(id_it->second.second);
               handlers.erase(id_it->first);
@@ -248,12 +289,12 @@ void LanguageProtocol::Client::parse_server_message() {
           if(!Config::get().log.language_server)
             boost::property_tree::write_json(std::cerr, pt);
           if(message_id) {
-            auto id_it = handlers.find(message_id);
+            auto id_it = handlers.find(*message_id);
             if(id_it != handlers.end()) {
               auto function = std::move(id_it->second.second);
               handlers.erase(id_it->first);
               lock.unlock();
-              function(result_it->second, true);
+              function(error_it->second, true);
               lock.lock();
             }
           }
@@ -264,7 +305,10 @@ void LanguageProtocol::Client::parse_server_message() {
             auto params_it = pt.find("params");
             if(params_it != pt.not_found()) {
               lock.unlock();
-              handle_server_request(method_it->second.get_value<std::string>(""), params_it->second);
+              if(message_id)
+                handle_server_request(*message_id, method_it->second.get_value<std::string>(""), params_it->second);
+              else
+                handle_server_notification(method_it->second.get_value<std::string>(""), params_it->second);
               lock.lock();
             }
           }
@@ -329,6 +373,15 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
   }
 }
 
+void LanguageProtocol::Client::write_response(size_t id, const std::string &result) {
+  LockGuard lock(read_write_mutex);
+  std::string content(R"({"jsonrpc":"2.0","id":)" + std::to_string(id) + R"(,"result":{)" + result + "}}");
+  auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  if(Config::get().log.language_server)
+    std::cout << "Language client: " << content << std::endl;
+  process->write(message);
+}
+
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
   LockGuard lock(read_write_mutex);
   std::string content(R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{)" + params + "}}");
@@ -338,7 +391,7 @@ void LanguageProtocol::Client::write_notification(const std::string &method, con
   process->write(message);
 }
 
-void LanguageProtocol::Client::handle_server_request(const std::string &method, const boost::property_tree::ptree &params) {
+void LanguageProtocol::Client::handle_server_notification(const std::string &method, const boost::property_tree::ptree &params) {
   if(method == "textDocument/publishDiagnostics") {
     std::vector<Diagnostic> diagnostics;
     auto file = filesystem::get_path_from_uri(params.get<std::string>("uri", ""));
@@ -360,6 +413,11 @@ void LanguageProtocol::Client::handle_server_request(const std::string &method, 
       }
     }
   }
+}
+
+void LanguageProtocol::Client::handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params) {
+  // TODO: respond to requests from server here
+  // write_response(*id, "");
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_)
