@@ -217,8 +217,13 @@ void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
   }
   LockGuard lock(read_write_mutex);
   for(auto it = handlers.begin(); it != handlers.end();) {
-    if(it->second.first == view)
+    if(it->second.first == view) {
+      auto function = std::move(it->second.second);
       it = handlers.erase(it);
+      lock.unlock();
+      function(boost::property_tree::ptree(), true);
+      lock.lock();
+    }
     else
       it++;
   }
@@ -278,7 +283,7 @@ void LanguageProtocol::Client::parse_server_message() {
             auto id_it = handlers.find(*message_id);
             if(id_it != handlers.end()) {
               auto function = std::move(id_it->second.second);
-              handlers.erase(id_it->first);
+              handlers.erase(id_it);
               lock.unlock();
               function(result_it->second, false);
               lock.lock();
@@ -292,7 +297,7 @@ void LanguageProtocol::Client::parse_server_message() {
             auto id_it = handlers.find(*message_id);
             if(id_it != handlers.end()) {
               auto function = std::move(id_it->second.second);
-              handlers.erase(id_it->first);
+              handlers.erase(id_it);
               lock.unlock();
               function(error_it->second, true);
               lock.lock();
@@ -349,7 +354,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
       if(id_it != handlers.end()) {
         Terminal::get().async_print("Request to language server timed out. If you suspect the server has crashed, please close and reopen all project source files.\n", true);
         auto function = std::move(id_it->second.second);
-        handlers.erase(id_it->first);
+        handlers.erase(id_it);
         lock.unlock();
         function(boost::property_tree::ptree(), true);
         lock.lock();
@@ -365,7 +370,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
     auto id_it = handlers.find(message_id - 1);
     if(id_it != handlers.end()) {
       auto function = std::move(id_it->second.second);
-      handlers.erase(id_it->first);
+      handlers.erase(id_it);
       lock.unlock();
       function(boost::property_tree::ptree(), true);
       lock.lock();
