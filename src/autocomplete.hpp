@@ -42,8 +42,8 @@ public:
   std::function<void()> after_add_rows = [] {};
   std::function<void()> on_add_rows_error = [] {};
 
-  /// The handler is not run in the main loop.
-  std::function<void(std::string &buffer, int line_number, int column)> add_rows = [](std::string &, int, int) {};
+  /// The handler is not run in the main loop. Should return false on error.
+  std::function<bool(std::string &buffer, int line_number, int column)> add_rows = [](std::string &, int, int) { return true; };
 
   std::function<void()> on_show = [] {};
   std::function<void()> on_hide = [] {};

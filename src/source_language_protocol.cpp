@@ -1526,17 +1526,13 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       update_status_state(this);
   };
 
-  autocomplete->on_add_rows_error = [this] {
-    autocomplete_rows.clear();
-  };
-
   autocomplete->add_rows = [this](std::string &buffer, int line_number, int column) {
     if(autocomplete->state == Autocomplete::State::starting) {
       autocomplete_rows.clear();
       std::promise<void> result_processed;
       if(autocomplete_show_arguments) {
         if(!capabilities.signature_help)
-          return;
+          return true;
         dispatcher.post([this, line_number, column, &result_processed] {
           // Find current parameter number and previously used named parameters
           unsigned current_parameter_position = 0;
@@ -1681,6 +1677,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }
       result_processed.get_future().get();
     }
+    return true;
   };
 
   autocomplete->on_show = [this] {

@@ -919,11 +919,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
       clangmm::remove_include_guard(buffer);
     code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line_number, column));
-    if(!code_complete_results->cx_results) {
-      auto expected = ParseState::processing;
-      parse_state.compare_exchange_strong(expected, ParseState::restarting);
-      return;
-    }
+    if(!code_complete_results->cx_results)
+      return false;
 
     if(autocomplete.state == Autocomplete::State::starting) {
       std::string prefix;
@@ -1011,6 +1008,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         }
       }
     }
+    return true;
   };
 
   autocomplete.on_show = [this] {

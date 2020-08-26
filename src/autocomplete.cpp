@@ -76,11 +76,13 @@ void Autocomplete::run() {
         return;
       stop_parse();
 
-      auto &buffer_raw = const_cast<std::string &>(buffer.raw());
       rows.clear();
-      add_rows(buffer_raw, line_nr, column_nr);
+      auto &buffer_raw = const_cast<std::string &>(buffer.raw());
+      bool success = add_rows(buffer_raw, line_nr, column_nr);
+      if(!is_processing())
+        return;
 
-      if(is_processing()) {
+      if(success) {
         dispatcher.post([this]() {
           after_add_rows();
           if(state == State::restarting) {

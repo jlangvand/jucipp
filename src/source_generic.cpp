@@ -245,11 +245,6 @@ void Source::GenericView::setup_autocomplete() {
       update_status_state(this);
   };
 
-  autocomplete.on_add_rows_error = [this] {
-    autocomplete_comment.clear();
-    autocomplete_insert.clear();
-  };
-
   autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
     if(autocomplete.state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
@@ -290,6 +285,7 @@ void Source::GenericView::setup_autocomplete() {
         }
       }
     }
+    return true;
   };
 
   autocomplete.on_show = [this] {
