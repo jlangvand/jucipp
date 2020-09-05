@@ -100,6 +100,8 @@ public:
     bool enable_clang_tidy;
     std::string clang_tidy_checks;
 
+    bool enable_clang_detailed_preprocessing_record = false;
+
     bool debug_place_cursor_at_stop;
 
     std::unordered_map<std::string, DocumentationSearch> documentation_searches;

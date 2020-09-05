@@ -72,6 +72,8 @@ const std::string default_config_file = R"RAW({
         "enable_clang_tidy": false,
         "clang_tidy_checks_comment": "In new C/C++ buffers, these checks are appended to the value of 'Checks' in the .clang-tidy file, if any",
         "clang_tidy_checks": "",
+        "enable_clang_detailed_preprocessing_record_comment": "Set to true to include all macro definitions and instantiations when parsing C/C++ buffers, at the cost of increased resource use. You should reopen buffers and delete build/.usages_clang after changing this option.",
+        "enable_clang_detailed_preprocessing_record": false,
         "debug_place_cursor_at_stop": false
     },
     "terminal": {

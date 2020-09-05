@@ -259,11 +259,10 @@ boost::optional<std::vector<Usages::Clang::Usages>> Usages::Clang::get_usages(co
             else
               ++it;
           }
-          int flags = CXTranslationUnit_Incomplete;
+          int flags = Config::get().source.enable_clang_detailed_preprocessing_record ? CXTranslationUnit_DetailedPreprocessingRecord : CXTranslationUnit_Incomplete;
 #if CINDEX_VERSION_MAJOR > 0 || (CINDEX_VERSION_MAJOR == 0 && CINDEX_VERSION_MINOR >= 35)
           flags |= CXTranslationUnit_KeepGoing;
 #endif
-
           clangmm::TranslationUnit translation_unit(std::make_shared<clangmm::Index>(0, 0), path.string(), arguments, &buffer, flags);
 
           {
