@@ -7,6 +7,7 @@
 #include "utility.hpp"
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
+#include <future>
 #include <regex>
 
 CMake::CMake(const boost::filesystem::path &path) {
@@ -60,10 +61,19 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
 
   auto compile_commands_path = default_build_path / "compile_commands.json";
   Dialog::Message message("Creating/updating default build");
-  auto exit_status = Terminal::get().process(Config::get().project.cmake.command + ' ' +
-                                                 filesystem::escape_argument(project_path.string()) + " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON", default_build_path);
+  std::promise<int> promise;
+  Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                                default_build_path,
+                                [&promise](int exit_status) {
+                                  promise.set_value(exit_status);
+                                });
+  auto future = promise.get_future();
+  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+  }
   message.hide();
-  if(exit_status == 0) {
+  if(future.get() == 0) {
 #ifdef _WIN32 //Temporary fix to MSYS2's libclang
     auto compile_commands_file = filesystem::read(compile_commands_path);
     auto replace_drive = [&compile_commands_file](const std::string &param) {
@@ -103,12 +113,19 @@ bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, 
     return true;
 
   Dialog::Message message("Creating/updating debug build");
-  auto exit_status = Terminal::get().process(Config::get().project.cmake.command + ' ' +
-                                                 filesystem::escape_argument(project_path.string()) + " -DCMAKE_BUILD_TYPE=Debug", debug_build_path);
+  std::promise<int> promise;
+  Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_BUILD_TYPE=Debug",
+                                debug_build_path,
+                                [&promise](int exit_status) {
+                                  promise.set_value(exit_status);
+                                });
+  auto future = promise.get_future();
+  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+  }
   message.hide();
-  if(exit_status == 0)
-    return true;
-  return false;
+  return future.get() == 0;
 }
 
 boost::filesystem::path CMake::get_executable(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {

@@ -7,6 +7,7 @@
 #include "utility.hpp"
 #include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <future>
 #include <regex>
 
 Meson::Meson(const boost::filesystem::path &path) {
@@ -60,13 +61,19 @@ bool Meson::update_default_build(const boost::filesystem::path &default_build_pa
     return true;
 
   Dialog::Message message("Creating/updating default build");
-  auto exit_status = Terminal::get().process(Config::get().project.meson.command + ' ' +
-                                                 (compile_commands_exists ? "--internal regenerate " : "") +
-                                                 "--buildtype plain " + filesystem::escape_argument(project_path.string()), default_build_path);
+  std::promise<int> promise;
+  Terminal::get().async_process(Config::get().project.meson.command + ' ' + (compile_commands_exists ? "--internal regenerate " : "") + "--buildtype plain " + filesystem::escape_argument(project_path.string()),
+                                default_build_path,
+                                [&promise](int exit_status) {
+                                  promise.set_value(exit_status);
+                                });
+  auto future = promise.get_future();
+  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+  }
   message.hide();
-  if(exit_status == 0)
-    return true;
-  return false;
+  return future.get() == 0;
 }
 
 bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, bool force) {
@@ -88,13 +95,19 @@ bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, 
     return true;
 
   Dialog::Message message("Creating/updating debug build");
-  auto exit_status = Terminal::get().process(Config::get().project.meson.command + ' ' +
-                                                 (compile_commands_exists ? "--internal regenerate " : "") +
-                                                 "--buildtype debug " + filesystem::escape_argument(project_path.string()), debug_build_path);
+  std::promise<int> promise;
+  Terminal::get().async_process(Config::get().project.meson.command + ' ' + (compile_commands_exists ? "--internal regenerate " : "") + "--buildtype debug " + filesystem::escape_argument(project_path.string()),
+                                debug_build_path,
+                                [&promise](int exit_status) {
+                                  promise.set_value(exit_status);
+                                });
+  auto future = promise.get_future();
+  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+  }
   message.hide();
-  if(exit_status == 0)
-    return true;
-  return false;
+  return future.get() == 0;
 }
 
 boost::filesystem::path Meson::get_executable(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {
