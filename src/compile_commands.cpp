@@ -240,7 +240,7 @@ std::vector<std::string> CompileCommands::get_arguments(const boost::filesystem:
     arguments.emplace_back(build_path.string());
   }
 
-  if(Config::get().source.enable_clang_tidy) {
+  if(Config::get().source.clang_tidy_enable) {
     arguments.emplace_back("-Xclang");
     arguments.emplace_back("-add-plugin");
     arguments.emplace_back("-Xclang");

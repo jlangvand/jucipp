@@ -172,9 +172,9 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   source.search_for_selection = source_json.get<bool>("search_for_selection");
   source.clang_format_style = source_json.get<std::string>("clang_format_style");
   source.clang_usages_threads = static_cast<unsigned>(source_json.get<int>("clang_usages_threads"));
-  source.enable_clang_tidy = source_json.get<bool>("enable_clang_tidy");
+  source.clang_tidy_enable = source_json.get<bool>("clang_tidy_enable");
   source.clang_tidy_checks = source_json.get<std::string>("clang_tidy_checks");
-  source.enable_clang_detailed_preprocessing_record = source_json.get<bool>("enable_clang_detailed_preprocessing_record");
+  source.clang_detailed_preprocessing_record = source_json.get<bool>("clang_detailed_preprocessing_record");
   source.debug_place_cursor_at_stop = source_json.get<bool>("debug_place_cursor_at_stop");
   auto pt_doc_search = cfg.get_child("documentation_searches");
   for(auto &pt_doc_search_lang : pt_doc_search) {

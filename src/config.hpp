@@ -97,10 +97,10 @@ public:
     std::string clang_format_style;
     unsigned clang_usages_threads;
 
-    bool enable_clang_tidy;
+    bool clang_tidy_enable;
     std::string clang_tidy_checks;
 
-    bool enable_clang_detailed_preprocessing_record = false;
+    bool clang_detailed_preprocessing_record = false;
 
     bool debug_place_cursor_at_stop;
 

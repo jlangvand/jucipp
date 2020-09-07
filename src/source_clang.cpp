@@ -125,7 +125,7 @@ void Source::ClangViewParse::parse_initialize() {
   auto arguments = CompileCommands::get_arguments(build->get_default_path(), file_path);
   clang_tokens.reset();
   int flags = clangmm::TranslationUnit::DefaultFlags() & ~(CXTranslationUnit_DetailedPreprocessingRecord | CXTranslationUnit_Incomplete);
-  flags |= Config::get().source.enable_clang_detailed_preprocessing_record ? CXTranslationUnit_DetailedPreprocessingRecord : CXTranslationUnit_Incomplete;
+  flags |= Config::get().source.clang_detailed_preprocessing_record ? CXTranslationUnit_DetailedPreprocessingRecord : CXTranslationUnit_Incomplete;
   clang_tu = std::make_unique<clangmm::TranslationUnit>(std::make_shared<clangmm::Index>(0, Config::get().log.libclang), file_path.string(), arguments, &buffer_raw, flags);
   clang_tokens = clang_tu->get_tokens();
   clang_tokens_offsets.clear();
