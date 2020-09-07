@@ -161,13 +161,9 @@ void Window::init() {
   about.set_comments("This is an open source IDE with high-end features to make your programming experience juicy");
   about.set_license_type(Gtk::License::LICENSE_MIT_X11);
   about.set_transient_for(*this);
-  if(Config::get().plugins.enabled) {
-    plugins.load();
-  }
 }
 
 void Window::configure() {
-  Config::get().load();
   Snippets::get().load();
   auto screen = get_screen();
 
@@ -471,6 +467,7 @@ void Window::set_menu_actions() {
     if(auto view = Notebook::get().get_current_view()) {
       if(Notebook::get().save_current()) {
         if(view->file_path == Config::get().home_juci_path / "config" / "config.json") {
+          Config::get().load();
           configure();
           for(size_t c = 0; c < Notebook::get().size(); c++) {
             Notebook::get().get_view(c)->configure();

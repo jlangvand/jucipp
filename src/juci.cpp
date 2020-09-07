@@ -144,8 +144,10 @@ int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN); // Do not terminate application when writing to a process fails
 #endif
   auto &config = Config::get();
+  config.load();
   Plugins plugins(config);
-  plugins.load();
-
+  if(Config::get().plugins.enabled) {
+    plugins.load();
+  }
   return Application(plugins).run(argc, argv);
 }
