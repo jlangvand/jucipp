@@ -2,6 +2,8 @@
 #include "config.hpp"
 #include "filesystem.hpp"
 #include <boost/algorithm/string.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <regex>
 
 std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::path &path) {
   if(path.empty())
@@ -125,6 +127,25 @@ boost::filesystem::path Project::CMakeBuild::get_executable(const boost::filesys
   return executable;
 }
 
+bool Project::CMakeBuild::is_valid() {
+  if(project_path.empty())
+    return true;
+  auto default_path = get_default_path();
+  if(default_path.empty())
+    return true;
+  std::ifstream input((default_path / "CMakeCache.txt").string(), std::ofstream::binary);
+  if(!input)
+    return true;
+  std::string line;
+  while(std::getline(input, line)) {
+    const static std::regex regex("^.*_SOURCE_DIR:STATIC=(.*)$", std::regex::optimize);
+    std::smatch sm;
+    if(std::regex_match(line, sm, regex))
+      return boost::filesystem::path(sm[1].str()) == project_path;
+  }
+  return true;
+}
+
 std::vector<boost::filesystem::path> Project::CMakeBuild::get_exclude_paths() {
   auto exclude_paths = Project::Build::get_exclude_paths();
   exclude_paths.emplace_back(get_default_path());
@@ -158,6 +179,22 @@ boost::filesystem::path Project::MesonBuild::get_executable(const boost::filesys
       executable = meson.get_executable(default_path, src_path);
   }
   return executable;
+}
+
+bool Project::MesonBuild::is_valid() {
+  if(project_path.empty())
+    return true;
+  auto default_path = get_default_path();
+  if(default_path.empty())
+    return true;
+  boost::property_tree::ptree pt;
+  try {
+    boost::property_tree::json_parser::read_json((default_path / "meson-info" / "meson-info.json").string(), pt);
+    return boost::filesystem::path(pt.get<std::string>("directories.source")) == project_path;
+  }
+  catch(...) {
+  }
+  return true;
 }
 
 std::vector<boost::filesystem::path> Project::MesonBuild::get_exclude_paths() {

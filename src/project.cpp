@@ -362,8 +362,12 @@ void Project::LLDB::debug_start() {
     auto view = Notebook::get().get_current_view();
     *run_arguments = build->get_executable(view ? view->file_path : Directories::get().path).string();
     if(run_arguments->empty()) {
-      Terminal::get().print("Warning: could not find executable.\n");
-      Terminal::get().print("Solution: either use Debug Set Run Arguments, or open a source file within a directory where an executable is defined.\n", true);
+      if(build->is_valid()) {
+        Terminal::get().print("Warning: could not find executable.\n");
+        Terminal::get().print("Solution: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+      }
+      else
+        Terminal::get().print("Error: build folder no longer valid, please rebuild project.\n", true);
       return;
     }
     size_t pos = run_arguments->find(default_build_path.string());
@@ -870,8 +874,12 @@ void Project::Clang::compile_and_run() {
     auto view = Notebook::get().get_current_view();
     auto executable = build->get_executable(view ? view->file_path : Directories::get().path);
     if(executable.empty()) {
-      Terminal::get().print("Warning: could not find executable.\n");
-      Terminal::get().print("Solution: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n", true);
+      if(build->is_valid()) {
+        Terminal::get().print("Warning: could not find executable.\n");
+        Terminal::get().print("Solution: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+      }
+      else
+        Terminal::get().print("Error: build folder no longer valid, please rebuild project.\n", true);
       return;
     }
     arguments = filesystem::escape_argument(filesystem::get_short_path(executable).string());
