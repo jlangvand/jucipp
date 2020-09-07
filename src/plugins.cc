@@ -24,8 +24,22 @@ Plugins::~Plugins() {
 }
 
 void Plugins::load() {
+  const auto &plugin_path = Config::get().plugins.path;
+
+  boost::system::error_code ec;
+  if(!boost::filesystem::exists(plugin_path, ec)) {
+    ec.clear();
+    boost::filesystem::create_directories(plugin_path, ec);
+  }
+
+  if(ec) {
+    std::cerr << ec.message() << std::endl;
+    return;
+  }
+
   boost::filesystem::directory_iterator end_it;
-  for(boost::filesystem::directory_iterator it(Config::get().plugins.path); it != end_it; it++) {
+
+  for(boost::filesystem::directory_iterator it(plugin_path); it != end_it; it++) {
     auto module_name = it->path().stem().string();
     if(module_name.empty())
       continue;
@@ -35,10 +49,10 @@ void Plugins::load() {
     if((is_directory && !is_pycache) || has_py_extension) {
       try {
         auto module = py::module::import(module_name.c_str());
-        Terminal::get().print("Loading plugin ´" + module_name + "´\n");
       }
       catch(py::error_already_set &error) {
-        Terminal::get().print("Error loading plugin `" + module_name + "`:\n" + error.what() + "\n");
+        std::cerr << "Error loading plugin `" << module_name << "`:\n"
+                  << error.what() << "\n";
       }
     }
   }
