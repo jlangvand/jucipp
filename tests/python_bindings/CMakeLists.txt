@@ -1,4 +1,3 @@
-
 add_library(test_suite test_suite.cc)
 target_link_libraries(test_suite juci_shared ${PYTHON_LIBRARIES})
 

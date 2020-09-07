@@ -1,7 +1,7 @@
 #pragma once
+#include "window.hpp"
 #include <boost/filesystem.hpp>
 #include <gtkmm.h>
-#include "window.h"
 #ifdef JUCI_ENABLE_PLUGINS
 #include "plugins.h"
 #endif

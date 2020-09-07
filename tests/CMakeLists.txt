@@ -24,7 +24,7 @@ add_library(test_stubs OBJECT
 
 if(BUILD_TESTING)
   add_executable(process_test process_test.cpp $<TARGET_OBJECTS:test_stubs>)
-  target_link_libraries(process_test juci_shared)
+  target_link_libraries(process_test juci_shared ${PYTHON_LIBRARIES})
   add_test(process_test process_test)
   
   add_executable(compile_commands_test compile_commands_test.cpp $<TARGET_OBJECTS:test_stubs>)

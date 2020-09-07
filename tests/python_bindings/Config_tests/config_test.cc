@@ -40,7 +40,7 @@ int main() {
     g_assert_cmpstr(config.project.cmake.command.c_str(), ==, "cmake");
     g_assert_cmpstr(config.project.cmake.compile_command.c_str(), ==, "cmake --build");
     g_assert_true(config.project.save_on_compile_or_run);
-    g_assert_false(config.project.clear_terminal_on_compile);
+    //    g_assert_false(config.project.clear_terminal_on_compile);
     g_assert_cmpstr(config.project.ctags_command.c_str(), ==, "ctags");
     g_assert_cmpstr(config.project.python_command.c_str(), ==, "python");
   });
@@ -55,7 +55,7 @@ int main() {
     g_assert_false(config.source.format_style_on_save_if_style_file_found);
     g_assert_false(config.source.smart_inserts);
     g_assert_false(config.source.show_map);
-    g_assert_cmpstr(config.source.map_font_size.c_str(), ==, "10px");
+    //    g_assert_cmpstr(config.source.map_font_size.c_str(), ==, "10px");
     g_assert_false(config.source.show_git_diff);
     g_assert_false(config.source.show_background_pattern);
     g_assert_false(config.source.show_right_margin);
@@ -64,7 +64,7 @@ int main() {
     g_assert_cmpint(config.source.default_tab_char, ==, 'c');
     g_assert_cmpuint(config.source.default_tab_size, ==, 1);
     g_assert_false(config.source.tab_indents_line);
-    g_assert_false(config.source.wrap_lines);
+    //    g_assert_false(config.source.wrap_lines);
     g_assert_false(config.source.highlight_current_line);
     g_assert_false(config.source.show_line_numbers);
     g_assert_false(config.source.enable_multiple_cursors);

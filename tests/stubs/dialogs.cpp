@@ -7,3 +7,5 @@ void Dialog::Message::set_fraction(double fraction) {}
 bool Dialog::Message::on_delete_event(GdkEventAny *event) {
   return true;
 }
+
+void Dialog::init_module(py::module &) {}

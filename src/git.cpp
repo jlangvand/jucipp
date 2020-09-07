@@ -299,17 +299,6 @@ void Git::init_module(py::module &api) {
            py::arg("line_nr"))
 
       ;
-  py::enum_<Git::Repository::STATUS>(repository, "STATUS")
-      .value("CURRENT", Git::Repository::STATUS::CURRENT)
-      .value("NEW", Git::Repository::STATUS::NEW)
-      .value("MODIFIED", Git::Repository::STATUS::MODIFIED)
-      .value("DELETED", Git::Repository::STATUS::DELETED)
-      .value("RENAMED", Git::Repository::STATUS::RENAMED)
-      .value("TYPECHANGE", Git::Repository::STATUS::TYPECHANGE)
-      .value("UNREADABLE", Git::Repository::STATUS::UNREADABLE)
-      .value("IGNORED", Git::Repository::STATUS::IGNORED)
-      .value("CONFLICTED", Git::Repository::STATUS::CONFLICTED)
-      .export_values();
 
   py::class_<Git::Repository::Status>(repository, "Status")
       .def_readwrite("added", &Git::Repository::Status::added)

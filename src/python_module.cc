@@ -1,14 +1,14 @@
 #include "python_module.h"
-#include "cmake.h"
-#include "compile_commands.h"
-#include "config.h"
-#include "ctags.h"
+#include "cmake.hpp"
+#include "compile_commands.hpp"
+#include "config.hpp"
+#include "ctags.hpp"
 #ifdef JUCI_ENABLE_DEBUG
-#include "debug_lldb.h"
+#include "debug_lldb.hpp"
 #endif
-#include "dialogs.h"
-#include "terminal.h"
-#include "git.h"
+#include "dialogs.hpp"
+#include "git.hpp"
+#include "terminal.hpp"
 
 PyObject *Module::init_jucipp_module() {
   auto api = py::module("Jucipp", "API");

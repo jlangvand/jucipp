@@ -1,4 +1,4 @@
-#include "cmake.h"
+#include "cmake.hpp"
 #include "test_suite.h"
 #include <iostream>
 

@@ -1,7 +1,7 @@
 #include "plugins.h"
-#include "config.h"
+#include "config.hpp"
 #include "python_module.h"
-#include "terminal.h"
+#include "terminal.hpp"
 
 Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
   auto &config = Config::get();
@@ -9,7 +9,7 @@ Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
 #ifdef PYTHON_HOME_DIR
 #ifdef _WIN32
   const std::wstring python_home(PYTHON_HOME_DIR);
-  const std::wstring python_path(python_home + L";" + python_home + L"\\lib-dynload;" + python_home + L"\\site-packages" );
+  const std::wstring python_path(python_home + L";" + python_home + L"\\lib-dynload;" + python_home + L"\\site-packages");
   Py_SetPythonHome(python_home.c_str());
   Py_SetPath(python_path.c_str());
 #endif

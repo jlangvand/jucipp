@@ -1,4 +1,4 @@
-#include "config.h"
+#include "config.hpp"
 #include "python_type_casters.h"
 #include <pybind11/stl.h>
 
@@ -43,7 +43,7 @@ void Config::init_module(py::module &api) {
       .def_readwrite("cmake", &Config::Project::cmake)
       .def_readwrite("meson", &Config::Project::meson)
       .def_readwrite("save_on_compile_or_run", &Config::Project::save_on_compile_or_run)
-      .def_readwrite("clear_terminal_on_compile", &Config::Project::clear_terminal_on_compile)
+      // .def_readwrite("clear_terminal_on_compile", &Config::Project::clear_terminal_on_compile)
       .def_readwrite("ctags_command", &Config::Project::ctags_command)
       .def_readwrite("python_command", &Config::Project::python_command)
 
@@ -75,7 +75,7 @@ void Config::init_module(py::module &api) {
       .def_readwrite("default_tab_char", &Config::Source::default_tab_char)
       .def_readwrite("default_tab_size", &Config::Source::default_tab_size)
       .def_readwrite("tab_indents_line", &Config::Source::tab_indents_line)
-      .def_readwrite("wrap_lines", &Config::Source::wrap_lines)
+      // .def_readwrite("wrap_lines", &Config::Source::wrap_lines)
       .def_readwrite("highlight_current_line", &Config::Source::highlight_current_line)
       .def_readwrite("show_line_numbers", &Config::Source::show_line_numbers)
       .def_readwrite("enable_multiple_cursors", &Config::Source::enable_multiple_cursors)

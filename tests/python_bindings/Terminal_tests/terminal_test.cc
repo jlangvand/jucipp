@@ -1,5 +1,5 @@
+#include "terminal.hpp"
 #include "test_suite.h"
-#include "terminal.h"
 
 int main() {
   const auto test_directory = "Terminal_tests";

@@ -33,7 +33,7 @@ void Window::init() {
   if(screen->get_rgba_visual())
     border_radius_style = "border-radius: 5px; ";
 #if GTK_VERSION_GE(3, 20)
-n  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
+  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
 #else
   std::string notebook_style(".juci_notebook {-GtkNotebook-tab-overlap: 0px;} .juci_notebook tab {border-radius: 5px 5px 0 0; padding: 4px 4px;}");
 #endif
@@ -45,7 +45,8 @@ n  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; p
     .juci_terminal_scrolledwindow {padding-left: 3px;}
     .juci_info {border-radius: 5px;}
     .juci_tooltip_window {background-color: transparent;}
-    .juci_tooltip_box {)" + border_radius_style + R"(padding: 3px;}
+    .juci_tooltip_box {)" + border_radius_style +
+                           R"(padding: 3px;}
   )");
   get_style_context()->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
