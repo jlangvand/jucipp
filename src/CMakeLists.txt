@@ -13,7 +13,6 @@ set(JUCI_SHARED_FILES
   meson.cpp
   project_build.cpp
   plugins.cc
-  python_interpreter.cc
   snippets.cpp
   source.cpp
   source_base.cpp

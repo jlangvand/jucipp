@@ -102,8 +102,6 @@ endif()
 
 set(BUILD_TESTING_SAVED ${BUILD_TESTING})
 set(BUILD_TESTING OFF CACHE BOOL "Disable sub-project tests" FORCE)
-add_subdirectory(lib/libclangmm)
-add_subdirectory(lib/tiny-process-library)
 set(BUILD_TESTING ${BUILD_TESTING_SAVED} CACHE BOOL "Set to previous value" FORCE)
 find_package(Boost 1.54 COMPONENTS REQUIRED filesystem serialization)
 find_package(ASPELL REQUIRED)
