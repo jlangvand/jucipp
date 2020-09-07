@@ -161,6 +161,7 @@ void Window::init() {
   about.set_comments("This is an open source IDE with high-end features to make your programming experience juicy");
   about.set_license_type(Gtk::License::LICENSE_MIT_X11);
   about.set_transient_for(*this);
+  plugins.init_hook();
 }
 
 void Window::configure() {
