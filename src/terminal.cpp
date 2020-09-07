@@ -254,61 +254,61 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
   return process.get_exit_status();
 }
 
-void Terminal::async_process(const std::string &command, const boost::filesystem::path &path, const std::function<void(int exit_status)> &callback, bool quiet) {
-  std::thread async_execute_thread([this, command, path, callback, quiet]() {
-    perform_scroll_to_bottom = true;
+std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::string &command, const boost::filesystem::path &path, std::function<void(int exit_status)> callback, bool quiet) {
+  stdin_buffer.clear();
+  perform_scroll_to_bottom = true;
+
+  auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
+    if(!quiet) {
+      // Print stdout message sequentially to avoid the GUI becoming unresponsive
+      std::promise<void> message_printed;
+      dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+        Terminal::get().print(std::move(message));
+        message_printed.set_value();
+      });
+      message_printed.get_future().get();
+    }
+  }, [this, quiet](const char *bytes, size_t n) {
+    if(!quiet) {
+      // Print stderr message sequentially to avoid the GUI becoming unresponsive
+      std::promise<void> message_printed;
+      dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+        Terminal::get().print(std::move(message), true);
+        message_printed.set_value();
+      });
+      message_printed.get_future().get();
+    }
+  }, true);
+
+  auto pid = process->get_id();
+  if(pid <= 0) {
+    async_print("Error: failed to run command: " + command + "\n", true);
+    if(callback)
+      callback(-1);
+    return process;
+  }
+  else {
     LockGuard lock(processes_mutex);
-    stdin_buffer.clear();
-    auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
-      if(!quiet) {
-        // Print stdout message sequentially to avoid the GUI becoming unresponsive
-        std::promise<void> message_printed;
-        dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
-          Terminal::get().print(std::move(message));
-          message_printed.set_value();
-        });
-        message_printed.get_future().get();
-      }
-    }, [this, quiet](const char *bytes, size_t n) {
-      if(!quiet) {
-        // Print stderr message sequentially to avoid the GUI becoming unresponsive
-        std::promise<void> message_printed;
-        dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
-          Terminal::get().print(std::move(message), true);
-          message_printed.set_value();
-        });
-        message_printed.get_future().get();
-      }
-    }, true);
-    auto pid = process->get_id();
-    if(pid <= 0) {
-      lock.unlock();
-      async_print("Error: failed to run command: " + command + "\n", true);
-      if(callback)
-        callback(-1);
-      return;
-    }
-    else {
-      processes.emplace_back(process);
-      lock.unlock();
-    }
+    processes.emplace_back(process);
+  }
 
+  std::thread exit_status_thread([this, process, pid, callback = std::move(callback)]() {
     auto exit_status = process->get_exit_status();
-
-    lock.lock();
-    for(auto it = processes.begin(); it != processes.end(); it++) {
-      if((*it)->get_id() == pid) {
-        processes.erase(it);
-        break;
+    {
+      LockGuard lock(processes_mutex);
+      for(auto it = processes.begin(); it != processes.end(); it++) {
+        if((*it)->get_id() == pid) {
+          processes.erase(it);
+          break;
+        }
       }
     }
-    stdin_buffer.clear();
-    lock.unlock();
-
     if(callback)
       callback(exit_status);
   });
-  async_execute_thread.detach();
+  exit_status_thread.detach();
+
+  return process;
 }
 
 void Terminal::kill_last_async_process(bool force) {
@@ -410,9 +410,10 @@ void Terminal::print(std::string message, bool bold) {
     if(!parent->is_visible())
       parent->show();
 
-    bool expected = true;
-    if(perform_scroll_to_bottom.compare_exchange_strong(expected, false) && scroll_to_bottom)
+    if(perform_scroll_to_bottom == true && scroll_to_bottom) {
+      perform_scroll_to_bottom = false;
       scroll_to_bottom();
+    }
   }
 
   Glib::ustring umessage = std::move(message);

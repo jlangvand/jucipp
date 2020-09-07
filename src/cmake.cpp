@@ -60,15 +60,23 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
     return true;
 
   auto compile_commands_path = default_build_path / "compile_commands.json";
-  Dialog::Message message("Creating/updating default build");
+  bool canceled = false;
+  Dialog::Message message("Creating/updating default build", [&canceled] {
+    canceled = true;
+  });
   std::promise<int> promise;
-  Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-                                default_build_path,
-                                [&promise](int exit_status) {
-                                  promise.set_value(exit_status);
-                                });
+  auto process = Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                                               default_build_path,
+                                               [&promise](int exit_status) {
+                                                 promise.set_value(exit_status);
+                                               });
   auto future = promise.get_future();
+  bool killed = false;
   while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    if(canceled && !killed) {
+      process->kill();
+      killed = true;
+    }
     while(Gtk::Main::events_pending())
       Gtk::Main::iteration();
   }
@@ -112,15 +120,23 @@ bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, 
   if(!force && boost::filesystem::exists(debug_build_path / "CMakeCache.txt", ec))
     return true;
 
-  Dialog::Message message("Creating/updating debug build");
+  bool canceled = false;
+  Dialog::Message message("Creating/updating debug build", [&canceled] {
+    canceled = true;
+  });
   std::promise<int> promise;
-  Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_BUILD_TYPE=Debug",
-                                debug_build_path,
-                                [&promise](int exit_status) {
-                                  promise.set_value(exit_status);
-                                });
+  auto process = Terminal::get().async_process(Config::get().project.cmake.command + ' ' + filesystem::escape_argument(project_path.string()) + " -DCMAKE_BUILD_TYPE=Debug",
+                                               debug_build_path,
+                                               [&promise](int exit_status) {
+                                                 promise.set_value(exit_status);
+                                               });
   auto future = promise.get_future();
+  bool killed = false;
   while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    if(canceled && !killed) {
+      process->kill();
+      killed = true;
+    }
     while(Gtk::Main::events_pending())
       Gtk::Main::iteration();
   }
