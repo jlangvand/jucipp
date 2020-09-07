@@ -294,13 +294,15 @@ void Ctags::init_module(py::module &api) {
       ;
 
   ctags
-      .def_static("get_location", &Ctags::get_location,
-                  py::arg("line"),
-                  py::arg("markup"))
+      .def("get_location", &Ctags::get_location,
+           py::arg("line"),
+           py::arg("add_markup"),
+           py::arg("symbol_ends_with_open_parenthesis"))
       .def_static("get_locations", &Ctags::get_locations,
                   py::arg("path"),
                   py::arg("name"),
-                  py::arg("type"))
+                  py::arg("type"),
+                  py::arg("languages"))
 
       ;
 }
