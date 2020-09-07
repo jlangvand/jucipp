@@ -3,9 +3,7 @@
 #include "python_module.h"
 #include "terminal.hpp"
 
-Plugins::Plugins() : jucipp_module("Jucipp", Module::init_jucipp_module) {
-  auto &config = Config::get();
-  config.load();
+Plugins::Plugins(Config &config) : jucipp_module("Jucipp", Module::init_jucipp_module) {
 #ifdef PYTHON_HOME_DIR
 #ifdef _WIN32
   const std::wstring python_home(PYTHON_HOME_DIR);

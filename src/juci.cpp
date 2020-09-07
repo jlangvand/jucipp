@@ -4,6 +4,7 @@
 #include "filesystem.hpp"
 #include "menu.hpp"
 #include "notebook.hpp"
+#include "plugins.h"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include "window.hpp"
@@ -131,7 +132,7 @@ void Application::on_startup() {
   }
 }
 
-Application::Application() : Gtk::Application("no.sout.juci", Gio::APPLICATION_NON_UNIQUE | Gio::APPLICATION_HANDLES_COMMAND_LINE), window(plugins) {
+Application::Application(Plugins &p) : Gtk::Application("no.sout.juci", Gio::APPLICATION_NON_UNIQUE | Gio::APPLICATION_HANDLES_COMMAND_LINE), window(p) {
   Glib::set_application_name("juCi++");
 
   //Gtk::MessageDialog without buttons caused text to be selected, this prevents that
@@ -142,5 +143,9 @@ int main(int argc, char *argv[]) {
 #ifndef _WIN32
   signal(SIGPIPE, SIG_IGN); // Do not terminate application when writing to a process fails
 #endif
-  return Application().run(argc, argv);
+  auto &config = Config::get();
+  Plugins plugins(config);
+  plugins.load();
+
+  return Application(plugins).run(argc, argv);
 }

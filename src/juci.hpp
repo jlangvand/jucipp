@@ -2,9 +2,6 @@
 #include "window.hpp"
 #include <boost/filesystem.hpp>
 #include <gtkmm.h>
-#ifdef JUCI_ENABLE_PLUGINS
-#include "plugins.h"
-#endif
 /**
    \mainpage
    juCi++ is a lightweight C++ IDE written in C++
@@ -33,7 +30,7 @@
 */
 class Application : public Gtk::Application {
 public:
-  Application();
+  Application(Plugins &p);
   int on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine> &cmd) override;
   void on_activate() override;
   void on_startup() override;
@@ -43,5 +40,4 @@ private:
   std::vector<std::pair<boost::filesystem::path, size_t>> files;
   std::vector<std::string> errors;
   Window window;
-  Plugins plugins;
 };

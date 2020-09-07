@@ -2,7 +2,7 @@
 #include "python_module.h"
 #include <iostream>
 
-suite::suite(const boost::filesystem::path &path) {
+suite::suite(const boost::filesystem::path &path) : plugins(config) {
   py::initialize_interpreter();
   if(!Py_IsInitialized()) {
     throw std::runtime_error("Unable to initialize interpreter");
