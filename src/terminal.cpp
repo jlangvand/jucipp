@@ -7,6 +7,8 @@
 #include "utility.hpp"
 #include <future>
 #include <iostream>
+#include <pybind11/functional.h>
+#include <pybind11/stl.h>
 #include <regex>
 #include <thread>
 
@@ -611,7 +613,7 @@ void Terminal::init_module(pybind11::module &api) {
            py::arg("command"),
            py::arg("path") = "",
            py::arg("use_pipes") = false)
-      .def("async_process", (void (Terminal::*)(const std::string &, const boost::filesystem::path &, const std::function<void(int)> &, bool)) & Terminal::async_process,
+      .def("async_process", &Terminal::async_process,
            py::arg("command"),
            py::arg("path") = "",
            py::arg("callback") = nullptr,
@@ -623,14 +625,12 @@ void Terminal::init_module(pybind11::module &api) {
       .def("print", &Terminal::print,
            py::arg("message"),
            py::arg("bold") = false)
-      .def("async_print", (void (Terminal::*)(const std::string &, bool)) & Terminal::async_print,
+      .def("async_print", (void (Terminal::*)(std::string, bool)) & Terminal::async_print,
            py::arg("message"),
            py::arg("bold") = false)
-      .def("async_print", (void (Terminal::*)(size_t, const std::string &)) & Terminal::async_print,
-           py::arg("line_nr"),
-           py::arg("message"))
       .def("configure", &Terminal::configure)
       .def("clear", &Terminal::clear)
+      .def_readwrite("", &Terminal::scroll_to_bottom)
 
       ;
 }

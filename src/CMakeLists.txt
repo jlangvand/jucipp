@@ -22,6 +22,7 @@ set(JUCI_SHARED_FILES
   source_language_protocol.cpp
   source_spellcheck.cpp
   terminal.cpp
+  tiny_process_module.cpp
   tooltips.cpp
   usages_clang.cpp
   utility.cpp

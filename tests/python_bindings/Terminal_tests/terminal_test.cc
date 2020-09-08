@@ -37,4 +37,15 @@ int main() {
       connection.disconnect();
     }
   }
+  {
+    suite test_suite(test_directory);
+    try {
+      const auto ls_dir = test_suite.test_file_path / test_directory / "ls";
+      py::module::import("terminal_test").attr("async_process")(ls_dir);
+      test_suite.has_assertion = true;
+    }
+    catch(const py::error_already_set &error) {
+      std::cout << error.what();
+    }
+  }
 }

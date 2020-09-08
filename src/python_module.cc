@@ -9,6 +9,7 @@
 #include "dialogs.hpp"
 #include "git.hpp"
 #include "terminal.hpp"
+#include "tiny_process_module.hpp"
 
 PyObject *Module::init_jucipp_module() {
   auto api = py::module("Jucipp", "API");
@@ -23,5 +24,6 @@ PyObject *Module::init_jucipp_module() {
   Dispatcher::init_module(api);
   Git::init_module(api);
   Terminal::init_module(api);
+  TinyProcessModule::init_module(api);
   return api.ptr();
 }
