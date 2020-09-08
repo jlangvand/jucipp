@@ -131,7 +131,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
 
   auto target = debugger->CreateTarget(executable.c_str());
   if(!target.IsValid()) {
-    Terminal::get().async_print("Error (debug): Could not create debug target to: " + executable + '\n', true);
+    Terminal::get().async_print("\e[31mError (debug)\e[m: Could not create debug target to: " + executable + '\n', true);
     for(auto &handler : on_exit)
       handler(-1);
     return;
@@ -140,7 +140,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
   //Set breakpoints
   for(auto &breakpoint : breakpoints) {
     if(!(target.BreakpointCreateByLocation(breakpoint.first.string().c_str(), breakpoint.second)).IsValid()) {
-      Terminal::get().async_print("Error (debug): Could not create breakpoint at: " + breakpoint.first.string() + ":" + std::to_string(breakpoint.second) + '\n', true);
+      Terminal::get().async_print("\e[31mError (debug)\e[m: Could not create breakpoint at: " + breakpoint.first.string() + ":" + std::to_string(breakpoint.second) + '\n', true);
       for(auto &handler : on_exit)
         handler(-1);
       return;
@@ -152,7 +152,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
     auto connect_string = "connect://" + remote_host;
     process = std::make_unique<lldb::SBProcess>(target.ConnectRemote(*listener, connect_string.c_str(), "gdb-remote", error));
     if(error.Fail()) {
-      Terminal::get().async_print(std::string("Error (debug): ") + error.GetCString() + '\n', true);
+      Terminal::get().async_print(std::string("\e[31mError (debug)\e[m: ") + error.GetCString() + '\n', true);
       for(auto &handler : on_exit)
         handler(-1);
       return;
@@ -197,7 +197,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
   }
 
   if(error.Fail()) {
-    Terminal::get().async_print(std::string("Error (debug): ") + error.GetCString() + '\n', true);
+    Terminal::get().async_print(std::string("\e[31mError (debug)\e[m: ") + error.GetCString() + '\n', true);
     for(auto &handler : on_exit)
       handler(-1);
     return;
@@ -279,7 +279,7 @@ void Debug::LLDB::stop() {
   if(state == lldb::StateType::eStateRunning) {
     auto error = process->Stop();
     if(error.Fail())
-      Terminal::get().async_print(std::string("Error (debug): ") + error.GetCString() + '\n', true);
+      Terminal::get().async_print(std::string("\e[31mError (debug)\e[m: ") + error.GetCString() + '\n', true);
   }
 }
 
@@ -288,7 +288,7 @@ void Debug::LLDB::kill() {
   if(process) {
     auto error = process->Kill();
     if(error.Fail())
-      Terminal::get().async_print(std::string("Error (debug): ") + error.GetCString() + '\n', true);
+      Terminal::get().async_print(std::string("\e[31mError (debug)\e[m: ") + error.GetCString() + '\n', true);
   }
 }
 
@@ -534,7 +534,7 @@ void Debug::LLDB::add_breakpoint(const boost::filesystem::path &file_path, int l
   LockGuard lock(mutex);
   if(state == lldb::eStateStopped || state == lldb::eStateRunning) {
     if(!(process->GetTarget().BreakpointCreateByLocation(file_path.string().c_str(), line_nr)).IsValid())
-      Terminal::get().async_print("Error (debug): Could not create breakpoint at: " + file_path.string() + ":" + std::to_string(line_nr) + '\n', true);
+      Terminal::get().async_print("\e[31mError (debug)\e[m: Could not create breakpoint at: " + file_path.string() + ":" + std::to_string(line_nr) + '\n', true);
   }
 }
 
@@ -553,7 +553,7 @@ void Debug::LLDB::remove_breakpoint(const boost::filesystem::path &file_path, in
             breakpoint_path /= file_spec.GetFilename();
             if(breakpoint_path == file_path) {
               if(!target.BreakpointDelete(breakpoint.GetID()))
-                Terminal::get().async_print("Error (debug): Could not delete breakpoint at: " + file_path.string() + ":" + std::to_string(line_nr) + '\n', true);
+                Terminal::get().async_print("\e[31mError (debug)\e[m: Could not delete breakpoint at: " + file_path.string() + ":" + std::to_string(line_nr) + '\n', true);
               return;
             }
           }

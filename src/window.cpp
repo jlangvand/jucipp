@@ -1383,10 +1383,10 @@ void Window::set_menu_actions() {
         auto directory_folder = Project::get_preferably_directory_folder();
         if(Config::get().terminal.clear_on_run_command)
           Terminal::get().clear();
-        Terminal::get().async_print("Running: " + content + '\n');
+        Terminal::get().async_print("\e[2mRunning: " + content + "\e[m\n");
 
         Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
-          Terminal::get().async_print(content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+          Terminal::get().async_print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
         });
       }
       EntryBox::get().hide();

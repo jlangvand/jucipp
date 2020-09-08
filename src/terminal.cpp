@@ -30,6 +30,7 @@ Terminal::Terminal() : Source::SearchView() {
   blue_tag = get_buffer()->create_tag();
   magenta_tag = get_buffer()->create_tag();
   cyan_tag = get_buffer()->create_tag();
+  gray_tag = get_buffer()->create_tag();
 
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
@@ -158,7 +159,7 @@ Terminal::Terminal() : Source::SearchView() {
                 }
                 else if(code == 48 || code == 58)
                   break; // Do not read next arguments
-                else if(code == 0 || (code >= 30 && code <= 37))
+                else if(code == 0 || code == 2 || code == 22 || (code >= 30 && code <= 37))
                   color = code;
               }
               catch(...) {
@@ -182,6 +183,8 @@ Terminal::Terminal() : Source::SearchView() {
               get_buffer()->apply_tag(magenta_tag, (*last_color_sequence_mark)->get_iter(), start);
             else if(last_color == 36)
               get_buffer()->apply_tag(cyan_tag, (*last_color_sequence_mark)->get_iter(), start);
+            else if(last_color == 37 || last_color == 2)
+              get_buffer()->apply_tag(gray_tag, (*last_color_sequence_mark)->get_iter(), start);
           }
 
           if(color >= 0) {
@@ -489,6 +492,13 @@ void Terminal::configure() {
   rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
   rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
   cyan_tag->property_foreground_rgba() = rgba;
+
+  rgba.set_rgba(0.5, 0.5, 0.5);
+  factor = light_theme ? 0.6 : 0.4;
+  rgba.set_red(normal_color.get_red() + factor * (rgba.get_red() - normal_color.get_red()));
+  rgba.set_green(normal_color.get_green() + factor * (rgba.get_green() - normal_color.get_green()));
+  rgba.set_blue(normal_color.get_blue() + factor * (rgba.get_blue() - normal_color.get_blue()));
+  gray_tag->property_foreground_rgba() = rgba;
 
   // Set search match style:
   get_buffer()->get_tag_table()->foreach([](const Glib::RefPtr<Gtk::TextTag> &tag) {

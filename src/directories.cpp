@@ -801,7 +801,7 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
         status = repository->get_status();
       }
       catch(const std::exception &e) {
-        Terminal::get().async_print(std::string("Error (git): ") + e.what() + '\n', true);
+        Terminal::get().async_print(std::string("\e[31mError (git)\e[m: ") + e.what() + '\n', true);
       }
 
       dispatcher.post([this, dir_path, include_parent_paths, status = std::move(status)] {

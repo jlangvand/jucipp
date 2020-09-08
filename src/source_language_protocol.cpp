@@ -352,7 +352,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
       LockGuard lock(read_write_mutex);
       auto id_it = handlers.find(message_id);
       if(id_it != handlers.end()) {
-        Terminal::get().async_print("Request to language server timed out. If you suspect the server has crashed, please close and reopen all project source files.\n", true);
+        Terminal::get().async_print("\e[33mWarning\e[m: request to language server timed out. If you suspect the server has crashed, please close and reopen all project source files.\n", true);
         auto function = std::move(id_it->second.second);
         handlers.erase(id_it);
         lock.unlock();
@@ -366,7 +366,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
   if(Config::get().log.language_server)
     std::cout << "Language client: " << content << std::endl;
   if(!process->write(message)) {
-    Terminal::get().async_print("Error writing to language protocol server. Please close and reopen all project source files.\n", true);
+    Terminal::get().async_print("\e[31mError\e[m: could not write to language server. Please close and reopen all project files.\n", true);
     auto id_it = handlers.find(message_id - 1);
     if(id_it != handlers.end()) {
       auto function = std::move(id_it->second.second);

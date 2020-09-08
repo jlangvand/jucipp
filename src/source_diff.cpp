@@ -263,7 +263,7 @@ void Source::DiffView::configure() {
         get_buffer()->remove_tag(renderer->tag_removed_below, get_buffer()->begin(), get_buffer()->end());
         get_buffer()->remove_tag(renderer->tag_removed_above, get_buffer()->begin(), get_buffer()->end());
         renderer->queue_draw();
-        Terminal::get().print(std::string("Error (git): ") + e_what + '\n', true);
+        Terminal::get().print(std::string("\e[31mError (git)\e[m: ") + e_what + '\n', true);
       });
     }
   });

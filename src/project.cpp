@@ -381,7 +381,7 @@ void Project::LLDB::debug_start() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Compiling and debugging " + *run_arguments + "\n");
+  Terminal::get().print("\e[2mCompiling and debugging " + *run_arguments + "\e[m\n");
   Terminal::get().async_process(build->get_compile_command(), debug_build_path, [self = this->shared_from_this(), run_arguments, project_path](int exit_status) {
     if(exit_status != EXIT_SUCCESS)
       debugging = false;
@@ -409,7 +409,7 @@ void Project::LLDB::debug_start() {
           Debug::LLDB::get().on_exit.erase(on_exit_it);
         Debug::LLDB::get().on_exit.emplace_back([self, run_arguments](int exit_status) {
           debugging = false;
-          Terminal::get().async_print(*run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+          Terminal::get().async_print("\e[2m" + *run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
           self->dispatcher.post([] {
             debug_update_status("");
           });
@@ -852,7 +852,7 @@ void Project::Clang::compile() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Compiling project " + filesystem::get_short_path(build->project_path).string() + "\n");
+  Terminal::get().print("\e[2mCompiling project " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
   Terminal::get().async_process(build->get_compile_command(), default_build_path, [](int exit_status) {
     compiling = false;
   });
@@ -890,12 +890,12 @@ void Project::Clang::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Compiling and running " + arguments + "\n");
+  Terminal::get().print("\e[2mCompiling and running " + arguments + "\e[m\n");
   Terminal::get().async_process(build->get_compile_command(), default_build_path, [arguments, project_path](int exit_status) {
     compiling = false;
-    if(exit_status == EXIT_SUCCESS) {
+    if(exit_status == 0) {
       Terminal::get().async_process(arguments, project_path, [arguments](int exit_status) {
-        Terminal::get().async_print(arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        Terminal::get().async_print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });
@@ -999,9 +999,9 @@ void Project::Python::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Running " + command + "\n");
+  Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1025,9 +1025,9 @@ void Project::JavaScript::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Running " + command + "\n");
+  Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1038,9 +1038,9 @@ void Project::HTML::compile_and_run() {
     if(Config::get().terminal.clear_on_compile)
       Terminal::get().clear();
 
-    Terminal::get().print("Running " + command + "\n");
+    Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
     Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
-      Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+      Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
     });
   }
   else if(auto view = Notebook::get().get_current_view())
@@ -1066,7 +1066,7 @@ void Project::Rust::compile() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("Compiling project " + filesystem::get_short_path(build->project_path).string() + "\n");
+  Terminal::get().print("\e[2mCompiling project " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
 
   auto command = build->get_compile_command();
   Terminal::get().async_process(command, build->project_path, [](int exit_status) {
@@ -1081,14 +1081,14 @@ void Project::Rust::compile_and_run() {
     Terminal::get().clear();
 
   auto arguments = get_run_arguments().second;
-  Terminal::get().print("Compiling and running " + arguments + "\n");
+  Terminal::get().print("\e[2mCompiling and running " + arguments + "\e[m\n");
 
   auto self = this->shared_from_this();
   Terminal::get().async_process(build->get_compile_command(), build->project_path, [self, arguments = std::move(arguments)](int exit_status) {
     compiling = false;
-    if(exit_status == EXIT_SUCCESS) {
+    if(exit_status == 0) {
       Terminal::get().async_process(arguments, self->build->project_path, [arguments](int exit_status) {
-        Terminal::get().async_print(arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        Terminal::get().async_print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });
