@@ -18,4 +18,4 @@ def start_on_exit(exec_path):
 
     while not exited:
         sleep(0.1)
-    l.cancel()
+    LLDB.destroy()

@@ -10,8 +10,8 @@
 #include "utility.hpp"
 #include <boost/filesystem.hpp>
 #include <iostream>
-#include <pybind11/stl.h>
 #include <pybind11/functional.h>
+#include <pybind11/stl.h>
 
 extern char **environ;
 
@@ -601,6 +601,7 @@ void Debug::LLDB::init_module(pybind11::module &api) {
 
   dbg
       .def(py::init([]() { return &(Debug::LLDB::get()); }))
+      .def_static("destroy", &Debug::LLDB::destroy)
       .def_readwrite("on_exit", &Debug::LLDB::on_exit)
       .def("continue_debug", &Debug::LLDB::continue_debug)
       .def("stop", &Debug::LLDB::stop)
