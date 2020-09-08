@@ -218,7 +218,4 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   boost::replace_all(plugins_path, "<juci_home_directory>", home_juci_path.string());
   plugins.path = plugins_path;
   plugins.enabled = cfg.get<bool>("plugins.enabled");
-  if (plugins.enabled) {
-    std::cout << "Plugins enabled" << std::endl;
-  }
 }
