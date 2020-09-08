@@ -317,13 +317,13 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
       use_tmp_file = true;
       file_path = boost::filesystem::temp_directory_path(ec);
       if(ec) {
-        Terminal::get().print("Error: could not get temporary directory folder\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not get temporary directory folder\n", true);
         return methods;
       }
       file_path /= "jucipp_get_methods" + std::to_string(get_current_process_id());
       boost::filesystem::create_directory(file_path, ec);
       if(ec) {
-        Terminal::get().print("Error: could not create temporary folder\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create temporary folder\n", true);
         return methods;
       }
       file_path /= this->file_path.filename().string() + (is_cpp_standard_header ? ".hpp" : "");
@@ -411,7 +411,7 @@ bool Source::View::save() {
     }
   }
   catch(const Glib::Error &error) {
-    Terminal::get().print("Error: Could not save file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: Could not save file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
     return false;
   }
 
@@ -942,7 +942,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
           }
         }
         catch(const std::exception &e) {
-          Terminal::get().print(std::string("Error: error parsing clang-format output: ") + e.what() + '\n', true);
+          Terminal::get().print(std::string("\e[31mError\e[m: error parsing clang-format output: ") + e.what() + '\n', true);
         }
         get_buffer()->end_user_action();
       }

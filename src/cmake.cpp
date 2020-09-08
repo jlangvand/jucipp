@@ -51,7 +51,7 @@ bool CMake::update_default_build(const boost::filesystem::path &default_build_pa
     boost::system::error_code ec;
     boost::filesystem::create_directories(default_build_path, ec);
     if(ec) {
-      Terminal::get().print("Error: could not create " + default_build_path.string() + ": " + ec.message() + "\n", true);
+      Terminal::get().print("\e[31mError\e[m: could not create " + default_build_path.string() + ": " + ec.message() + "\n", true);
       return false;
     }
   }
@@ -112,7 +112,7 @@ bool CMake::update_debug_build(const boost::filesystem::path &debug_build_path, 
     boost::system::error_code ec;
     boost::filesystem::create_directories(debug_build_path, ec);
     if(ec) {
-      Terminal::get().print("Error: could not create " + debug_build_path.string() + ": " + ec.message() + "\n", true);
+      Terminal::get().print("\e[31mError\e[m: could not create " + debug_build_path.string() + ": " + ec.message() + "\n", true);
       return false;
     }
   }

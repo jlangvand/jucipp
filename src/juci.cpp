@@ -27,7 +27,7 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
     boost::system::error_code current_path_ec;
     auto current_path = boost::filesystem::current_path(current_path_ec);
     if(current_path_ec)
-      errors.emplace_back("Error: could not find current path\n");
+      errors.emplace_back("\e[31mError\e[m: could not find current path\n");
     for(int c = 1; c < argc; c++) {
       boost::filesystem::path path(argv[c]);
       if(path.is_relative() && !current_path_ec)
@@ -44,7 +44,7 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
         if(path.is_absolute() && boost::filesystem::is_directory(path.parent_path(), ec))
           files.emplace_back(path, 0);
         else
-          errors.emplace_back("Error: could not create " + path.string() + ".\n");
+          errors.emplace_back("\e[31mError\e[m: could not create " + path.string() + ".\n");
       }
     }
   }

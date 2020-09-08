@@ -34,13 +34,13 @@ void Snippets::load() {
         if(!key_string.empty()) {
           gtk_accelerator_parse(key_string.c_str(), &key, &modifier);
           if(key == 0 && modifier == 0)
-            Terminal::get().async_print("Error: could not parse key string: " + key_string + "\n", true);
+            Terminal::get().async_print("\e[31mError\e[m: could not parse key string: " + key_string + "\n", true);
         }
         snippets.back().second.emplace_back(Snippet{snippet_it->second.get<std::string>("prefix", ""), key, modifier, snippet_it->second.get<std::string>("body"), snippet_it->second.get<std::string>("description", "")});
       }
     }
   }
   catch(const std::exception &e) {
-    Terminal::get().async_print(std::string("Error: ") + e.what() + "\n", true);
+    Terminal::get().async_print(std::string("\e[31mError\e[m: ") + e.what() + "\n", true);
   }
 }

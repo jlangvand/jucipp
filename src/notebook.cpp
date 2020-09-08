@@ -117,7 +117,7 @@ bool Notebook::open(Source::View *view) {
 bool Notebook::open(const boost::filesystem::path &file_path_, Position position) {
   boost::system::error_code ec;
   if(file_path_.empty() || (boost::filesystem::exists(file_path_, ec) && !boost::filesystem::is_regular_file(file_path_, ec))) {
-    Terminal::get().print("Error: could not open " + file_path_.string() + "\n", true);
+    Terminal::get().print("\e[31mError\e[m: could not open " + file_path_.string() + "\n", true);
     return false;
   }
 
@@ -147,7 +147,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   if(boost::filesystem::exists(file_path, ec)) {
     std::ifstream can_read(file_path.string());
     if(!can_read) {
-      Terminal::get().print("Error: could not open " + file_path.string() + "\n", true);
+      Terminal::get().print("\e[31mError\e[m: could not open " + file_path.string() + "\n", true);
       return false;
     }
     can_read.close();

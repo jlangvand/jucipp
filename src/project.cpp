@@ -363,11 +363,11 @@ void Project::LLDB::debug_start() {
     *run_arguments = build->get_executable(view ? view->file_path : Directories::get().path).string();
     if(run_arguments->empty()) {
       if(build->is_valid()) {
-        Terminal::get().print("Warning: could not find executable.\n");
-        Terminal::get().print("Solution: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+        Terminal::get().print("\e[33mWarning\e[m: could not find executable.\n");
+        Terminal::get().print("\e[32mSolution\e[m: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
       }
       else
-        Terminal::get().print("Error: build folder no longer valid, please rebuild project.\n", true);
+        Terminal::get().print("\e[31mError\e[m: build folder no longer valid, please rebuild project.\n", true);
       return;
     }
     size_t pos = run_arguments->find(default_build_path.string());
@@ -875,11 +875,11 @@ void Project::Clang::compile_and_run() {
     auto executable = build->get_executable(view ? view->file_path : Directories::get().path);
     if(executable.empty()) {
       if(build->is_valid()) {
-        Terminal::get().print("Warning: could not find executable.\n");
-        Terminal::get().print("Solution: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+        Terminal::get().print("\e[33mWarning\e[m: could not find executable.\n");
+        Terminal::get().print("\e[32mSolution\e[m: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
       }
       else
-        Terminal::get().print("Error: build folder no longer valid, please rebuild project.\n", true);
+        Terminal::get().print("\e[31mError\e[m: build folder no longer valid, please rebuild project.\n", true);
       return;
     }
     arguments = filesystem::escape_argument(filesystem::get_short_path(executable).string());
@@ -945,7 +945,7 @@ void Project::Clang::recreate_build() {
       }
     }
     catch(const std::exception &e) {
-      Terminal::get().print(std::string("Error: could not remove build: ") + e.what() + "\n", true);
+      Terminal::get().print(std::string("\e[31mError\e[m: could not remove build: ") + e.what() + "\n", true);
       return;
     }
   }
@@ -974,7 +974,7 @@ void Project::Markdown::compile_and_run() {
     auto command = Config::get().project.markdown_command + ' ' + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
     Terminal::get().async_process(command, "", [command](int exit_status) {
       if(exit_status == 127)
-        Terminal::get().async_print("Error: executable not found: " + command + "\n", true);
+        Terminal::get().async_print("\e[31mError\e[m: executable not found: " + command + "\n", true);
     }, true);
   }
 }

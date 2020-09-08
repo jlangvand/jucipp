@@ -209,7 +209,7 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
     process = std::make_unique<TinyProcessLib::Process>(command, path.string());
 
   if(process->get_id() <= 0) {
-    async_print("Error: failed to run command: " + command + "\n", true);
+    async_print("\e[31mError\e[m: failed to run command: " + command + "\n", true);
     return -1;
   }
 
@@ -235,7 +235,7 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
   }, true);
 
   if(process.get_id() <= 0) {
-    async_print("Error: failed to run command: " + command + "\n", true);
+    async_print("\e[31mError\e[m: failed to run command: " + command + "\n", true);
     return -1;
   }
 
@@ -282,7 +282,7 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
 
   auto pid = process->get_id();
   if(pid <= 0) {
-    async_print("Error: failed to run command: " + command + "\n", true);
+    async_print("\e[31mError\e[m: failed to run command: " + command + "\n", true);
     if(callback)
       callback(-1);
     return process;

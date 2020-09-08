@@ -196,7 +196,7 @@ void Source::ClangViewParse::parse_initialize() {
           parse_state = ParseState::stop;
           parse_mutex.unlock();
           dispatcher.post([this] {
-            Terminal::get().print("Error: failed to reparse " + this->file_path.string() + ".\n", true);
+            Terminal::get().print("\e[31mError\e[m: failed to reparse " + this->file_path.string() + ".\n", true);
             status_state = "";
             if(update_status_state)
               update_status_state(this);
@@ -911,7 +911,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.on_add_rows_error = [this] {
-    Terminal::get().print("Error: autocomplete failed, reparsing " + this->file_path.string() + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: autocomplete failed, reparsing " + this->file_path.string() + '\n', true);
     selected_completion_string = nullptr;
     code_complete_results = nullptr;
     full_reparse();
@@ -1253,7 +1253,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
             usages_renamed.emplace_back(&usage);
           }
           else
-            Terminal::get().print("Error: could not write to file " + usage.path.string() + '\n', true);
+            Terminal::get().print("\e[31mError\e[m: could not write to file " + usage.path.string() + '\n', true);
         }
       }
 

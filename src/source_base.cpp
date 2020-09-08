@@ -246,7 +246,7 @@ bool Source::BaseView::load(bool not_undoable_action) {
       }
     }
     catch(const Glib::Error &error) {
-      Terminal::get().print("Error: Could not read file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
+      Terminal::get().print("\e[31mError\e[m: Could not read file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
       return false;
     }
   }
@@ -316,7 +316,7 @@ void Source::BaseView::replace_text(const std::string &new_text) {
     }
   }
   catch(...) {
-    Terminal::get().print("Error: Could not replace text in buffer\n", true);
+    Terminal::get().print("\e[31mError\e[m: Could not replace text in buffer\n", true);
   }
 
   get_buffer()->end_user_action();
@@ -1542,7 +1542,7 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
     parse_snippet(false);
   }
   catch(...) {
-    Terminal::get().print("Error: could not parse snippet: " + snippet + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: could not parse snippet: " + snippet + '\n', true);
     return;
   }
 

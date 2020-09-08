@@ -44,7 +44,7 @@ void Config::load() {
   }
   catch(const std::exception &e) {
     dispatcher.post([config_json = std::move(config_json), e_what = std::string(e.what())] {
-      ::Terminal::get().print("Error: could not parse " + config_json.string() + ": " + e_what + "\n", true);
+      ::Terminal::get().print("\e[31mError\e[m: could not parse " + config_json.string() + ": " + e_what + "\n", true);
     });
     std::stringstream ss;
     ss << default_config_file;

@@ -56,7 +56,7 @@ bool Directories::TreeStore::drag_data_received_vfunc(const TreeModel::Path &pat
 
     boost::system::error_code ec;
     if(boost::filesystem::exists(target_path, ec)) {
-      Terminal::get().print("Error: could not move file: " + target_path.string() + " already exists\n", true);
+      Terminal::get().print("\e[31mError\e[m: could not move file: " + target_path.string() + " already exists\n", true);
       return false;
     }
 
@@ -66,7 +66,7 @@ bool Directories::TreeStore::drag_data_received_vfunc(const TreeModel::Path &pat
 
     boost::filesystem::rename(source_path, target_path, ec);
     if(ec) {
-      Terminal::get().print("Error: could not move file: " + ec.message() + '\n', true);
+      Terminal::get().print("\e[31mError\e[m: could not move file: " + ec.message() + '\n', true);
       return false;
     }
 
@@ -287,12 +287,12 @@ Directories::Directories() : Gtk::ListViewText(1) {
           on_save_file(target_path);
         }
         else {
-          Terminal::get().print("Error: could not create " + target_path.string() + '\n', true);
+          Terminal::get().print("\e[31mError\e[m: could not create " + target_path.string() + '\n', true);
           return;
         }
       }
       else {
-        Terminal::get().print("Error: could not create " + target_path.string() + ": already exists\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create " + target_path.string() + ": already exists\n", true);
         return;
       }
 
@@ -331,12 +331,12 @@ Directories::Directories() : Gtk::ListViewText(1) {
           select(target_path);
         }
         else {
-          Terminal::get().print("Error: could not create " + target_path.string() + ": " + ec.message(), true);
+          Terminal::get().print("\e[31mError\e[m: could not create " + target_path.string() + ": " + ec.message(), true);
           return;
         }
       }
       else {
-        Terminal::get().print("Error: could not create " + target_path.string() + ": already exists\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create " + target_path.string() + ": already exists\n", true);
         return;
       }
 
@@ -372,7 +372,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
       auto target_path = source_path.parent_path() / content;
 
       if(boost::filesystem::exists(target_path, ec)) {
-        Terminal::get().print("Error: could not rename to " + target_path.string() + ": already exists\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not rename to " + target_path.string() + ": already exists\n", true);
         return;
       }
 
@@ -381,7 +381,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
 
       boost::filesystem::rename(source_path, target_path, ec);
       if(ec) {
-        Terminal::get().print("Error: could not rename " + source_path.string() + ": " + ec.message() + '\n', true);
+        Terminal::get().print("\e[31mError\e[m: could not rename " + source_path.string() + ": " + ec.message() + '\n', true);
         return;
       }
       update();
@@ -412,7 +412,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
           if(view->language)
             new_language_id = view->language->get_id();
           if(new_language_id != old_language_id)
-            Terminal::get().print("Warning: language for " + target_path.string() + " has changed. Please reopen the file\n");
+            Terminal::get().print("\e[33mWarning\e[m: language for " + target_path.string() + " has changed. Please reopen the file\n");
         }
       }
 
@@ -448,7 +448,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
 
       boost::filesystem::remove_all(menu_popup_row_path, ec);
       if(ec) {
-        Terminal::get().print("Error: could not delete " + menu_popup_row_path.string() + ": " + ec.message() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not delete " + menu_popup_row_path.string() + ": " + ec.message() + "\n", true);
         return;
       }
 
@@ -495,7 +495,7 @@ Directories::~Directories() {
 void Directories::open(const boost::filesystem::path &dir_path) {
   boost::system::error_code ec;
   if(dir_path.empty() || !boost::filesystem::is_directory(dir_path, ec)) {
-    Terminal::get().print("Error: could not open " + dir_path.string() + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: could not open " + dir_path.string() + '\n', true);
     return;
   }
 
