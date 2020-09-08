@@ -116,7 +116,7 @@ const std::string default_config_file = R"RAW({
                                                     R"RAW(
         "grep_command": "grep",
         "cargo_command": "cargo",
-        "python_command": "PYTHONUNBUFFERED=1 python",
+        "python_command": "python -u",
         "markdown_command": "grip -b"
     },
     "keybindings": {
