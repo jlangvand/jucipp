@@ -289,11 +289,17 @@ void Ctags::init_module(py::module &api) {
       .def_readwrite("symbol", &Ctags::Location::symbol)
       .def_readwrite("scope", &Ctags::Location::scope)
       .def_readwrite("source", &Ctags::Location::source)
+      .def_readwrite("kind", &Ctags::Location::kind)
       .def("__bool__", &Ctags::Location::operator bool)
 
       ;
 
   ctags
+      .def(py::init<const boost::filesystem::path &, bool, bool, std::string>(),
+           py::arg("path"),
+           py::arg("enable_scope"),
+           py::arg("enable_kind"),
+           py::arg("languages"))
       .def("get_location", &Ctags::get_location,
            py::arg("line"),
            py::arg("add_markup"),
@@ -303,6 +309,8 @@ void Ctags::init_module(py::module &api) {
                   py::arg("name"),
                   py::arg("type"),
                   py::arg("languages"))
+      .def_readwrite("project_path", &Ctags::project_path)
+      .def("__bool__", &Ctags::operator bool)
 
       ;
 }

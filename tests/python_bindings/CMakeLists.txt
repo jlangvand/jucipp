@@ -23,9 +23,9 @@ add_executable(pb_config_test Config_tests/config_test.cc $<TARGET_OBJECTS:test_
 target_link_libraries(pb_config_test test_suite)
 add_test(pb_config_test pb_config_test)
 
-add_executable(pb_ctags_test Ctags_tests/ctags_test.cc $<TARGET_OBJECTS:test_stubs>)
-target_link_libraries(pb_ctags_test test_suite)
-add_test(pb_ctags_test pb_ctags_test)
+# add_executable(pb_ctags_test Ctags_tests/ctags_test.cc $<TARGET_OBJECTS:test_stubs>)
+# target_link_libraries(pb_ctags_test test_suite)
+# add_test(pb_ctags_test pb_ctags_test)
 
 if(LIBLLDB_FOUND AND NOT DEBIAN_STRETCH_FOUND)
   add_executable(pb_debug_lldb_test Debug_lldb_tests/debug_lldb_test.cc $<TARGET_OBJECTS:test_stubs>)
