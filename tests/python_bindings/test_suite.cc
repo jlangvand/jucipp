@@ -1,8 +1,10 @@
 #include "test_suite.h"
 #include "python_module.h"
+#include <gtksourceviewmm/init.h>
 #include <iostream>
 
 suite::suite(const boost::filesystem::path &path) : plugins(config) {
+  Gsv::init();
   py::initialize_interpreter();
   if(!Py_IsInitialized()) {
     throw std::runtime_error("Unable to initialize interpreter");
