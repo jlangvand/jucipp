@@ -1386,7 +1386,7 @@ void Window::set_menu_actions() {
         Terminal::get().async_print("Running: " + content + '\n');
 
         Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
-          Terminal::get().async_print(content + " returned: " + std::to_string(exit_status) + '\n');
+          Terminal::get().async_print(content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
         });
       }
       EntryBox::get().hide();

@@ -409,7 +409,7 @@ void Project::LLDB::debug_start() {
           Debug::LLDB::get().on_exit.erase(on_exit_it);
         Debug::LLDB::get().on_exit.emplace_back([self, run_arguments](int exit_status) {
           debugging = false;
-          Terminal::get().async_print(*run_arguments + " returned: " + std::to_string(exit_status) + '\n');
+          Terminal::get().async_print(*run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
           self->dispatcher.post([] {
             debug_update_status("");
           });
@@ -895,7 +895,7 @@ void Project::Clang::compile_and_run() {
     compiling = false;
     if(exit_status == EXIT_SUCCESS) {
       Terminal::get().async_process(arguments, project_path, [arguments](int exit_status) {
-        Terminal::get().async_print(arguments + " returned: " + std::to_string(exit_status) + '\n');
+        Terminal::get().async_print(arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });
@@ -1001,7 +1001,7 @@ void Project::Python::compile_and_run() {
 
   Terminal::get().print("Running " + command + "\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print(command + " returned: " + std::to_string(exit_status) + '\n');
+    Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1027,7 +1027,7 @@ void Project::JavaScript::compile_and_run() {
 
   Terminal::get().print("Running " + command + "\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print(command + " returned: " + std::to_string(exit_status) + '\n');
+    Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1040,7 +1040,7 @@ void Project::HTML::compile_and_run() {
 
     Terminal::get().print("Running " + command + "\n");
     Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
-      Terminal::get().async_print(command + " returned: " + std::to_string(exit_status) + '\n');
+      Terminal::get().async_print(command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
     });
   }
   else if(auto view = Notebook::get().get_current_view())
@@ -1088,7 +1088,7 @@ void Project::Rust::compile_and_run() {
     compiling = false;
     if(exit_status == EXIT_SUCCESS) {
       Terminal::get().async_process(arguments, self->build->project_path, [arguments](int exit_status) {
-        Terminal::get().async_print(arguments + " returned: " + std::to_string(exit_status) + '\n');
+        Terminal::get().async_print(arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });
