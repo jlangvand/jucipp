@@ -197,7 +197,9 @@ Terminal::Terminal() : Source::SearchView() {
 }
 
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
-  perform_scroll_to_bottom = true;
+  if(scroll_to_bottom)
+    scroll_to_bottom();
+
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(command, path.string(), [this](const char *bytes, size_t n) {
@@ -217,7 +219,9 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
 }
 
 int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, const std::string &command, const boost::filesystem::path &path, std::ostream *stderr_stream) {
-  perform_scroll_to_bottom = true;
+  if(scroll_to_bottom)
+    scroll_to_bottom();
+
   TinyProcessLib::Process process(command, path.string(), [&stdout_stream](const char *bytes, size_t n) {
     Glib::ustring umessage(std::string(bytes, n));
     Glib::ustring::iterator iter;
@@ -255,8 +259,9 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
 }
 
 std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::string &command, const boost::filesystem::path &path, std::function<void(int exit_status)> callback, bool quiet) {
+  if(scroll_to_bottom)
+    scroll_to_bottom();
   stdin_buffer.clear();
-  perform_scroll_to_bottom = true;
 
   auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
     if(!quiet) {
@@ -409,11 +414,6 @@ void Terminal::print(std::string message, bool bold) {
   if(auto parent = get_parent()) {
     if(!parent->is_visible())
       parent->show();
-
-    if(perform_scroll_to_bottom == true && scroll_to_bottom) {
-      perform_scroll_to_bottom = false;
-      scroll_to_bottom();
-    }
   }
 
   Glib::ustring umessage = std::move(message);

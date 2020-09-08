@@ -60,6 +60,4 @@ private:
   Mutex processes_mutex;
   std::vector<std::shared_ptr<TinyProcessLib::Process>> processes GUARDED_BY(processes_mutex);
   Glib::ustring stdin_buffer;
-
-  bool perform_scroll_to_bottom = false;
 };
