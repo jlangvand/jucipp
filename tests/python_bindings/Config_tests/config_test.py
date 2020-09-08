@@ -33,7 +33,7 @@ def project():
     project.meson = meson
     project.cmake = cmake
     project.save_on_compile_or_run = True
-    project.clear_terminal_on_compile = False
+    # project.clear_terminal_on_compile = False
     project.ctags_command = "ctags"
     project.python_command = "python"
     Config().project = project
@@ -49,7 +49,7 @@ def source():
     source.format_style_on_save_if_style_file_found = False
     source.smart_inserts = False
     source.show_map = False
-    source.map_font_size = "10px"
+    # source.map_font_size = "10px"
     source.show_git_diff = False
     source.show_background_pattern = False
     source.show_right_margin = False
@@ -58,7 +58,7 @@ def source():
     source.default_tab_char = "c"
     source.default_tab_size = 1
     source.tab_indents_line = False
-    source.wrap_lines = False
+    # source.wrap_lines = False
     source.highlight_current_line = False
     source.show_line_numbers = False
     source.enable_multiple_cursors = False
