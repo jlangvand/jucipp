@@ -29,7 +29,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   add_compile_options(-Wno-cpp)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options("-Wno-#warnings")
-  add_compile_options(-Wthread-safety)
+  add_compile_options(-Wthread-safety -Wno-deprecated)
 endif()
 
 if(APPLE)
