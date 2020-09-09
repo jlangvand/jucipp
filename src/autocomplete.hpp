@@ -16,7 +16,12 @@ class Autocomplete {
   Dispatcher dispatcher;
 
 public:
-  enum class State { idle, starting, restarting, canceled };
+  enum class State {
+    idle,
+    starting,
+    restarting,
+    canceled
+  };
 
   Mutex prefix_mutex;
   Glib::ustring prefix GUARDED_BY(prefix_mutex);

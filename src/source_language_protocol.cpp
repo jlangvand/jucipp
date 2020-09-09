@@ -50,12 +50,10 @@ LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) 
 LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std::string new_text_) : range(pt.get_child("range")), new_text(new_text_.empty() ? pt.get<std::string>("newText") : std::move(new_text_)) {}
 
 LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
-  process = std::make_unique<TinyProcessLib::Process>(filesystem::escape_argument(language_id + "-language-server"), root_path.string(), [this](const char *bytes, size_t n) {
+  process = std::make_unique<TinyProcessLib::Process>(
+      filesystem::escape_argument(language_id + "-language-server"), root_path.string(), [this](const char *bytes, size_t n) {
     server_message_stream.write(bytes, n);
-    parse_server_message();
-  }, [](const char *bytes, size_t n) {
-    std::cerr.write(bytes, n);
-  }, true, TinyProcessLib::Config{1048576});
+    parse_server_message(); }, [](const char *bytes, size_t n) { std::cerr.write(bytes, n); }, true, TinyProcessLib::Config{1048576});
 }
 
 std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id) {
@@ -169,38 +167,39 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
 "initializationOptions": {
   "checkOnSave": { "enable": true }
 },
-"trace": "off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
-    if(!error) {
-      if(auto capabilities_pt = result.get_child_optional("capabilities")) {
-        try {
-          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
-        }
-        catch(...) {
-          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
-        }
-        capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
-        capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
-        capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
-        capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
-        capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
-        capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
-        capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
-        capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
-        capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
-        capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
-        capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
-        if(!capabilities.rename)
-          capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
-        capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
-        if(!capabilities.code_action)
-          capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
-        capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
-      }
+"trace": "off")",
+                [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+                  if(!error) {
+                    if(auto capabilities_pt = result.get_child_optional("capabilities")) {
+                      try {
+                        capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
+                      }
+                      catch(...) {
+                        capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
+                      }
+                      capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
+                      capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
+                      capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
+                      capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
+                      capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
+                      capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
+                      capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
+                      capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
+                      capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
+                      capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
+                      capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
+                      if(!capabilities.rename)
+                        capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
+                      capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
+                      if(!capabilities.code_action)
+                        capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
+                      capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
+                    }
 
-      write_notification("initialized", "");
-    }
-    result_processed.set_value();
-  });
+                    write_notification("initialized", "");
+                  }
+                  result_processed.set_value();
+                });
   result_processed.get_future().get();
 
   initialized = true;
@@ -1025,8 +1024,7 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                           for(auto &quickfix_diagnostic : quickfix_diagnostics) {
                             if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
                               auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                              pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                                                                                                                    Offset(edit.range.end.line, edit.range.end.character)));
+                              pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character), Offset(edit.range.end.line, edit.range.end.character)));
                               break;
                             }
                           }
@@ -1036,8 +1034,7 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                         for(auto &diagnostic : diagnostics) {
                           if(edit.range.start.line == diagnostic.range.start.line) {
                             auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                            pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                                                                                                                  Offset(edit.range.end.line, edit.range.end.character)));
+                            pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character), Offset(edit.range.end.line, edit.range.end.character)));
                             break;
                           }
                         }

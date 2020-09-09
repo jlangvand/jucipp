@@ -55,7 +55,12 @@ Terminal::Terminal() : Source::SearchView() {
     }
   };
   class ParseAnsiEscapeSequence {
-    enum class State { none = 1, escaped, parameter_bytes, intermediate_bytes };
+    enum class State {
+      none = 1,
+      escaped,
+      parameter_bytes,
+      intermediate_bytes
+    };
     State state = State::none;
     std::string parameters;
     size_t length = 0;
@@ -205,11 +210,8 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
 
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
-    process = std::make_unique<TinyProcessLib::Process>(command, path.string(), [this](const char *bytes, size_t n) {
-      async_print(std::string(bytes, n));
-    }, [this](const char *bytes, size_t n) {
-      async_print(std::string(bytes, n), true);
-    });
+    process = std::make_unique<TinyProcessLib::Process>(
+        command, path.string(), [this](const char *bytes, size_t n) { async_print(std::string(bytes, n)); }, [this](const char *bytes, size_t n) { async_print(std::string(bytes, n), true); });
   else
     process = std::make_unique<TinyProcessLib::Process>(command, path.string());
 
@@ -225,7 +227,8 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
   if(scroll_to_bottom)
     scroll_to_bottom();
 
-  TinyProcessLib::Process process(command, path.string(), [&stdout_stream](const char *bytes, size_t n) {
+  TinyProcessLib::Process process(
+      command, path.string(), [&stdout_stream](const char *bytes, size_t n) {
     Glib::ustring umessage(std::string(bytes, n));
     Glib::ustring::iterator iter;
     while(!umessage.validate(iter)) {
@@ -233,13 +236,11 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
       next_char_iter++;
       umessage.replace(iter, next_char_iter, "?");
     }
-    stdout_stream.write(umessage.data(), n);
-  }, [this, stderr_stream](const char *bytes, size_t n) {
+    stdout_stream.write(umessage.data(), n); }, [this, stderr_stream](const char *bytes, size_t n) {
     if(stderr_stream)
       stderr_stream->write(bytes, n);
     else
-      async_print(std::string(bytes, n), true);
-  }, true);
+      async_print(std::string(bytes, n), true); }, true);
 
   if(process.get_id() <= 0) {
     async_print("\e[31mError\e[m: failed to run command: " + command + "\n", true);
@@ -266,7 +267,8 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
     scroll_to_bottom();
   stdin_buffer.clear();
 
-  auto process = std::make_shared<TinyProcessLib::Process>(command, path.string(), [this, quiet](const char *bytes, size_t n) {
+  auto process = std::make_shared<TinyProcessLib::Process>(
+      command, path.string(), [this, quiet](const char *bytes, size_t n) {
     if(!quiet) {
       // Print stdout message sequentially to avoid the GUI becoming unresponsive
       std::promise<void> message_printed;
@@ -275,8 +277,7 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
         message_printed.set_value();
       });
       message_printed.get_future().get();
-    }
-  }, [this, quiet](const char *bytes, size_t n) {
+    } }, [this, quiet](const char *bytes, size_t n) {
     if(!quiet) {
       // Print stderr message sequentially to avoid the GUI becoming unresponsive
       std::promise<void> message_printed;
@@ -285,8 +286,7 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
         message_printed.set_value();
       });
       message_printed.get_future().get();
-    }
-  }, true);
+    } }, true);
 
   auto pid = process->get_id();
   if(pid <= 0) {
@@ -384,8 +384,9 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
       size_t subs = (sub == 1 ||
                      sub == 1 + 4 + 3 + 3 ||
                      sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 ||
-                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4) ?
-                                                                   4 : 3;
+                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4)
+                        ? 4
+                        : 3;
       if(sm.length(sub + 1)) {
         auto start_pos = static_cast<int>(sm.position(sub + 1) - sm.length(sub));
         auto end_pos = static_cast<int>(sm.position(sub + subs - 1) + sm.length(sub + subs - 1));

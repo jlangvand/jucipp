@@ -238,9 +238,11 @@ int main() {
   {
     terminal.clear();
     std::promise<int> done;
-    terminal.async_process("echo test", "", [&done](int exit_status) {
-      done.set_value(exit_status);
-    }, true);
+    terminal.async_process(
+        "echo test", "", [&done](int exit_status) {
+          done.set_value(exit_status);
+        },
+        true);
     auto future = done.get_future();
     while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
       while(Gtk::Main::events_pending())
@@ -269,9 +271,11 @@ int main() {
   {
     terminal.clear();
     std::promise<int> done;
-    terminal.async_process("testing_invalid_command", "", [&done](int exit_status) {
-      done.set_value(exit_status);
-    }, true);
+    terminal.async_process(
+        "testing_invalid_command", "", [&done](int exit_status) {
+          done.set_value(exit_status);
+        },
+        true);
     auto future = done.get_future();
     while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
       while(Gtk::Main::events_pending())

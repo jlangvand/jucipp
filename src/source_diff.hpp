@@ -11,7 +11,13 @@
 
 namespace Source {
   class DiffView : virtual public Source::BaseView {
-    enum class ParseState { idle, starting, preprocessing, processing, postprocessing };
+    enum class ParseState {
+      idle,
+      starting,
+      preprocessing,
+      processing,
+      postprocessing
+    };
 
     class Renderer : public Gsv::GutterRenderer {
     public:

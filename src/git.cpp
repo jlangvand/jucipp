@@ -36,20 +36,21 @@ Git::Repository::Diff::Diff(const boost::filesystem::path &path, git_repository 
 Git::Repository::Diff::Lines Git::Repository::Diff::get_lines(const std::string &buffer) {
   Lines lines;
   LockGuard lock(mutex);
-  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
-    //Based on https://github.com/atom/git-diff/blob/master/lib/git-diff-view.coffee
-    auto lines = static_cast<Lines *>(payload);
-    auto start = hunk->new_start - 1;
-    auto end = hunk->new_start + hunk->new_lines - 1;
-    if(hunk->old_lines == 0 && hunk->new_lines > 0)
-      lines->added.emplace_back(start, end);
-    else if(hunk->new_lines == 0 && hunk->old_lines > 0)
-      lines->removed.emplace_back(start);
-    else
-      lines->modified.emplace_back(start, end);
-
-    return 0;
-  }, nullptr, &lines);
+  error.code = git_diff_blob_to_buffer(
+      blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
+        //Based on https://github.com/atom/git-diff/blob/master/lib/git-diff-view.coffee
+        auto lines = static_cast<Lines *>(payload);
+        auto start = hunk->new_start - 1;
+        auto end = hunk->new_start + hunk->new_lines - 1;
+        if(hunk->old_lines == 0 && hunk->new_lines > 0)
+          lines->added.emplace_back(start, end);
+        else if(hunk->new_lines == 0 && hunk->old_lines > 0)
+          lines->removed.emplace_back(start);
+        else
+          lines->modified.emplace_back(start, end);
+        return 0;
+      },
+      nullptr, &lines);
   if(error)
     throw std::runtime_error(error.message());
   return lines;
@@ -62,11 +63,13 @@ std::vector<Git::Repository::Diff::Hunk> Git::Repository::Diff::get_hunks(const 
   git_diff_options options;
   git_diff_init_options(&options, GIT_DIFF_OPTIONS_VERSION);
   options.context_lines = 0;
-  error.code = git_diff_buffers(old_buffer.c_str(), old_buffer.size(), nullptr, new_buffer.c_str(), new_buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
-    auto hunks = static_cast<std::vector<Git::Repository::Diff::Hunk> *>(payload);
-    hunks->emplace_back(hunk->old_start, hunk->old_lines, hunk->new_start, hunk->new_lines);
-    return 0;
-  }, nullptr, &hunks);
+  error.code = git_diff_buffers(
+      old_buffer.c_str(), old_buffer.size(), nullptr, new_buffer.c_str(), new_buffer.size(), nullptr, &options, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, void *payload) {
+        auto hunks = static_cast<std::vector<Git::Repository::Diff::Hunk> *>(payload);
+        hunks->emplace_back(hunk->old_start, hunk->old_lines, hunk->new_start, hunk->new_lines);
+        return 0;
+      },
+      nullptr, &hunks);
   if(error)
     throw std::runtime_error(error.message());
   return hunks;
@@ -76,18 +79,20 @@ std::string Git::Repository::Diff::get_details(const std::string &buffer, int li
   std::pair<std::string, int> details;
   details.second = line_nr;
   LockGuard lock(mutex);
-  error.code = git_diff_blob_to_buffer(blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, const git_diff_line *line, void *payload) {
-    auto details = static_cast<std::pair<std::string, int> *>(payload);
-    auto line_nr = details->second;
-    auto start = hunk->new_start - 1;
-    auto end = hunk->new_start + hunk->new_lines - 1;
-    if(line_nr == start || (line_nr >= start && line_nr < end)) {
-      if(details->first.empty())
-        details->first += std::string(hunk->header, hunk->header_len);
-      details->first += line->origin + std::string(line->content, line->content_len);
-    }
-    return 0;
-  }, &details);
+  error.code = git_diff_blob_to_buffer(
+      blob.get(), nullptr, buffer.c_str(), buffer.size(), nullptr, &options, nullptr, nullptr, nullptr, [](const git_diff_delta *delta, const git_diff_hunk *hunk, const git_diff_line *line, void *payload) {
+        auto details = static_cast<std::pair<std::string, int> *>(payload);
+        auto line_nr = details->second;
+        auto start = hunk->new_start - 1;
+        auto end = hunk->new_start + hunk->new_lines - 1;
+        if(line_nr == start || (line_nr >= start && line_nr < end)) {
+          if(details->first.empty())
+            details->first += std::string(hunk->header, hunk->header_len);
+          details->first += line->origin + std::string(line->content, line->content_len);
+        }
+        return 0;
+      },
+      &details);
   if(error)
     throw std::runtime_error(error.message());
   return details.first;
@@ -138,27 +143,27 @@ Git::Repository::Status Git::Repository::get_status() {
   Data data{work_path};
   {
     LockGuard lock(mutex);
-    error.code = git_status_foreach(repository.get(), [](const char *path, unsigned int status_flags, void *payload) {
-      auto data = static_cast<Data *>(payload);
+    error.code = git_status_foreach(
+        repository.get(), [](const char *path, unsigned int status_flags, void *payload) {
+          auto data = static_cast<Data *>(payload);
+          bool new_ = false;
+          bool modified = false;
+          if((status_flags & (GIT_STATUS_INDEX_NEW | GIT_STATUS_WT_NEW)) > 0)
+            new_ = true;
+          else if((status_flags & (GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_WT_MODIFIED)) > 0)
+            modified = true;
+          boost::filesystem::path rel_path(path);
+          do {
+            if(new_)
+              data->status.added.emplace((data->work_path / rel_path).generic_string());
+            else if(modified)
+              data->status.modified.emplace((data->work_path / rel_path).generic_string());
+            rel_path = rel_path.parent_path();
+          } while(!rel_path.empty());
 
-      bool new_ = false;
-      bool modified = false;
-      if((status_flags & (GIT_STATUS_INDEX_NEW | GIT_STATUS_WT_NEW)) > 0)
-        new_ = true;
-      else if((status_flags & (GIT_STATUS_INDEX_MODIFIED | GIT_STATUS_WT_MODIFIED)) > 0)
-        modified = true;
-
-      boost::filesystem::path rel_path(path);
-      do {
-        if(new_)
-          data->status.added.emplace((data->work_path / rel_path).generic_string());
-        else if(modified)
-          data->status.modified.emplace((data->work_path / rel_path).generic_string());
-        rel_path = rel_path.parent_path();
-      } while(!rel_path.empty());
-
-      return 0;
-    }, &data);
+          return 0;
+        },
+        &data);
 
     if(error)
       throw std::runtime_error(error.message());

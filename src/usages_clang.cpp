@@ -75,25 +75,27 @@ Usages::Clang::Cache::Cache(boost::filesystem::path project_path_, boost::filesy
   };
   VisitorData visitor_data{this->project_path, path, before_parse_time, paths_and_last_write_times};
 
-  clang_getInclusions(translation_unit->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData data) {
-    auto visitor_data = static_cast<VisitorData *>(data);
-    auto path = filesystem::get_normal_path(clangmm::to_string(clang_getFileName(included_file)));
-    if(filesystem::file_in_path(path, visitor_data->project_path)) {
-      for(unsigned c = 0; c < include_len; ++c) {
-        auto from_path = filesystem::get_normal_path(clangmm::SourceLocation(inclusion_stack[c]).get_path());
-        if(from_path == visitor_data->path) {
-          boost::system::error_code ec;
-          auto last_write_time = boost::filesystem::last_write_time(path, ec);
-          if(ec)
-            last_write_time = 0;
-          if(last_write_time > visitor_data->before_parse_time)
-            last_write_time = 0;
-          visitor_data->paths_and_last_write_times.emplace(path, last_write_time);
-          break;
+  clang_getInclusions(
+      translation_unit->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData data) {
+        auto visitor_data = static_cast<VisitorData *>(data);
+        auto path = filesystem::get_normal_path(clangmm::to_string(clang_getFileName(included_file)));
+        if(filesystem::file_in_path(path, visitor_data->project_path)) {
+          for(unsigned c = 0; c < include_len; ++c) {
+            auto from_path = filesystem::get_normal_path(clangmm::SourceLocation(inclusion_stack[c]).get_path());
+            if(from_path == visitor_data->path) {
+              boost::system::error_code ec;
+              auto last_write_time = boost::filesystem::last_write_time(path, ec);
+              if(ec)
+                last_write_time = 0;
+              if(last_write_time > visitor_data->before_parse_time)
+                last_write_time = 0;
+              visitor_data->paths_and_last_write_times.emplace(path, last_write_time);
+              break;
+            }
+          }
         }
-      }
-    }
-  }, &visitor_data);
+      },
+      &visitor_data);
 }
 
 std::vector<std::pair<clangmm::Offset, clangmm::Offset>> Usages::Clang::Cache::get_similar_token_offsets(clangmm::Cursor::Kind kind, const std::string &spelling,
@@ -163,9 +165,11 @@ boost::optional<std::vector<Usages::Clang::Usages>> Usages::Clang::get_usages(co
   std::unique_ptr<Dialog::Message> message;
   std::atomic<bool> canceled(false);
   auto create_message = [&canceled] {
-    return std::make_unique<Dialog::Message>("Please wait while finding usages", [&canceled] {
-      canceled = true;
-    }, true);
+    return std::make_unique<Dialog::Message>(
+        "Please wait while finding usages", [&canceled] {
+          canceled = true;
+        },
+        true);
   };
   size_t tasks = cache_in_progress_count;
   std::atomic<size_t> tasks_completed = {0};
@@ -330,15 +334,17 @@ void Usages::Clang::cache(const boost::filesystem::path &project_path, const boo
   VisitorData visitor_data{project_path, {}};
 
   auto translation_unit_cursor = clang_getTranslationUnitCursor(translation_unit->cx_tu);
-  clang_visitChildren(translation_unit_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data) {
-    auto visitor_data = static_cast<VisitorData *>(data);
+  clang_visitChildren(
+      translation_unit_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data) {
+        auto visitor_data = static_cast<VisitorData *>(data);
 
-    auto path = filesystem::get_normal_path(clangmm::Cursor(cx_cursor).get_source_location().get_path());
-    if(filesystem::file_in_path(path, visitor_data->project_path))
-      visitor_data->paths.emplace(path);
+        auto path = filesystem::get_normal_path(clangmm::Cursor(cx_cursor).get_source_location().get_path());
+        if(filesystem::file_in_path(path, visitor_data->project_path))
+          visitor_data->paths.emplace(path);
 
-    return CXChildVisit_Continue;
-  }, &visitor_data);
+        return CXChildVisit_Continue;
+      },
+      &visitor_data);
 
   visitor_data.paths.erase(path);
 
@@ -528,15 +534,17 @@ void Usages::Clang::add_usages_from_includes(const boost::filesystem::path &proj
   VisitorData visitor_data{project_path, spelling, visited, {}};
 
   auto translation_unit_cursor = clang_getTranslationUnitCursor(translation_unit->cx_tu);
-  clang_visitChildren(translation_unit_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data) {
-    auto visitor_data = static_cast<VisitorData *>(data);
+  clang_visitChildren(
+      translation_unit_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data) {
+        auto visitor_data = static_cast<VisitorData *>(data);
 
-    auto path = filesystem::get_normal_path(clangmm::Cursor(cx_cursor).get_source_location().get_path());
-    if(visitor_data->visited.find(path) == visitor_data->visited.end() && filesystem::file_in_path(path, visitor_data->project_path))
-      visitor_data->paths.emplace(path);
+        auto path = filesystem::get_normal_path(clangmm::Cursor(cx_cursor).get_source_location().get_path());
+        if(visitor_data->visited.find(path) == visitor_data->visited.end() && filesystem::file_in_path(path, visitor_data->project_path))
+          visitor_data->paths.emplace(path);
 
-    return CXChildVisit_Continue;
-  }, &visitor_data);
+        return CXChildVisit_Continue;
+      },
+      &visitor_data);
 
   for(auto &path : visitor_data.paths)
     add_usages(project_path, build_path, path, usages, visited, spelling, cursor, translation_unit, store_in_cache);

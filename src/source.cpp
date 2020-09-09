@@ -203,6 +203,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   setup_signals();
   setup_format_style(is_generic_view);
 
+
   std::string comment_characters;
   if(is_bracket_language)
     comment_characters = "//";
@@ -375,8 +376,7 @@ Gsv::DrawSpacesFlags Source::View::parse_show_whitespace_characters(const std::s
   namespace qi = boost::spirit::qi;
 
   qi::symbols<char, Gsv::DrawSpacesFlags> options;
-  options.add("space", Gsv::DRAW_SPACES_SPACE)("tab", Gsv::DRAW_SPACES_TAB)("newline", Gsv::DRAW_SPACES_NEWLINE)("nbsp", Gsv::DRAW_SPACES_NBSP)
-      ("leading", Gsv::DRAW_SPACES_LEADING)("text", Gsv::DRAW_SPACES_TEXT)("trailing", Gsv::DRAW_SPACES_TRAILING)("all", Gsv::DRAW_SPACES_ALL);
+  options.add("space", Gsv::DRAW_SPACES_SPACE)("tab", Gsv::DRAW_SPACES_TAB)("newline", Gsv::DRAW_SPACES_NEWLINE)("nbsp", Gsv::DRAW_SPACES_NBSP)("leading", Gsv::DRAW_SPACES_LEADING)("text", Gsv::DRAW_SPACES_TEXT)("trailing", Gsv::DRAW_SPACES_TRAILING)("all", Gsv::DRAW_SPACES_ALL);
 
   std::set<Gsv::DrawSpacesFlags> out;
 
@@ -2282,7 +2282,8 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *event) {
 bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
   const static std::regex no_bracket_statement_regex("^[ \t]*(if( +constexpr)?|for|while) *\\(.*[^;}{] *$|"
                                                      "^[ \t]*[}]? *else if( +constexpr)? *\\(.*[^;}{] *$|"
-                                                     "^[ \t]*[}]? *else *$", std::regex::extended | std::regex::optimize);
+                                                     "^[ \t]*[}]? *else *$",
+                                                     std::regex::extended | std::regex::optimize);
 
   auto iter = get_buffer()->get_insert()->get_iter();
 

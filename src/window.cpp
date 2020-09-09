@@ -45,7 +45,8 @@ Window::Window() {
     .juci_terminal_scrolledwindow {padding-left: 3px;}
     .juci_info {border-radius: 5px;}
     .juci_tooltip_window {background-color: transparent;}
-    .juci_tooltip_box {)" + border_radius_style + R"(padding: 3px;}
+    .juci_tooltip_box {)" + border_radius_style +
+                           R"(padding: 3px;}
   )");
   get_style_context()->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
@@ -1323,10 +1324,12 @@ void Window::set_menu_actions() {
       label_it->set_text("Synopsis: [environment_variable=value]... executable [argument]...\nSet empty to let juCi++ deduce executable.");
     };
     label_it->update(0, "");
-    EntryBox::get().entries.emplace_back(run_arguments.second, [run_arguments_first = std::move(run_arguments.first)](const std::string &content) {
-      Project::run_arguments[run_arguments_first] = content;
-      EntryBox::get().hide();
-    }, 50);
+    EntryBox::get().entries.emplace_back(
+        run_arguments.second, [run_arguments_first = std::move(run_arguments.first)](const std::string &content) {
+          Project::run_arguments[run_arguments_first] = content;
+          EntryBox::get().hide();
+        },
+        50);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Run Arguments");
     EntryBox::get().buttons.emplace_back("Set Run Arguments", [entry_it]() {
@@ -1379,20 +1382,22 @@ void Window::set_menu_actions() {
       label_it->set_text("Run Command directory order: opened directory, file path, current directory");
     };
     label_it->update(0, "");
-    EntryBox::get().entries.emplace_back(last_run_command, [this](const std::string &content) {
-      if(!content.empty()) {
-        last_run_command = content;
-        auto directory_folder = Project::get_preferably_directory_folder();
-        if(Config::get().terminal.clear_on_run_command)
-          Terminal::get().clear();
-        Terminal::get().async_print("\e[2mRunning: " + content + "\e[m\n");
+    EntryBox::get().entries.emplace_back(
+        last_run_command, [this](const std::string &content) {
+          if(!content.empty()) {
+            last_run_command = content;
+            auto directory_folder = Project::get_preferably_directory_folder();
+            if(Config::get().terminal.clear_on_run_command)
+              Terminal::get().clear();
+            Terminal::get().async_print("\e[2mRunning: " + content + "\e[m\n");
 
-        Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
-          Terminal::get().async_print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
-        });
-      }
-      EntryBox::get().hide();
-    }, 30);
+            Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
+              Terminal::get().async_print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+            });
+          }
+          EntryBox::get().hide();
+        },
+        30);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Command");
     EntryBox::get().buttons.emplace_back("Run Command", [entry_it]() {
@@ -1422,10 +1427,12 @@ void Window::set_menu_actions() {
       label_it->set_text("Synopsis: [environment_variable=value]... executable [argument]...\nSet empty to let juCi++ deduce executable.");
     };
     label_it->update(0, "");
-    EntryBox::get().entries.emplace_back(run_arguments.second, [run_arguments_first = std::move(run_arguments.first)](const std::string &content) {
-      Project::debug_run_arguments[run_arguments_first].arguments = content;
-      EntryBox::get().hide();
-    }, 50);
+    EntryBox::get().entries.emplace_back(
+        run_arguments.second, [run_arguments_first = std::move(run_arguments.first)](const std::string &content) {
+          Project::debug_run_arguments[run_arguments_first].arguments = content;
+          EntryBox::get().hide();
+        },
+        50);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Debug Run Arguments");
 
@@ -1491,17 +1498,19 @@ void Window::set_menu_actions() {
   });
   menu.add_action("debug_run_command", [this]() {
     EntryBox::get().clear();
-    EntryBox::get().entries.emplace_back(last_run_debug_command, [this](const std::string &content) {
-      if(!content.empty()) {
-        if(Project::current) {
-          if(Config::get().terminal.clear_on_run_command)
-            Terminal::get().clear();
-          Project::current->debug_run_command(content);
-        }
-        last_run_debug_command = content;
-      }
-      EntryBox::get().hide();
-    }, 30);
+    EntryBox::get().entries.emplace_back(
+        last_run_debug_command, [this](const std::string &content) {
+          if(!content.empty()) {
+            if(Project::current) {
+              if(Config::get().terminal.clear_on_run_command)
+                Terminal::get().clear();
+              Project::current->debug_run_command(content);
+            }
+            last_run_debug_command = content;
+          }
+          EntryBox::get().hide();
+        },
+        30);
     auto entry_it = EntryBox::get().entries.begin();
     entry_it->set_placeholder_text("Debug Command");
     EntryBox::get().buttons.emplace_back("Run Debug Command", [entry_it]() {

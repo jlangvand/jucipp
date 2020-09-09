@@ -249,8 +249,7 @@ const std::map<int, std::string> &Source::ClangViewParse::clang_types() {
       {46, "def:identifier"},
       {109, "def:string"},
       {702, "def:statement"},
-      {705, "def:comment"}
-  };
+      {705, "def:comment"}};
   return types;
 }
 
@@ -579,9 +578,7 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                     else if(type_description[pos] == '>')
                       --angle_count;
                     ++pos;
-                  }
-                  while(pos < type_description.size())
-                      ;
+                  } while(pos < type_description.size());
                 }
               }
               tooltip.insert_code(type_description, language);
@@ -647,29 +644,34 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       VisitorData visitor_data{cursor.get_source_range().get_offsets(), cursor.get_spelling(), {}};
                       auto start_cursor = cursor;
                       for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit &&
-                                                                      parent.get_kind() != clangmm::Cursor::Kind::ClassDecl; parent = parent.get_semantic_parent())
+                                                                      parent.get_kind() != clangmm::Cursor::Kind::ClassDecl;
+                          parent = parent.get_semantic_parent())
                         start_cursor = parent;
-                      clang_visitChildren(start_cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data_) {
-                        auto data = static_cast<VisitorData *>(data_);
-                        if(clangmm::Cursor(cx_cursor).get_source_range().get_offsets() == data->offsets) {
-                          auto parent = clangmm::Cursor(cx_parent);
-                          if(parent.get_spelling() == data->spelling) {
-                            data->parent = parent;
-                            return CXChildVisit_Break;
-                          }
-                        }
-                        return CXChildVisit_Recurse;
-                      }, &visitor_data);
+                      clang_visitChildren(
+                          start_cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor cx_parent, CXClientData data_) {
+                            auto data = static_cast<VisitorData *>(data_);
+                            if(clangmm::Cursor(cx_cursor).get_source_range().get_offsets() == data->offsets) {
+                              auto parent = clangmm::Cursor(cx_parent);
+                              if(parent.get_spelling() == data->spelling) {
+                                data->parent = parent;
+                                return CXChildVisit_Break;
+                              }
+                            }
+                            return CXChildVisit_Recurse;
+                          },
+                          &visitor_data);
                       if(visitor_data.parent)
                         cursor = visitor_data.parent;
                     }
 
                     // Check children
                     std::vector<clangmm::Cursor> children;
-                    clang_visitChildren(cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor /*parent*/, CXClientData data) {
-                      static_cast<std::vector<clangmm::Cursor> *>(data)->emplace_back(cx_cursor);
-                      return CXChildVisit_Continue;
-                    }, &children);
+                    clang_visitChildren(
+                        cursor.cx_cursor, [](CXCursor cx_cursor, CXCursor /*parent*/, CXClientData data) {
+                          static_cast<std::vector<clangmm::Cursor> *>(data)->emplace_back(cx_cursor);
+                          return CXChildVisit_Continue;
+                        },
+                        &children);
 
                     // Check if expression can be called without altering state
                     bool call_expression = true;
@@ -1151,8 +1153,7 @@ const std::unordered_map<std::string, std::string> &Source::ClangViewAutocomplet
       {"hex(std::ios_base &__str)", "hex"},  //clang++ headers
       {"hex(std::ios_base &__base)", "hex"}, //g++ headers
       {"dec(std::ios_base &__str)", "dec"},
-      {"dec(std::ios_base &__base)", "dec"}
-  };
+      {"dec(std::ios_base &__base)", "dec"}};
   return map;
 }
 
@@ -1317,37 +1318,41 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
         ClientData client_data{this->file_path, std::string(), get_buffer()->get_insert()->get_iter().get_line(), sm[1].str()};
 
         // Attempt to find the 100% correct include file first
-        clang_getInclusions(clang_tu->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData client_data_) {
-          auto client_data = static_cast<ClientData *>(client_data_);
-          if(client_data->found_include.empty() && include_len > 0) {
-            auto source_location = clangmm::SourceLocation(inclusion_stack[0]);
-            if(static_cast<int>(source_location.get_offset().line) - 1 == client_data->line_nr &&
-               filesystem::get_normal_path(source_location.get_path()) == client_data->file_path)
-              client_data->found_include = clangmm::to_string(clang_getFileName(included_file));
-          }
-        }, &client_data);
+        clang_getInclusions(
+            clang_tu->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData client_data_) {
+              auto client_data = static_cast<ClientData *>(client_data_);
+              if(client_data->found_include.empty() && include_len > 0) {
+                auto source_location = clangmm::SourceLocation(inclusion_stack[0]);
+                if(static_cast<int>(source_location.get_offset().line) - 1 == client_data->line_nr &&
+                   filesystem::get_normal_path(source_location.get_path()) == client_data->file_path)
+                  client_data->found_include = clangmm::to_string(clang_getFileName(included_file));
+              }
+            },
+            &client_data);
 
         if(!client_data.found_include.empty())
           return Offset(0, 0, client_data.found_include);
 
         // Find a matching include file if no include was found previously
-        clang_getInclusions(clang_tu->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData client_data_) {
-          auto client_data = static_cast<ClientData *>(client_data_);
-          if(client_data->found_include.empty()) {
-            for(unsigned c = 1; c < include_len; ++c) {
-              auto source_location = clangmm::SourceLocation(inclusion_stack[c]);
-              if(static_cast<int>(source_location.get_offset().line) - 1 <= client_data->line_nr &&
-                 filesystem::get_normal_path(source_location.get_path()) == client_data->file_path) {
-                auto included_file_str = clangmm::to_string(clang_getFileName(included_file));
-                if(ends_with(included_file_str, client_data->sm_str) &&
-                   boost::filesystem::path(included_file_str).filename() == boost::filesystem::path(client_data->sm_str).filename()) {
-                  client_data->found_include = included_file_str;
-                  break;
+        clang_getInclusions(
+            clang_tu->cx_tu, [](CXFile included_file, CXSourceLocation *inclusion_stack, unsigned include_len, CXClientData client_data_) {
+              auto client_data = static_cast<ClientData *>(client_data_);
+              if(client_data->found_include.empty()) {
+                for(unsigned c = 1; c < include_len; ++c) {
+                  auto source_location = clangmm::SourceLocation(inclusion_stack[c]);
+                  if(static_cast<int>(source_location.get_offset().line) - 1 <= client_data->line_nr &&
+                     filesystem::get_normal_path(source_location.get_path()) == client_data->file_path) {
+                    auto included_file_str = clangmm::to_string(clang_getFileName(included_file));
+                    if(ends_with(included_file_str, client_data->sm_str) &&
+                       boost::filesystem::path(included_file_str).filename() == boost::filesystem::path(client_data->sm_str).filename()) {
+                      client_data->found_include = included_file_str;
+                      break;
+                    }
+                  }
                 }
               }
-            }
-          }
-        }, &client_data);
+            },
+            &client_data);
 
         if(!client_data.found_include.empty())
           return Offset(0, 0, client_data.found_include);
@@ -1957,9 +1962,11 @@ bool Source::ClangViewRefactor::wait_parsing() {
   }
   if(!not_parsed_clang_views.empty()) {
     bool canceled = false;
-    auto message = std::make_unique<Dialog::Message>("Please wait while all buffers finish parsing", [&canceled] {
-      canceled = true;
-    }, true);
+    auto message = std::make_unique<Dialog::Message>(
+        "Please wait while all buffers finish parsing", [&canceled] {
+          canceled = true;
+        },
+        true);
     ScopeGuard guard{[&message] {
       message->hide();
     }};
