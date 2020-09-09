@@ -592,7 +592,8 @@ int main() {
 *
 * @param timemillis is a number of milliseconds
 *        passed since Jan 1, 1970.
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(Constructor that sets the time to a given value.
 
 Parameters:
@@ -604,7 +605,8 @@ Parameters:
 *
 *
 * @return Whether @a test is at the end of a line.
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(Returns true if test points to the start. Test pointing to the \n of a \r\n pair
 will not.
 
@@ -615,7 +617,8 @@ Returns Whether test is at the end of a line.)");
 * test
 * \a test
 * test
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == "test test test");
   }
   {
@@ -627,7 +630,8 @@ Returns Whether test is at the end of a line.)");
 * 
 * More testing
 * end
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(Testing
 - t
   - t2
@@ -645,7 +649,8 @@ More testing end)");
   * 
   * More testing
   * end
-  */)", true);
+  */)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(Testing
 
 - t
@@ -663,7 +668,8 @@ More testing end)");
       \sa Test(), ~Test(), testMeToo() and publicVar()
       \test testing
       @test testing
-    */)", true);
+    */)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(A normal member taking two arguments and returning an integer value.
 
 Parameters:
@@ -685,7 +691,8 @@ See also Test(), ~Test(), testMeToo() and publicVar()
   *          Brief description continued.
   *
   *     Detailed description starts here.
-  */)", true);
+  */)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == R"(Brief description. Brief description continued. Brief description continued.
 Brief description continued.
 
@@ -696,7 +703,8 @@ Detailed description starts here.)");
 * \code
 * int a = 2;
 * \endcode
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == "int a = 2;");
   }
   {
@@ -704,7 +712,8 @@ Detailed description starts here.)");
 * @code
 * int a = 2;
 * @endcode
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == "int a = 2;");
   }
   {
@@ -714,7 +723,8 @@ Detailed description starts here.)");
 * int a = 2;
 * \endcode
 * test
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == "test\nint a = 2;\ntest");
   }
   {
@@ -726,7 +736,8 @@ Detailed description starts here.)");
 * \endcode
 *
 * test
-*/)", true);
+*/)",
+                                       true);
     g_assert(tooltip->buffer->get_text() == "test\n\nint a = 2;\n\ntest");
   }
   {
