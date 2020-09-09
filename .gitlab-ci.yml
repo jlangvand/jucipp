@@ -2,6 +2,7 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
+  - lint
   - test
   - chore
 
@@ -53,6 +54,18 @@ address-sanitizer:
     - CXXFLAGS="-fsanitize=address" cmake -DBUILD_TESTING=1 ..
     - make -j$(nproc)
     - broadwayd & CTEST_OUTPUT_ON_FAILURE=1 LSAN_OPTIONS=detect_leaks=0 make test
+
+check-format:
+  image: cppit/jucipp:arch
+  stage: lint
+  script:
+    - 'find src -name "*.cpp" -exec clang-format --Werror --assume-filename={} {} -n 2>> lint-errors.txt \;'
+    - 'find src -name "*.hpp" -exec clang-format --Werror --assume-filename={} {} -n 2>> lint-errors.txt \;'
+    - 'find tests -name "*.cpp" -exec clang-format --Werror --assume-filename={} {} -n 2>> lint-errors.txt \;'
+    - 'find tests -name "*.hpp" -exec clang-format --Werror --assume-filename={} {} -n 2>> lint-errors.txt \;'
+    - 'HAS_ERRORS=$(cat lint-errors.txt | wc -l)'
+    - '[ "$HAS_ERRORS" == "0" ] || cat lint-errors.txt'
+    - '[ "$HAS_ERRORS" == "0" ]'
 
 Clean appveyor cache:
   stage: chore
