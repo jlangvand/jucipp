@@ -171,31 +171,30 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
 },
 "trace": "off")", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
-      auto capabilities_pt = result.find("capabilities");
-      if(capabilities_pt != result.not_found()) {
+      if(auto capabilities_pt = result.get_child_optional("capabilities")) {
         try {
-          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->second.get<int>("textDocumentSync"));
+          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
         }
         catch(...) {
-          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->second.get<int>("textDocumentSync.change", 0));
+          capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
         }
-        capabilities.hover = capabilities_pt->second.get<bool>("hoverProvider", false);
-        capabilities.completion = capabilities_pt->second.find("completionProvider") != capabilities_pt->second.not_found() ? true : false;
-        capabilities.signature_help = capabilities_pt->second.find("signatureHelpProvider") != capabilities_pt->second.not_found() ? true : false;
-        capabilities.definition = capabilities_pt->second.get<bool>("definitionProvider", false);
-        capabilities.references = capabilities_pt->second.get<bool>("referencesProvider", false);
-        capabilities.document_highlight = capabilities_pt->second.get<bool>("documentHighlightProvider", false);
-        capabilities.workspace_symbol = capabilities_pt->second.get<bool>("workspaceSymbolProvider", false);
-        capabilities.document_symbol = capabilities_pt->second.get<bool>("documentSymbolProvider", false);
-        capabilities.document_formatting = capabilities_pt->second.get<bool>("documentFormattingProvider", false);
-        capabilities.document_range_formatting = capabilities_pt->second.get<bool>("documentRangeFormattingProvider", false);
-        capabilities.rename = capabilities_pt->second.get<bool>("renameProvider", false);
+        capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
+        capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
+        capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
+        capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
+        capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
+        capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
+        capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
+        capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
+        capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
+        capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
+        capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
         if(!capabilities.rename)
-          capabilities.rename = capabilities_pt->second.get<bool>("renameProvider.prepareProvider", false);
-        capabilities.code_action = capabilities_pt->second.get<bool>("codeActionProvider", false);
+          capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
+        capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
         if(!capabilities.code_action)
-          capabilities.code_action = static_cast<bool>(capabilities_pt->second.get_child_optional("codeActionProvider.codeActionKinds"));
-        capabilities.type_coverage = capabilities_pt->second.get<bool>("typeCoverageProvider", false);
+          capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
+        capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
       }
 
       write_notification("initialized", "");
@@ -274,23 +273,21 @@ void LanguageProtocol::Client::parse_server_message() {
       }
 
       auto message_id = pt.get_optional<size_t>("id");
-      auto result_it = pt.find("result");
-      auto error_it = pt.find("error");
       {
         LockGuard lock(read_write_mutex);
-        if(result_it != pt.not_found()) {
+        if(auto result = pt.get_child_optional("result")) {
           if(message_id) {
             auto id_it = handlers.find(*message_id);
             if(id_it != handlers.end()) {
               auto function = std::move(id_it->second.second);
               handlers.erase(id_it);
               lock.unlock();
-              function(result_it->second, false);
+              function(*result, false);
               lock.lock();
             }
           }
         }
-        else if(error_it != pt.not_found()) {
+        else if(auto error = pt.get_child_optional("error")) {
           if(!Config::get().log.language_server)
             boost::property_tree::write_json(std::cerr, pt);
           if(message_id) {
@@ -299,23 +296,19 @@ void LanguageProtocol::Client::parse_server_message() {
               auto function = std::move(id_it->second.second);
               handlers.erase(id_it);
               lock.unlock();
-              function(error_it->second, true);
+              function(*error, true);
               lock.lock();
             }
           }
         }
-        else {
-          auto method_it = pt.find("method");
-          if(method_it != pt.not_found()) {
-            auto params_it = pt.find("params");
-            if(params_it != pt.not_found()) {
-              lock.unlock();
-              if(message_id)
-                handle_server_request(*message_id, method_it->second.get_value<std::string>(""), params_it->second);
-              else
-                handle_server_notification(method_it->second.get_value<std::string>(""), params_it->second);
-              lock.lock();
-            }
+        else if(auto method = pt.get_optional<std::string>("method")) {
+          if(auto params = pt.get_child_optional("params")) {
+            lock.unlock();
+            if(message_id)
+              handle_server_request(*message_id, *method, *params);
+            else
+              handle_server_notification(*method, *params);
+            lock.lock();
           }
         }
       }
@@ -754,9 +747,8 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             else
               project_path = file_path.parent_path();
             try {
-              auto changes_it = result.find("changes");
-              if(changes_it != result.not_found()) {
-                for(auto file_it = changes_it->second.begin(); file_it != changes_it->second.end(); ++file_it) {
+              if(auto changes_pt = result.get_child_optional("changes")) {
+                for(auto file_it = changes_pt->begin(); file_it != changes_pt->end(); ++file_it) {
                   auto file = file_it->first;
                   file.erase(0, 7);
                   if(filesystem::file_in_path(file, project_path)) {
@@ -767,12 +759,10 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                   }
                 }
               }
-              else {
-                auto changes_pt = result.get_child("documentChanges", boost::property_tree::ptree());
-                for(auto change_it = changes_pt.begin(); change_it != changes_pt.end(); ++change_it) {
-                  auto document_it = change_it->second.find("textDocument");
-                  if(document_it != change_it->second.not_found()) {
-                    auto file = filesystem::get_path_from_uri(document_it->second.get<std::string>("uri", ""));
+              else if(auto changes_pt = result.get_child_optional("documentChanges")) {
+                for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
+                  if(auto document = change_it->second.get_child_optional("textDocument")) {
+                    auto file = filesystem::get_path_from_uri(document->get<std::string>("uri", ""));
                     if(filesystem::file_in_path(file, project_path)) {
                       std::vector<LanguageProtocol::TextEdit> edits;
                       auto edits_pt = change_it->second.get_child("edits", boost::property_tree::ptree());
@@ -916,8 +906,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                 if(kind == 6 || kind == 9 || kind == 12) {
                   std::unique_ptr<LanguageProtocol::Range> range;
                   std::string prefix;
-                  auto location_pt = it->second.get_child_optional("location");
-                  if(location_pt) {
+                  if(auto location_pt = it->second.get_child_optional("location")) {
                     LanguageProtocol::Location location(*location_pt);
                     range = std::make_unique<LanguageProtocol::Range>(location.range);
                     std::string container = it->second.get<std::string>("containerName", "");
@@ -933,8 +922,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                   }
                   methods.emplace_back(Offset(range->start.line, range->start.character), (!prefix.empty() ? Glib::Markup::escape_text(prefix) + ':' : "") + std::to_string(range->start.line + 1) + ": " + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>");
                 }
-                auto children = it->second.get_child_optional("children");
-                if(children)
+                if(auto children = it->second.get_child_optional("children"))
                   parse_result(*children, (!container.empty() ? container + "::" : "") + it->second.get<std::string>("name"));
               }
               catch(...) {
@@ -1024,8 +1012,7 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                 if(it->second.get<std::string>("kind") == "quickfix") {
                   auto title = it->second.get<std::string>("title");
                   std::vector<LanguageProtocol::Diagnostic> quickfix_diagnostics;
-                  auto diagnostics_pt = it->second.get_child_optional("diagnostics");
-                  if(diagnostics_pt) {
+                  if(auto diagnostics_pt = it->second.get_child_optional("diagnostics")) {
                     for(auto it = diagnostics_pt->begin(); it != diagnostics_pt->end(); ++it)
                       quickfix_diagnostics.emplace_back(it->second);
                   }
@@ -1681,8 +1668,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::property_tree::ptree::const_iterator begin, end;
-            auto items = result.get_child_optional("items");
-            if(items) {
+            if(auto items = result.get_child_optional("items")) {
               begin = items->begin();
               end = items->end();
             }
@@ -1702,8 +1688,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                 auto documentation = it->second.get<std::string>("documentation", "");
                 std::string documentation_kind;
                 if(documentation.empty()) {
-                  auto documentation_pt = it->second.get_child_optional("documentation");
-                  if(documentation_pt) {
+                  if(auto documentation_pt = it->second.get_child_optional("documentation")) {
                     documentation = documentation_pt->get<std::string>("value", "");
                     documentation_kind = documentation_pt->get<std::string>("kind", "");
                   }
