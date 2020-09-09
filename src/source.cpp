@@ -105,8 +105,13 @@ std::string Source::FixIt::string(BaseView &view) {
   std::string to_pos, text;
   if(type != Type::insert) {
     to_pos = std::to_string(offsets.second.line + 1) + ':' + std::to_string(offsets.second.index + 1);
-    text = in_current_view ? view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
-                                                         view.get_iter_at_line_index(offsets.second.line, offsets.second.index)) : "";
+    if(in_current_view) {
+      text = view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
+                                         view.get_iter_at_line_index(offsets.second.line, offsets.second.index));
+    }
+    else {
+      text = "";
+    }
   }
 
   if(type == Type::insert)
