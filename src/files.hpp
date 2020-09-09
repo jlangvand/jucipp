@@ -5,7 +5,8 @@
 /// version number (JUCI_VERSION) in ../CMakeLists.txt to automatically apply
 /// the changes to user's ~/.juci/config/config.json files
 const std::string default_config_file = R"RAW({
-    "version": ")RAW" + std::string(JUCI_VERSION) + R"RAW(",
+    "version": ")RAW" + std::string(JUCI_VERSION) +
+                                        R"RAW(",
     "gtk_theme": {
         "name_comment": "Use \"\" for default theme, At least these two exist on all systems: Adwaita, Raleigh",
         "name": "",
@@ -19,18 +20,18 @@ const std::string default_config_file = R"RAW({
         "style": "juci-light",
         "font_comment": "Use \"\" for default font, and for instance \"Monospace 12\" to also set size",)RAW"
 #ifdef __APPLE__
-                                                    R"RAW(
+                                        R"RAW(
         "font": "Menlo",)RAW"
 #else
 #ifdef _WIN32
-                                                    R"RAW(
+                                        R"RAW(
         "font": "Consolas",)RAW"
 #else
-                                                    R"RAW(
+                                        R"RAW(
         "font": "Monospace",)RAW"
 #endif
 #endif
-                                                    R"RAW(
+                                        R"RAW(
         "cleanup_whitespace_characters_comment": "Remove trailing whitespace characters on save, and add trailing newline if missing",
         "cleanup_whitespace_characters": false,
         "show_whitespace_characters_comment": "Determines what kind of whitespaces should be drawn. Use comma-separated list of: space, tab, newline, nbsp, leading, text, trailing or all",
@@ -90,13 +91,13 @@ const std::string default_config_file = R"RAW({
         "debug_build_path": "<default_build_path>/debug",
         "cmake": {)RAW"
 #ifdef _WIN32
-                                                    R"RAW(
+                                        R"RAW(
             "command": "cmake -G\"MSYS Makefiles\"",)RAW"
 #else
-                                                    R"RAW(
+                                        R"RAW(
             "command": "cmake",)RAW"
 #endif
-                                                    R"RAW(
+                                        R"RAW(
             "compile_command": "cmake --build ."
         },
         "meson": {
@@ -107,13 +108,13 @@ const std::string default_config_file = R"RAW({
         "default_build_management_system": "cmake",
         "save_on_compile_or_run": true,)RAW"
 #ifdef JUCI_USE_UCTAGS
-                                                    R"RAW(
+                                        R"RAW(
         "ctags_command": "uctags",)RAW"
 #else
-                                                    R"RAW(
+                                        R"RAW(
         "ctags_command": "ctags",)RAW"
 #endif
-                                                    R"RAW(
+                                        R"RAW(
         "grep_command": "grep",
         "cargo_command": "cargo",
         "python_command": "python -u",
@@ -193,26 +194,26 @@ const std::string default_config_file = R"RAW({
         "debug_show_breakpoints": "<primary><shift><alt>b",
         "debug_goto_stop": "<primary><shift>l",)RAW"
 #ifdef __linux
-                                                    R"RAW(
+                                        R"RAW(
         "window_next_tab": "<primary>Tab",
         "window_previous_tab": "<primary><shift>Tab",)RAW"
 #else
-                                                    R"RAW(
+                                        R"RAW(
         "window_next_tab": "<primary><alt>Right",
         "window_previous_tab": "<primary><alt>Left",)RAW"
 #endif
-                                                    R"RAW(
+                                        R"RAW(
         "window_goto_tab": "",
         "window_toggle_split": "",
         "window_split_source_buffer": "",)RAW"
 #ifdef __APPLE__
-                                                    R"RAW(
+                                        R"RAW(
         "window_toggle_full_screen": "<primary><control>f",)RAW"
 #else
-                                                    R"RAW(
+                                        R"RAW(
         "window_toggle_full_screen": "F11",)RAW"
 #endif
-                                                    R"RAW(
+                                        R"RAW(
         "window_toggle_tabs": "",
         "window_toggle_zen_mode": "",
         "window_clear_terminal": ""
