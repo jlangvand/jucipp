@@ -584,11 +584,15 @@ bool Terminal::on_key_press_event(GdkEventKey *event) {
   if(processes.size() > 0 || debug_is_running) {
     auto unicode = gdk_keyval_to_unicode(event->keyval);
     if(unicode >= 32 && unicode != 126 && unicode != 0) {
+      if(scroll_to_bottom)
+        scroll_to_bottom();
       get_buffer()->place_cursor(get_buffer()->end());
       stdin_buffer += unicode;
-      get_buffer()->insert_at_cursor(stdin_buffer.substr(stdin_buffer.size() - 1));
+      get_buffer()->insert_at_cursor(Glib::ustring() + unicode);
     }
     else if(event->keyval == GDK_KEY_BackSpace) {
+      if(scroll_to_bottom)
+        scroll_to_bottom();
       get_buffer()->place_cursor(get_buffer()->end());
       if(stdin_buffer.size() > 0 && get_buffer()->get_char_count() > 0) {
         auto iter = get_buffer()->end();
@@ -598,18 +602,63 @@ bool Terminal::on_key_press_event(GdkEventKey *event) {
       }
     }
     else if(event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter) {
+      if(scroll_to_bottom)
+        scroll_to_bottom();
       get_buffer()->place_cursor(get_buffer()->end());
       stdin_buffer += '\n';
+      get_buffer()->insert_at_cursor("\n");
       if(debug_is_running) {
 #ifdef JUCI_ENABLE_DEBUG
-        Project::current->debug_write(stdin_buffer);
+        Project::current->debug_write(stdin_buffer.raw());
 #endif
       }
       else
-        processes.back()->write(stdin_buffer);
-      get_buffer()->insert_at_cursor(stdin_buffer.substr(stdin_buffer.size() - 1));
+        processes.back()->write(stdin_buffer.raw());
       stdin_buffer.clear();
     }
   }
   return true;
+}
+
+void Terminal::paste() {
+  std::string text = Gtk::Clipboard::get()->wait_for_text();
+  if(text.empty())
+    return;
+
+  // Replace carriage returns (which leads to crash) with newlines
+  for(size_t c = 0; c < text.size(); c++) {
+    if(text[c] == '\r') {
+      if((c + 1) < text.size() && text[c + 1] == '\n')
+        text.replace(c, 2, "\n");
+      else
+        text.replace(c, 1, "\n");
+    }
+  }
+
+  std::string after_last_newline_str;
+  auto last_newline = text.rfind('\n');
+
+  LockGuard lock(processes_mutex);
+  bool debug_is_running = false;
+#ifdef JUCI_ENABLE_DEBUG
+  debug_is_running = Project::current ? Project::current->debug_is_running() : false;
+#endif
+  if(processes.size() > 0 || debug_is_running) {
+    if(scroll_to_bottom)
+      scroll_to_bottom();
+    get_buffer()->place_cursor(get_buffer()->end());
+    get_buffer()->insert_at_cursor(text);
+    if(last_newline != std::string::npos) {
+      if(debug_is_running) {
+#ifdef JUCI_ENABLE_DEBUG
+        Project::current->debug_write(stdin_buffer.raw() + text.substr(0, last_newline + 1));
+#endif
+      }
+      else
+        processes.back()->write(stdin_buffer.raw() + text.substr(0, last_newline + 1));
+      stdin_buffer = text.substr(last_newline + 1);
+    }
+    else
+      stdin_buffer += text;
+  }
 }

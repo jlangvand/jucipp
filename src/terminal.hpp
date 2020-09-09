@@ -36,6 +36,8 @@ public:
 
   std::function<void()> scroll_to_bottom;
 
+  void paste();
+
 protected:
   bool on_motion_notify_event(GdkEventMotion *motion_event) override;
   bool on_button_press_event(GdkEventButton *button_event) override;

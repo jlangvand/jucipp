@@ -797,7 +797,7 @@ void Source::BaseView::paste() {
 
   std::string text = Gtk::Clipboard::get()->wait_for_text();
 
-  //Replace carriage returns (which leads to crash) with newlines
+  // Replace carriage returns (which leads to crash) with newlines
   for(size_t c = 0; c < text.size(); c++) {
     if(text[c] == '\r') {
       if((c + 1) < text.size() && text[c + 1] == '\n')
@@ -807,7 +807,7 @@ void Source::BaseView::paste() {
     }
   }
 
-  //Exception for when pasted text is only whitespaces
+  // Exception for when pasted text is only whitespaces
   bool only_whitespaces = true;
   for(auto &chr : text) {
     if(chr != '\n' && chr != '\r' && chr != ' ' && chr != '\t') {
@@ -926,7 +926,7 @@ void Source::BaseView::paste() {
       paste_line = false;
     }
   }
-  // add final newline if present in text
+  // Add final newline if present in text
   if(text.size() > 0 && text.back() == '\n')
     get_buffer()->insert_at_cursor('\n' + prefix_tabs);
   get_buffer()->end_user_action();

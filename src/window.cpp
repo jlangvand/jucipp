@@ -683,12 +683,14 @@ void Window::set_menu_actions() {
     if(auto entry = dynamic_cast<Gtk::Entry *>(widget))
       entry->paste_clipboard();
     else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
-      auto source_view = dynamic_cast<Source::View *>(view);
-      if(source_view) {
+      if(auto source_view = dynamic_cast<Source::View *>(view)) {
         source_view->disable_spellcheck = true;
         source_view->paste();
         source_view->disable_spellcheck = false;
         source_view->hide_tooltips();
+      }
+      else if(auto terminal = dynamic_cast<Terminal *>(view)) {
+        terminal->paste();
       }
       else if(view->get_editable())
         view->get_buffer()->paste_clipboard(Gtk::Clipboard::get());
