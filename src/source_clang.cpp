@@ -196,7 +196,7 @@ void Source::ClangViewParse::parse_initialize() {
           parse_state = ParseState::stop;
           parse_mutex.unlock();
           dispatcher.post([this] {
-            Terminal::get().print("\e[31mError\e[m: failed to reparse " + this->file_path.string() + ".\n", true);
+            Terminal::get().print("\e[31mError\e[m: failed to reparse " + filesystem::get_short_path(this->file_path).string() + ".\n", true);
             status_state = "";
             if(update_status_state)
               update_status_state(this);
@@ -911,7 +911,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.on_add_rows_error = [this] {
-    Terminal::get().print("\e[31mError\e[m: autocomplete failed, reparsing " + this->file_path.string() + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: completion failed, reparsing " + filesystem::get_short_path(this->file_path.string()).string() + ". You should restart juCi++ to recover potentially lost resources.\n", true);
     selected_completion_string = nullptr;
     code_complete_results = nullptr;
     full_reparse();
@@ -1253,7 +1253,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
             usages_renamed.emplace_back(&usage);
           }
           else
-            Terminal::get().print("\e[31mError\e[m: could not write to file " + usage.path.string() + '\n', true);
+            Terminal::get().print("\e[31mError\e[m: could not write to file " + filesystem::get_short_path(usage.path).string() + '\n', true);
         }
       }
 
