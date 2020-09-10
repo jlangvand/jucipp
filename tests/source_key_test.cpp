@@ -601,6 +601,22 @@ int main() {
       g_assert(buffer->get_insert()->get_iter().get_line() == 1);
       g_assert(buffer->get_insert()->get_iter().get_line_offset() == 17);
     }
+    {
+      buffer->set_text("  test(2,\n"
+                       "       []() {\n"
+                       "         func();\n"
+                       "       })\n");
+      auto iter = buffer->get_iter_at_line_offset(1, 13);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(2,\n"
+                                     "       []() {\n"
+                                     "         \n"
+                                     "         func();\n"
+                                     "       })\n");
+      g_assert(buffer->get_insert()->get_iter().get_line() == 2);
+      g_assert(buffer->get_insert()->get_iter().get_line_offset() == 9);
+    }
 
     {
       buffer->set_text("  else");
