@@ -130,7 +130,8 @@ void Source::GenericView::setup_buffer_words() {
         }
       }
     }
-  }, false);
+  },
+                                        false);
 
   // Add all words between start and end of insert
   get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int bytes) {
@@ -168,7 +169,8 @@ void Source::GenericView::setup_buffer_words() {
           buffer_words.erase(it);
       }
     }
-  }, false);
+  },
+                                       false);
 
   // Add new word resulting from erased text
   get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_, const Gtk::TextIter & /*end*/) {

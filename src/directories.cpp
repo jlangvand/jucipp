@@ -678,7 +678,8 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
           if(directories.find(path_and_row->first.string()) != directories.end())
             add_or_update_path(path_and_row->first, path_and_row->second, true);
           return false;
-        }, 500);
+        },
+                                                     500);
       }
     });
 
@@ -698,7 +699,8 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
             if(directories.find(path_and_row->first.string()) != directories.end())
               colorize_path(path_and_row->first, false);
             return false;
-          }, 500);
+          },
+                                                       500);
         }
       });
     }

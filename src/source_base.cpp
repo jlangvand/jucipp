@@ -358,7 +358,8 @@ void Source::BaseView::monitor_file() {
         }
         Recursive::f(view);
         return false;
-      }, 1000);
+      },
+                                                                                1000);
     }
   };
   delayed_monitor_changed_connection.disconnect();
@@ -376,7 +377,8 @@ void Source::BaseView::monitor_file() {
         delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
           check_last_write_time();
           return false;
-        }, 1000); // Has to wait 1 second (std::time_t is in seconds)
+        },
+                                                                            1000); // Has to wait 1 second (std::time_t is in seconds)
       }
     });
   }
@@ -1339,7 +1341,8 @@ void Source::BaseView::setup_extra_cursor_signals() {
           *erase_selection = true;
       }
     }
-  }, false);
+  },
+                                       false);
   get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter & /*iter_start*/, const Gtk::TextIter & /*iter_end*/) {
     if(enable_multiple_cursors && (*erase_backward_length != 0 || *erase_forward_length != 0)) {
       enable_multiple_cursors = false;

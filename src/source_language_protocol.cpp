@@ -1404,11 +1404,13 @@ void Source::LanguageProtocolView::setup_signals() {
       std::string text = text_;
       escape_text(text);
       client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
-    }, false);
+    },
+                                          false);
 
     get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
       client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
-    }, false);
+    },
+                                         false);
   }
   else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
     get_buffer()->signal_changed().connect([this]() {
@@ -1460,8 +1462,10 @@ void Source::LanguageProtocolView::setup_autocomplete() {
           autocomplete->run();
         }
         return false;
-      }, 500);
-    }, false);
+      },
+                                                                                      500);
+    },
+                                           false);
 
     // Remove argument completions
     signal_key_press_event().connect([this](GdkEventKey *event) {
@@ -1474,7 +1478,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         CompletionDialog::get()->hide();
       }
       return false;
-    }, false);
+    },
+                                     false);
   }
 
   autocomplete->is_restart_key = [this](guint keyval) {
@@ -1825,7 +1830,8 @@ void Source::LanguageProtocolView::update_type_coverage() {
               --update_type_coverage_retries;
               update_type_coverage();
               return false;
-            }, 1000);
+            },
+                                                                             1000);
           });
         }
         return;

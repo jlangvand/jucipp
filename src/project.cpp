@@ -972,10 +972,12 @@ void Project::Clang::recreate_build() {
 void Project::Markdown::compile_and_run() {
   if(auto view = Notebook::get().get_current_view()) {
     auto command = Config::get().project.markdown_command + ' ' + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
-    Terminal::get().async_process(command, "", [command](int exit_status) {
-      if(exit_status == 127)
-        Terminal::get().async_print("\e[31mError\e[m: executable not found: " + command + "\n", true);
-    }, true);
+    Terminal::get().async_process(
+        command, "", [command](int exit_status) {
+          if(exit_status == 127)
+            Terminal::get().async_print("\e[31mError\e[m: executable not found: " + command + "\n", true);
+        },
+        true);
   }
 }
 

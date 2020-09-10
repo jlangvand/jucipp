@@ -122,7 +122,8 @@ Git::Repository::Repository(const boost::filesystem::path &path) {
     if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
       this->clear_saved_status();
     }
-  }, false);
+  },
+                                                                 false);
 }
 
 Git::Repository::~Repository() {

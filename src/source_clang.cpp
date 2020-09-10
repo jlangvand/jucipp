@@ -824,8 +824,10 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         autocomplete.run();
       }
       return false;
-    }, 500);
-  }, false);
+    },
+                                                                       500);
+  },
+                                         false);
 
   // Remove argument completions
   signal_key_press_event().connect([this](GdkEventKey *event) {
@@ -838,7 +840,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
       CompletionDialog::get()->hide();
     }
     return false;
-  }, false);
+  },
+                                   false);
 
   autocomplete.is_restart_key = [this](guint keyval) {
     auto iter = get_buffer()->get_insert()->get_iter();
@@ -2060,7 +2063,8 @@ void Source::ClangView::full_reparse() {
     delayed_full_reparse_connection = Glib::signal_timeout().connect([this] {
       full_reparse();
       return false;
-    }, 100);
+    },
+                                                                     100);
     return;
   }
 

@@ -31,7 +31,8 @@ Autocomplete::Autocomplete(Gsv::View *view, bool &interactive_completion, guint 
         return true;
     }
     return false;
-  }, false);
+  },
+                                           false);
 
   view->signal_focus_out_event().connect([this](GdkEventFocus *event) {
     stop();

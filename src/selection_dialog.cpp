@@ -47,7 +47,8 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::
   search_entry.signal_changed().connect([this] {
     if(on_search_entry_changed)
       on_search_entry_changed(search_entry.get_text());
-  }, false);
+  },
+                                        false);
 
   list_view_text.set_search_entry(search_entry);
 

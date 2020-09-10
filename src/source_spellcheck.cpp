@@ -20,7 +20,8 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
     }
 
     return false;
-  }, false);
+  },
+                                   false);
 
   //The following signal is added in case SpellCheckView is not subclassed
   signal_key_press_event().connect([this](GdkEventKey *event) {
@@ -124,7 +125,8 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
           get_buffer()->remove_tag(spellcheck_error_tag, begin_no_spellcheck_iter, iter);
       }
       return false;
-    }, 1000);
+    },
+                                                                    1000);
   });
 
   // In case of for instance text paste or undo/redo
@@ -141,7 +143,8 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
         get_buffer()->remove_tag(spellcheck_error_tag, word.first, word.second);
       }
     }
-  }, false);
+  },
+                                        false);
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
@@ -178,7 +181,8 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
           SelectionDialog::get()->show();
         }
         return false;
-      }, 500);
+      },
+                                                                                 500);
     }
   });
 

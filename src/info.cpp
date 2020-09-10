@@ -29,7 +29,8 @@ void Info::print(const std::string &text) {
   timeout_connection = Glib::signal_timeout().connect([this]() {
     hide();
     return false;
-  }, timeout);
+  },
+                                                      timeout);
 
   label.set_text(text);
   show();

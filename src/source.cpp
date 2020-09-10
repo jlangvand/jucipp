@@ -598,7 +598,8 @@ void Source::View::setup_signals() {
             show_diagnostic_tooltips(rectangle);
           }
           return false;
-        }, 100);
+        },
+                                                                     100);
       }
 
       if(clickable_tag_applied) {
@@ -615,7 +616,8 @@ void Source::View::setup_signals() {
           apply_clickable_tag(iter);
           clickable_tag_applied = true;
           return false;
-        }, 100);
+        },
+                                                                          100);
       }
 
       auto last_mouse_pos = std::make_pair<int, int>(on_motion_last_x, on_motion_last_y);
@@ -658,14 +660,16 @@ void Source::View::setup_signals() {
           show_diagnostic_tooltips(rectangle);
         }
         return false;
-      }, 500);
+      },
+                                                                   500);
 
       delayed_tag_similar_symbols_connection.disconnect();
       delayed_tag_similar_symbols_connection = Glib::signal_timeout().connect([this] {
         apply_similar_symbol_tag();
         similar_symbol_tag_applied = true;
         return false;
-      }, 100);
+      },
+                                                                              100);
 
       if(SelectionDialog::get())
         SelectionDialog::get()->hide();

@@ -144,8 +144,10 @@ void Source::DiffView::configure() {
     delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
       parse_state = ParseState::starting;
       return false;
-    }, 250);
-  }, false);
+    },
+                                                                       250);
+  },
+                                                                   false);
 
   buffer_erase_connection = get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
     //Do not perform git diff if start_iter and end_iter is at the same line in addition to the line is tagged added
@@ -157,8 +159,10 @@ void Source::DiffView::configure() {
     delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
       parse_state = ParseState::starting;
       return false;
-    }, 250);
-  }, false);
+    },
+                                                                       250);
+  },
+                                                                 false);
 
   monitor_changed_connection = repository->monitor->signal_changed().connect([this](const Glib::RefPtr<Gio::File> &file,
                                                                                     const Glib::RefPtr<Gio::File> &,
@@ -171,7 +175,8 @@ void Source::DiffView::configure() {
         LockGuard lock(parse_mutex);
         diff = nullptr;
         return false;
-      }, 500);
+      },
+                                                                          500);
     }
   });
 
