@@ -109,9 +109,6 @@ std::string Source::FixIt::string(BaseView &view) {
       text = view.get_buffer()->get_text(view.get_iter_at_line_index(offsets.first.line, offsets.first.index),
                                          view.get_iter_at_line_index(offsets.second.line, offsets.second.index));
     }
-    else {
-      text = "";
-    }
   }
 
   if(type == Type::insert)
