@@ -2542,6 +2542,16 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
               }
             }
           }
+          /**
+           * Handle pressing enter after '{' in special expressions like:
+           * enum class A { a,
+           *                b }
+           */
+          else if(close_iter.get_line() > condition_iter.get_line() && close_iter.get_line_offset() > condition_iter.get_line_offset()) {
+            get_buffer()->insert_at_cursor('\n' + get_line_before(get_tabs_end_iter(condition_iter.get_line() + 1)));
+            scroll_to(get_buffer()->get_insert());
+            return true;
+          }
         }
 
         // Check if one should add semicolon after '}'

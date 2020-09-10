@@ -589,6 +589,20 @@ int main() {
     }
 
     {
+      buffer->set_text("  enum class A { a,\n"
+                       "                 b };");
+      auto iter = buffer->begin();
+      iter.forward_chars(16);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  enum class A {\n"
+                                     "                 a,\n"
+                                     "                 b };");
+      g_assert(buffer->get_insert()->get_iter().get_line() == 1);
+      g_assert(buffer->get_insert()->get_iter().get_line_offset() == 17);
+    }
+
+    {
       buffer->set_text("  else");
       view.on_key_press_event(&event);
       g_assert(buffer->get_text() == "  else\n"
