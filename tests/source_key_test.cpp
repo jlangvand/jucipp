@@ -1123,6 +1123,20 @@ int main() {
       g_assert(buffer->get_insert()->get_iter().get_line() == 1);
       g_assert(buffer->get_insert()->get_iter().get_line_offset() == 4);
     }
+    {
+      buffer->set_text("  test(\n"
+                       "      [] {});");
+      auto iter = buffer->end();
+      iter.backward_chars(3);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "      [] {\n"
+                                     "        \n"
+                                     "      });");
+      g_assert(buffer->get_insert()->get_iter().get_line() == 2);
+      g_assert(buffer->get_insert()->get_iter().get_line_offset() == 8);
+    }
 
     {
       buffer->set_text("  void Class::Class()\n"

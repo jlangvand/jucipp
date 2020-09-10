@@ -2573,7 +2573,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
           auto token = get_token(tabs_end_iter);
           if(token == "class" || token == "struct")
             add_semicolon = true;
-          // Add semicolon after lambda unless it's a parameter
+          // Add semicolon after lambda unless it's an argument
           else if(*start_iter != '(' && *start_iter != '{' && *start_iter != '[') {
             auto it = condition_iter;
             long para_count = 0;
@@ -2593,7 +2593,11 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
                 ++para_count;
 
               if(square_outside_para_found && square_count == 0 && para_count == 0) {
-                add_semicolon = true;
+                // Look for equal sign
+                while(it.backward_char() && (*it == ' ' || *it == '\t' || it.ends_line())) {
+                }
+                if(*it == '=')
+                  add_semicolon = true;
                 break;
               }
               if(it == start_iter)
