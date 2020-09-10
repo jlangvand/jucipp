@@ -112,26 +112,27 @@ void Source::GenericView::setup_buffer_words() {
   }
 
   // Remove changed word at insert
-  get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter_, const Glib::ustring &text, int bytes) {
-    auto iter = iter_;
-    if(!is_token_char(*iter))
-      iter.backward_char();
+  get_buffer()->signal_insert().connect(
+      [this](const Gtk::TextIter &iter_, const Glib::ustring &text, int bytes) {
+        auto iter = iter_;
+        if(!is_token_char(*iter))
+          iter.backward_char();
 
-    if(is_token_char(*iter)) {
-      auto word = get_token_iters(iter);
-      if(word.second.get_offset() - word.first.get_offset() >= 3) {
-        LockGuard lock(buffer_words_mutex);
-        auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
-        if(it != buffer_words.end()) {
-          if(it->second > 1)
-            --(it->second);
-          else
-            buffer_words.erase(it);
+        if(is_token_char(*iter)) {
+          auto word = get_token_iters(iter);
+          if(word.second.get_offset() - word.first.get_offset() >= 3) {
+            LockGuard lock(buffer_words_mutex);
+            auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
+            if(it != buffer_words.end()) {
+              if(it->second > 1)
+                --(it->second);
+              else
+                buffer_words.erase(it);
+            }
+          }
         }
-      }
-    }
-  },
-                                        false);
+      },
+      false);
 
   // Add all words between start and end of insert
   get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int bytes) {
@@ -152,25 +153,26 @@ void Source::GenericView::setup_buffer_words() {
   });
 
   // Remove words within text that was removed
-  get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_, const Gtk::TextIter &end_) {
-    auto start = start_;
-    auto end = end_;
-    if(!is_token_char(*start))
-      start.backward_char();
-    end.forward_char();
-    auto words = get_words(start, end);
-    LockGuard lock(buffer_words_mutex);
-    for(auto &word : words) {
-      auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
-      if(it != buffer_words.end()) {
-        if(it->second > 1)
-          --(it->second);
-        else
-          buffer_words.erase(it);
-      }
-    }
-  },
-                                       false);
+  get_buffer()->signal_erase().connect(
+      [this](const Gtk::TextIter &start_, const Gtk::TextIter &end_) {
+        auto start = start_;
+        auto end = end_;
+        if(!is_token_char(*start))
+          start.backward_char();
+        end.forward_char();
+        auto words = get_words(start, end);
+        LockGuard lock(buffer_words_mutex);
+        for(auto &word : words) {
+          auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
+          if(it != buffer_words.end()) {
+            if(it->second > 1)
+              --(it->second);
+            else
+              buffer_words.erase(it);
+          }
+        }
+      },
+      false);
 
   // Add new word resulting from erased text
   get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_, const Gtk::TextIter & /*end*/) {

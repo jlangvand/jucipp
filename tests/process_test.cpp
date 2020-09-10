@@ -15,7 +15,13 @@ int main() {
 
   {
     TinyProcessLib::Process process(
-        "echo Test && ls an_incorrect_path", "", [output](const char *bytes, size_t n) { *output += std::string(bytes, n); }, [error](const char *bytes, size_t n) { *error += std::string(bytes, n); });
+        "echo Test && ls an_incorrect_path", "",
+        [output](const char *bytes, size_t n) {
+          *output += std::string(bytes, n);
+        },
+        [error](const char *bytes, size_t n) {
+          *error += std::string(bytes, n);
+        });
     g_assert(process.get_exit_status() > 0);
     g_assert(output->substr(0, 4) == "Test");
     g_assert(!error->empty());

@@ -25,14 +25,15 @@ Autocomplete::Autocomplete(Gsv::View *view, bool &interactive_completion, guint 
       stop();
   });
 
-  view->signal_key_release_event().connect([](GdkEventKey *event) {
-    if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {
-      if(CompletionDialog::get()->on_key_release(event))
-        return true;
-    }
-    return false;
-  },
-                                           false);
+  view->signal_key_release_event().connect(
+      [](GdkEventKey *event) {
+        if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {
+          if(CompletionDialog::get()->on_key_release(event))
+            return true;
+        }
+        return false;
+      },
+      false);
 
   view->signal_focus_out_event().connect([this](GdkEventFocus *event) {
     stop();

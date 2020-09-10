@@ -674,12 +674,13 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
         if(repository)
           repository->clear_saved_status();
         connection->disconnect();
-        *connection = Glib::signal_timeout().connect([path_and_row, this]() {
-          if(directories.find(path_and_row->first.string()) != directories.end())
-            add_or_update_path(path_and_row->first, path_and_row->second, true);
-          return false;
-        },
-                                                     500);
+        *connection = Glib::signal_timeout().connect(
+            [path_and_row, this]() {
+              if(directories.find(path_and_row->first.string()) != directories.end())
+                add_or_update_path(path_and_row->first, path_and_row->second, true);
+              return false;
+            },
+            500);
       }
     });
 
@@ -695,12 +696,13 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
                                                                                                               Gio::FileMonitorEvent monitor_event) {
         if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
           connection->disconnect();
-          *connection = Glib::signal_timeout().connect([this, path_and_row] {
-            if(directories.find(path_and_row->first.string()) != directories.end())
-              colorize_path(path_and_row->first, false);
-            return false;
-          },
-                                                       500);
+          *connection = Glib::signal_timeout().connect(
+              [this, path_and_row] {
+                if(directories.find(path_and_row->first.string()) != directories.end())
+                  colorize_path(path_and_row->first, false);
+                return false;
+              },
+              500);
         }
       });
     }

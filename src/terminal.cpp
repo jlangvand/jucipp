@@ -211,7 +211,13 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(
-        command, path.string(), [this](const char *bytes, size_t n) { async_print(std::string(bytes, n)); }, [this](const char *bytes, size_t n) { async_print(std::string(bytes, n), true); });
+        command, path.string(),
+        [this](const char *bytes, size_t n) {
+          async_print(std::string(bytes, n));
+        },
+        [this](const char *bytes, size_t n) {
+          async_print(std::string(bytes, n), true);
+        });
   else
     process = std::make_unique<TinyProcessLib::Process>(command, path.string());
 
@@ -228,19 +234,24 @@ int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, c
     scroll_to_bottom();
 
   TinyProcessLib::Process process(
-      command, path.string(), [&stdout_stream](const char *bytes, size_t n) {
-    Glib::ustring umessage(std::string(bytes, n));
-    Glib::ustring::iterator iter;
-    while(!umessage.validate(iter)) {
-      auto next_char_iter = iter;
-      next_char_iter++;
-      umessage.replace(iter, next_char_iter, "?");
-    }
-    stdout_stream.write(umessage.data(), n); }, [this, stderr_stream](const char *bytes, size_t n) {
-    if(stderr_stream)
-      stderr_stream->write(bytes, n);
-    else
-      async_print(std::string(bytes, n), true); }, true);
+      command, path.string(),
+      [&stdout_stream](const char *bytes, size_t n) {
+        Glib::ustring umessage(std::string(bytes, n));
+        Glib::ustring::iterator iter;
+        while(!umessage.validate(iter)) {
+          auto next_char_iter = iter;
+          next_char_iter++;
+          umessage.replace(iter, next_char_iter, "?");
+        }
+        stdout_stream.write(umessage.data(), n);
+      },
+      [this, stderr_stream](const char *bytes, size_t n) {
+        if(stderr_stream)
+          stderr_stream->write(bytes, n);
+        else
+          async_print(std::string(bytes, n), true);
+      },
+      true);
 
   if(process.get_id() <= 0) {
     async_print("\e[31mError\e[m: failed to run command: " + command + "\n", true);
@@ -268,25 +279,30 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
   stdin_buffer.clear();
 
   auto process = std::make_shared<TinyProcessLib::Process>(
-      command, path.string(), [this, quiet](const char *bytes, size_t n) {
-    if(!quiet) {
-      // Print stdout message sequentially to avoid the GUI becoming unresponsive
-      std::promise<void> message_printed;
-      dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
-        Terminal::get().print(std::move(message));
-        message_printed.set_value();
-      });
-      message_printed.get_future().get();
-    } }, [this, quiet](const char *bytes, size_t n) {
-    if(!quiet) {
-      // Print stderr message sequentially to avoid the GUI becoming unresponsive
-      std::promise<void> message_printed;
-      dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
-        Terminal::get().print(std::move(message), true);
-        message_printed.set_value();
-      });
-      message_printed.get_future().get();
-    } }, true);
+      command, path.string(),
+      [this, quiet](const char *bytes, size_t n) {
+        if(!quiet) {
+          // Print stdout message sequentially to avoid the GUI becoming unresponsive
+          std::promise<void> message_printed;
+          dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+            Terminal::get().print(std::move(message));
+            message_printed.set_value();
+          });
+          message_printed.get_future().get();
+        }
+      },
+      [this, quiet](const char *bytes, size_t n) {
+        if(!quiet) {
+          // Print stderr message sequentially to avoid the GUI becoming unresponsive
+          std::promise<void> message_printed;
+          dispatcher.post([message = std::string(bytes, n), &message_printed]() mutable {
+            Terminal::get().print(std::move(message), true);
+            message_printed.set_value();
+          });
+          message_printed.get_future().get();
+        }
+      },
+      true);
 
   auto pid = process->get_id();
   if(pid <= 0) {

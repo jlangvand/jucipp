@@ -643,8 +643,9 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
                       };
                       VisitorData visitor_data{cursor.get_source_range().get_offsets(), cursor.get_spelling(), {}};
                       auto start_cursor = cursor;
-                      for(auto parent = cursor.get_semantic_parent(); parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit &&
-                                                                      parent.get_kind() != clangmm::Cursor::Kind::ClassDecl;
+                      for(auto parent = cursor.get_semantic_parent();
+                          parent.get_kind() != clangmm::Cursor::Kind::TranslationUnit &&
+                          parent.get_kind() != clangmm::Cursor::Kind::ClassDecl;
                           parent = parent.get_semantic_parent())
                         start_cursor = parent;
                       clang_visitChildren(
@@ -801,47 +802,50 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   // Activate argument completions
-  get_buffer()->signal_changed().connect([this] {
-    if(!interactive_completion)
-      return;
-    if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-      return;
-    if(!has_focus())
-      return;
-    if(show_parameters)
-      autocomplete.stop();
-    show_parameters = false;
-    delayed_show_arguments_connection.disconnect();
-    delayed_show_arguments_connection = Glib::signal_timeout().connect([this]() {
-      if(get_buffer()->get_has_selection())
-        return false;
-      if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-        return false;
-      if(!has_focus())
-        return false;
-      if(is_possible_argument()) {
-        autocomplete.stop();
-        autocomplete.run();
-      }
-      return false;
-    },
-                                                                       500);
-  },
-                                         false);
+  get_buffer()->signal_changed().connect(
+      [this] {
+        if(!interactive_completion)
+          return;
+        if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+          return;
+        if(!has_focus())
+          return;
+        if(show_parameters)
+          autocomplete.stop();
+        show_parameters = false;
+        delayed_show_arguments_connection.disconnect();
+        delayed_show_arguments_connection = Glib::signal_timeout().connect(
+            [this]() {
+              if(get_buffer()->get_has_selection())
+                return false;
+              if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+                return false;
+              if(!has_focus())
+                return false;
+              if(is_possible_argument()) {
+                autocomplete.stop();
+                autocomplete.run();
+              }
+              return false;
+            },
+            500);
+      },
+      false);
 
   // Remove argument completions
-  signal_key_press_event().connect([this](GdkEventKey *event) {
-    if(show_parameters && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
-       event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
-       event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
-       event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
-       (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
-      get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
-      CompletionDialog::get()->hide();
-    }
-    return false;
-  },
-                                   false);
+  signal_key_press_event().connect(
+      [this](GdkEventKey *event) {
+        if(show_parameters && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
+           event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
+           event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
+           event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
+           (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
+          get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+          CompletionDialog::get()->hide();
+        }
+        return false;
+      },
+      false);
 
   autocomplete.is_restart_key = [this](guint keyval) {
     auto iter = get_buffer()->get_insert()->get_iter();
@@ -2060,11 +2064,12 @@ void Source::ClangView::full_reparse() {
     return;
 
   if(full_reparse_running) {
-    delayed_full_reparse_connection = Glib::signal_timeout().connect([this] {
-      full_reparse();
-      return false;
-    },
-                                                                     100);
+    delayed_full_reparse_connection = Glib::signal_timeout().connect(
+        [this] {
+          full_reparse();
+          return false;
+        },
+        100);
     return;
   }
 

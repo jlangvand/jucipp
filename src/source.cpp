@@ -588,18 +588,19 @@ void Source::View::setup_signals() {
     if(on_motion_last_x != event->x || on_motion_last_y != event->y) {
       delayed_tooltips_connection.disconnect();
       if((event->state & GDK_BUTTON1_MASK) == 0) {
-        delayed_tooltips_connection = Glib::signal_timeout().connect([this, x = event->x, y = event->y]() {
-          type_tooltips.hide();
-          diagnostic_tooltips.hide();
-          Tooltips::init();
-          Gdk::Rectangle rectangle(x, y, 1, 1);
-          if(parsed) {
-            show_type_tooltips(rectangle);
-            show_diagnostic_tooltips(rectangle);
-          }
-          return false;
-        },
-                                                                     100);
+        delayed_tooltips_connection = Glib::signal_timeout().connect(
+            [this, x = event->x, y = event->y]() {
+              type_tooltips.hide();
+              diagnostic_tooltips.hide();
+              Tooltips::init();
+              Gdk::Rectangle rectangle(x, y, 1, 1);
+              if(parsed) {
+                show_type_tooltips(rectangle);
+                show_diagnostic_tooltips(rectangle);
+              }
+              return false;
+            },
+            100);
       }
 
       if(clickable_tag_applied) {
@@ -608,16 +609,17 @@ void Source::View::setup_signals() {
       }
       if((event->state & primary_modifier_mask) && !(event->state & GDK_SHIFT_MASK) && !(event->state & GDK_BUTTON1_MASK)) {
         delayed_tag_clickable_connection.disconnect();
-        delayed_tag_clickable_connection = Glib::signal_timeout().connect([this, x = event->x, y = event->y]() {
-          int buffer_x, buffer_y;
-          window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, x, y, buffer_x, buffer_y);
-          Gtk::TextIter iter;
-          get_iter_at_location(iter, buffer_x, buffer_y);
-          apply_clickable_tag(iter);
-          clickable_tag_applied = true;
-          return false;
-        },
-                                                                          100);
+        delayed_tag_clickable_connection = Glib::signal_timeout().connect(
+            [this, x = event->x, y = event->y]() {
+              int buffer_x, buffer_y;
+              window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, x, y, buffer_x, buffer_y);
+              Gtk::TextIter iter;
+              get_iter_at_location(iter, buffer_x, buffer_y);
+              apply_clickable_tag(iter);
+              clickable_tag_applied = true;
+              return false;
+            },
+            100);
       }
 
       auto last_mouse_pos = std::make_pair<int, int>(on_motion_last_x, on_motion_last_y);
@@ -646,30 +648,32 @@ void Source::View::setup_signals() {
       hide_tooltips();
 
       delayed_tooltips_connection.disconnect();
-      delayed_tooltips_connection = Glib::signal_timeout().connect([this]() {
-        Tooltips::init();
-        Gdk::Rectangle rectangle;
-        get_iter_location(get_buffer()->get_insert()->get_iter(), rectangle);
-        int location_window_x, location_window_y;
-        buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, rectangle.get_x(), rectangle.get_y(), location_window_x, location_window_y);
-        rectangle.set_x(location_window_x - 2);
-        rectangle.set_y(location_window_y);
-        rectangle.set_width(5);
-        if(parsed) {
-          show_type_tooltips(rectangle);
-          show_diagnostic_tooltips(rectangle);
-        }
-        return false;
-      },
-                                                                   500);
+      delayed_tooltips_connection = Glib::signal_timeout().connect(
+          [this]() {
+            Tooltips::init();
+            Gdk::Rectangle rectangle;
+            get_iter_location(get_buffer()->get_insert()->get_iter(), rectangle);
+            int location_window_x, location_window_y;
+            buffer_to_window_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, rectangle.get_x(), rectangle.get_y(), location_window_x, location_window_y);
+            rectangle.set_x(location_window_x - 2);
+            rectangle.set_y(location_window_y);
+            rectangle.set_width(5);
+            if(parsed) {
+              show_type_tooltips(rectangle);
+              show_diagnostic_tooltips(rectangle);
+            }
+            return false;
+          },
+          500);
 
       delayed_tag_similar_symbols_connection.disconnect();
-      delayed_tag_similar_symbols_connection = Glib::signal_timeout().connect([this] {
-        apply_similar_symbol_tag();
-        similar_symbol_tag_applied = true;
-        return false;
-      },
-                                                                              100);
+      delayed_tag_similar_symbols_connection = Glib::signal_timeout().connect(
+          [this] {
+            apply_similar_symbol_tag();
+            similar_symbol_tag_applied = true;
+            return false;
+          },
+          100);
 
       if(SelectionDialog::get())
         SelectionDialog::get()->hide();

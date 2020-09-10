@@ -44,11 +44,12 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::
 
   window.set_type_hint(Gdk::WindowTypeHint::WINDOW_TYPE_HINT_COMBO);
 
-  search_entry.signal_changed().connect([this] {
-    if(on_search_entry_changed)
-      on_search_entry_changed(search_entry.get_text());
-  },
-                                        false);
+  search_entry.signal_changed().connect(
+      [this] {
+        if(on_search_entry_changed)
+          on_search_entry_changed(search_entry.get_text());
+      },
+      false);
 
   list_view_text.set_search_entry(search_entry);
 

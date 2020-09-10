@@ -26,11 +26,12 @@ void Info::print(const std::string &text) {
   //Timeout based on https://en.wikipedia.org/wiki/Words_per_minute
   //(average_words_per_minute*average_letters_per_word)/60 => (228*4.5)/60 = 17.1
   double timeout = 1000.0 * std::max(3.0, 1.0 + text.size() / 17.1);
-  timeout_connection = Glib::signal_timeout().connect([this]() {
-    hide();
-    return false;
-  },
-                                                      timeout);
+  timeout_connection = Glib::signal_timeout().connect(
+      [this]() {
+        hide();
+        return false;
+      },
+      timeout);
 
   label.set_text(text);
   show();

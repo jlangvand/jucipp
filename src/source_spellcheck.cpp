@@ -13,15 +13,16 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
   spellcheck_error_tag = get_buffer()->create_tag("spellcheck_error");
   spellcheck_error_tag->property_underline() = Pango::Underline::UNDERLINE_ERROR;
 
-  signal_key_press_event().connect([](GdkEventKey *event) {
-    if(SelectionDialog::get() && SelectionDialog::get()->is_visible()) {
-      if(SelectionDialog::get()->on_key_press(event))
-        return true;
-    }
+  signal_key_press_event().connect(
+      [](GdkEventKey *event) {
+        if(SelectionDialog::get() && SelectionDialog::get()->is_visible()) {
+          if(SelectionDialog::get()->on_key_press(event))
+            return true;
+        }
 
-    return false;
-  },
-                                   false);
+        return false;
+      },
+      false);
 
   //The following signal is added in case SpellCheckView is not subclassed
   signal_key_press_event().connect([this](GdkEventKey *event) {
@@ -83,68 +84,70 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
       }
     }
     delayed_spellcheck_error_clear.disconnect();
-    delayed_spellcheck_error_clear = Glib::signal_timeout().connect([this]() {
-      auto iter = get_buffer()->begin();
-      Gtk::TextIter begin_no_spellcheck_iter;
-      if(spellcheck_all) {
-        bool spell_check = !get_source_buffer()->iter_has_context_class(iter, "no-spell-check");
-        if(!spell_check)
-          begin_no_spellcheck_iter = iter;
-        while(iter != get_buffer()->end()) {
-          if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter, "no-spell-check"))
-            iter = get_buffer()->end();
+    delayed_spellcheck_error_clear = Glib::signal_timeout().connect(
+        [this]() {
+          auto iter = get_buffer()->begin();
+          Gtk::TextIter begin_no_spellcheck_iter;
+          if(spellcheck_all) {
+            bool spell_check = !get_source_buffer()->iter_has_context_class(iter, "no-spell-check");
+            if(!spell_check)
+              begin_no_spellcheck_iter = iter;
+            while(iter != get_buffer()->end()) {
+              if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter, "no-spell-check"))
+                iter = get_buffer()->end();
 
-          spell_check = !spell_check;
+              spell_check = !spell_check;
+              if(!spell_check)
+                begin_no_spellcheck_iter = iter;
+              else
+                get_buffer()->remove_tag(spellcheck_error_tag, begin_no_spellcheck_iter, iter);
+            }
+            return false;
+          }
+
+          bool spell_check = get_source_buffer()->iter_has_context_class(iter, "string") || get_source_buffer()->iter_has_context_class(iter, "comment");
           if(!spell_check)
             begin_no_spellcheck_iter = iter;
-          else
-            get_buffer()->remove_tag(spellcheck_error_tag, begin_no_spellcheck_iter, iter);
-        }
-        return false;
-      }
+          while(iter != get_buffer()->end()) {
+            auto iter1 = iter;
+            auto iter2 = iter;
+            if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter1, "string"))
+              iter1 = get_buffer()->end();
+            if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter2, "comment"))
+              iter2 = get_buffer()->end();
 
-      bool spell_check = get_source_buffer()->iter_has_context_class(iter, "string") || get_source_buffer()->iter_has_context_class(iter, "comment");
-      if(!spell_check)
-        begin_no_spellcheck_iter = iter;
-      while(iter != get_buffer()->end()) {
-        auto iter1 = iter;
-        auto iter2 = iter;
-        if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter1, "string"))
-          iter1 = get_buffer()->end();
-        if(!get_source_buffer()->iter_forward_to_context_class_toggle(iter2, "comment"))
-          iter2 = get_buffer()->end();
-
-        if(iter2 < iter1)
-          iter = iter2;
-        else
-          iter = iter1;
-        spell_check = !spell_check;
-        if(!spell_check)
-          begin_no_spellcheck_iter = iter;
-        else
-          get_buffer()->remove_tag(spellcheck_error_tag, begin_no_spellcheck_iter, iter);
-      }
-      return false;
-    },
-                                                                    1000);
+            if(iter2 < iter1)
+              iter = iter2;
+            else
+              iter = iter1;
+            spell_check = !spell_check;
+            if(!spell_check)
+              begin_no_spellcheck_iter = iter;
+            else
+              get_buffer()->remove_tag(spellcheck_error_tag, begin_no_spellcheck_iter, iter);
+          }
+          return false;
+        },
+        1000);
   });
 
   // In case of for instance text paste or undo/redo
-  get_buffer()->signal_insert().connect([this](const Gtk::TextIter &start_iter, const Glib::ustring &inserted_string, int) {
-    if(!spellcheck_checker)
-      return;
+  get_buffer()->signal_insert().connect(
+      [this](const Gtk::TextIter &start_iter, const Glib::ustring &inserted_string, int) {
+        if(!spellcheck_checker)
+          return;
 
-    if(disable_spellcheck) {
-      auto iter = start_iter;
-      if(!is_word_iter(iter) && !iter.starts_line())
-        iter.backward_char();
-      if(is_word_iter(iter)) {
-        auto word = get_word(iter);
-        get_buffer()->remove_tag(spellcheck_error_tag, word.first, word.second);
-      }
-    }
-  },
-                                        false);
+        if(disable_spellcheck) {
+          auto iter = start_iter;
+          if(!is_word_iter(iter) && !iter.starts_line())
+            iter.backward_char();
+          if(is_word_iter(iter)) {
+            auto word = get_word(iter);
+            get_buffer()->remove_tag(spellcheck_error_tag, word.first, word.second);
+          }
+        }
+      },
+      false);
 
   get_buffer()->signal_mark_set().connect([this](const Gtk::TextIter &iter, const Glib::RefPtr<Gtk::TextBuffer::Mark> &mark) {
     if(mark->get_name() == "insert") {
@@ -155,34 +158,35 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
       delayed_spellcheck_suggestions_connection.disconnect();
       if(get_buffer()->get_has_selection())
         return;
-      delayed_spellcheck_suggestions_connection = Glib::signal_timeout().connect([this]() {
-        if(get_buffer()->get_insert()->get_iter().has_tag(spellcheck_error_tag)) {
-          SelectionDialog::create(this, false);
-          auto word = get_word(get_buffer()->get_insert()->get_iter());
-          if(*word.first == '\'' && word.second.get_offset() - word.first.get_offset() >= 3) {
-            auto before_end = word.second;
-            if(before_end.backward_char() && *before_end == '\'') {
-              word.first.forward_char();
-              word.second.backward_char();
+      delayed_spellcheck_suggestions_connection = Glib::signal_timeout().connect(
+          [this]() {
+            if(get_buffer()->get_insert()->get_iter().has_tag(spellcheck_error_tag)) {
+              SelectionDialog::create(this, false);
+              auto word = get_word(get_buffer()->get_insert()->get_iter());
+              if(*word.first == '\'' && word.second.get_offset() - word.first.get_offset() >= 3) {
+                auto before_end = word.second;
+                if(before_end.backward_char() && *before_end == '\'') {
+                  word.first.forward_char();
+                  word.second.backward_char();
+                }
+              }
+              auto suggestions = get_spellcheck_suggestions(word.first, word.second);
+              if(suggestions.size() == 0)
+                return false;
+              for(auto &suggestion : suggestions)
+                SelectionDialog::get()->add_row(suggestion);
+              SelectionDialog::get()->on_select = [this, word](unsigned int index, const std::string &text, bool hide_window) {
+                get_buffer()->begin_user_action();
+                get_buffer()->erase(word.first, word.second);
+                get_buffer()->insert(get_buffer()->get_insert()->get_iter(), text);
+                get_buffer()->end_user_action();
+              };
+              hide_tooltips();
+              SelectionDialog::get()->show();
             }
-          }
-          auto suggestions = get_spellcheck_suggestions(word.first, word.second);
-          if(suggestions.size() == 0)
             return false;
-          for(auto &suggestion : suggestions)
-            SelectionDialog::get()->add_row(suggestion);
-          SelectionDialog::get()->on_select = [this, word](unsigned int index, const std::string &text, bool hide_window) {
-            get_buffer()->begin_user_action();
-            get_buffer()->erase(word.first, word.second);
-            get_buffer()->insert(get_buffer()->get_insert()->get_iter(), text);
-            get_buffer()->end_user_action();
-          };
-          hide_tooltips();
-          SelectionDialog::get()->show();
-        }
-        return false;
-      },
-                                                                                 500);
+          },
+          500);
     }
   });
 

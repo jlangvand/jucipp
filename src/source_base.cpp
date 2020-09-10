@@ -343,23 +343,24 @@ void Source::BaseView::monitor_file() {
   public:
     static void f(BaseView *view, boost::optional<std::time_t> previous_last_write_time = {}, bool check_called = false) {
       view->delayed_monitor_changed_connection.disconnect();
-      view->delayed_monitor_changed_connection = Glib::signal_timeout().connect([view, previous_last_write_time, check_called]() {
-        boost::system::error_code ec;
-        auto last_write_time = boost::filesystem::last_write_time(view->file_path, ec);
-        if(!ec && last_write_time != view->last_write_time) {
-          if(last_write_time == previous_last_write_time) { // If no change has happened in the last second (std::time_t is in seconds).
-            if(!check_called)                               // To avoid several info messages when file is changed but not reloaded.
-              view->check_last_write_time(last_write_time);
-            Recursive::f(view, last_write_time, true);
+      view->delayed_monitor_changed_connection = Glib::signal_timeout().connect(
+          [view, previous_last_write_time, check_called]() {
+            boost::system::error_code ec;
+            auto last_write_time = boost::filesystem::last_write_time(view->file_path, ec);
+            if(!ec && last_write_time != view->last_write_time) {
+              if(last_write_time == previous_last_write_time) { // If no change has happened in the last second (std::time_t is in seconds).
+                if(!check_called)                               // To avoid several info messages when file is changed but not reloaded.
+                  view->check_last_write_time(last_write_time);
+                Recursive::f(view, last_write_time, true);
+                return false;
+              }
+              Recursive::f(view, last_write_time);
+              return false;
+            }
+            Recursive::f(view);
             return false;
-          }
-          Recursive::f(view, last_write_time);
-          return false;
-        }
-        Recursive::f(view);
-        return false;
-      },
-                                                                                1000);
+          },
+          1000);
     }
   };
   delayed_monitor_changed_connection.disconnect();
@@ -374,11 +375,12 @@ void Source::BaseView::monitor_file() {
                                                                           Gio::FileMonitorEvent monitor_event) {
       if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
         delayed_monitor_changed_connection.disconnect();
-        delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
-          check_last_write_time();
-          return false;
-        },
-                                                                            1000); // Has to wait 1 second (std::time_t is in seconds)
+        delayed_monitor_changed_connection = Glib::signal_timeout().connect(
+            [this]() {
+              check_last_write_time();
+              return false;
+            },
+            1000); // Has to wait 1 second (std::time_t is in seconds)
       }
     });
   }
@@ -1322,27 +1324,28 @@ void Source::BaseView::setup_extra_cursor_signals() {
   auto erase_backward_length = std::make_shared<int>(0);
   auto erase_forward_length = std::make_shared<int>(0);
   auto erase_selection = std::make_shared<bool>(false);
-  get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter &iter_start, const Gtk::TextIter &iter_end) {
-    if(enable_multiple_cursors && (!extra_cursors.empty())) {
-      auto insert_offset = get_buffer()->get_insert()->get_iter().get_offset();
-      *erase_backward_length = insert_offset - iter_start.get_offset();
-      *erase_forward_length = iter_end.get_offset() - insert_offset;
+  get_buffer()->signal_erase().connect(
+      [this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter &iter_start, const Gtk::TextIter &iter_end) {
+        if(enable_multiple_cursors && (!extra_cursors.empty())) {
+          auto insert_offset = get_buffer()->get_insert()->get_iter().get_offset();
+          *erase_backward_length = insert_offset - iter_start.get_offset();
+          *erase_forward_length = iter_end.get_offset() - insert_offset;
 
-      if(*erase_backward_length == 0) {
-        auto iter = get_buffer()->get_insert()->get_iter();
-        iter.forward_chars(*erase_forward_length);
-        if(iter == get_buffer()->get_selection_bound()->get_iter())
-          *erase_selection = true;
-      }
-      else if(*erase_forward_length == 0) {
-        auto iter = get_buffer()->get_insert()->get_iter();
-        iter.backward_chars(*erase_backward_length);
-        if(iter == get_buffer()->get_selection_bound()->get_iter())
-          *erase_selection = true;
-      }
-    }
-  },
-                                       false);
+          if(*erase_backward_length == 0) {
+            auto iter = get_buffer()->get_insert()->get_iter();
+            iter.forward_chars(*erase_forward_length);
+            if(iter == get_buffer()->get_selection_bound()->get_iter())
+              *erase_selection = true;
+          }
+          else if(*erase_forward_length == 0) {
+            auto iter = get_buffer()->get_insert()->get_iter();
+            iter.backward_chars(*erase_backward_length);
+            if(iter == get_buffer()->get_selection_bound()->get_iter())
+              *erase_selection = true;
+          }
+        }
+      },
+      false);
   get_buffer()->signal_erase().connect([this, erase_backward_length, erase_forward_length, erase_selection](const Gtk::TextIter & /*iter_start*/, const Gtk::TextIter & /*iter_end*/) {
     if(enable_multiple_cursors && (*erase_backward_length != 0 || *erase_forward_length != 0)) {
       enable_multiple_cursors = false;

@@ -618,11 +618,12 @@ void Notebook::toggle_split() {
     show_all();
     //Make sure the position is correct
     //TODO: report bug to gtk if it is not fixed in gtk3.22
-    Glib::signal_timeout().connect([this] {
-      set_position(get_width() / 2);
-      return false;
-    },
-                                   200);
+    Glib::signal_timeout().connect(
+        [this] {
+          set_position(get_width() / 2);
+          return false;
+        },
+        200);
   }
   else {
     for(size_t c = size() - 1; c != static_cast<size_t>(-1); --c) {

@@ -116,14 +116,15 @@ Git::Repository::Repository(const boost::filesystem::path &path) {
 
   auto git_directory = Gio::File::create_for_path(get_path().string());
   monitor = git_directory->monitor_directory(Gio::FileMonitorFlags::FILE_MONITOR_WATCH_MOVES);
-  monitor_changed_connection = monitor->signal_changed().connect([this](const Glib::RefPtr<Gio::File> &file,
-                                                                        const Glib::RefPtr<Gio::File> &,
-                                                                        Gio::FileMonitorEvent monitor_event) {
-    if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
-      this->clear_saved_status();
-    }
-  },
-                                                                 false);
+  monitor_changed_connection = monitor->signal_changed().connect(
+      [this](const Glib::RefPtr<Gio::File> &file,
+             const Glib::RefPtr<Gio::File> &,
+             Gio::FileMonitorEvent monitor_event) {
+        if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
+          this->clear_saved_status();
+        }
+      },
+      false);
 }
 
 Git::Repository::~Repository() {

@@ -118,65 +118,70 @@ void Source::DiffView::configure() {
   parse_stop = false;
   monitor_changed = false;
 
-  buffer_insert_connection = get_buffer()->signal_insert().connect([this](const Gtk::TextIter &iter, const Glib::ustring &text, int) {
-    //Do not perform git diff if no newline is added and line is already marked as added
-    if(!iter.starts_line() && iter.has_tag(renderer->tag_added)) {
-      bool newline = false;
-      for(auto &c : text.raw()) {
-        if(c == '\n') {
-          newline = true;
-          break;
+  buffer_insert_connection = get_buffer()->signal_insert().connect(
+      [this](const Gtk::TextIter &iter, const Glib::ustring &text, int) {
+        //Do not perform git diff if no newline is added and line is already marked as added
+        if(!iter.starts_line() && iter.has_tag(renderer->tag_added)) {
+          bool newline = false;
+          for(auto &c : text.raw()) {
+            if(c == '\n') {
+              newline = true;
+              break;
+            }
+          }
+          if(!newline)
+            return;
         }
-      }
-      if(!newline)
-        return;
-    }
-    //Remove tag_removed_above/below if newline is inserted
-    else if(!text.empty() && text[0] == '\n' && iter.has_tag(renderer->tag_removed)) {
-      auto start_iter = get_buffer()->get_iter_at_line(iter.get_line());
-      auto end_iter = get_iter_at_line_end(iter.get_line());
-      end_iter.forward_char();
-      get_buffer()->remove_tag(renderer->tag_removed_above, start_iter, end_iter);
-      get_buffer()->remove_tag(renderer->tag_removed_below, start_iter, end_iter);
-    }
-    parse_state = ParseState::idle;
-    delayed_buffer_changed_connection.disconnect();
-    delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
-      parse_state = ParseState::starting;
-      return false;
-    },
-                                                                       250);
-  },
-                                                                   false);
+        //Remove tag_removed_above/below if newline is inserted
+        else if(!text.empty() && text[0] == '\n' && iter.has_tag(renderer->tag_removed)) {
+          auto start_iter = get_buffer()->get_iter_at_line(iter.get_line());
+          auto end_iter = get_iter_at_line_end(iter.get_line());
+          end_iter.forward_char();
+          get_buffer()->remove_tag(renderer->tag_removed_above, start_iter, end_iter);
+          get_buffer()->remove_tag(renderer->tag_removed_below, start_iter, end_iter);
+        }
+        parse_state = ParseState::idle;
+        delayed_buffer_changed_connection.disconnect();
+        delayed_buffer_changed_connection = Glib::signal_timeout().connect(
+            [this]() {
+              parse_state = ParseState::starting;
+              return false;
+            },
+            250);
+      },
+      false);
 
-  buffer_erase_connection = get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
-    //Do not perform git diff if start_iter and end_iter is at the same line in addition to the line is tagged added
-    if(start_iter.get_line() == end_iter.get_line() && start_iter.has_tag(renderer->tag_added))
-      return;
+  buffer_erase_connection = get_buffer()->signal_erase().connect(
+      [this](const Gtk::TextIter &start_iter, const Gtk::TextIter &end_iter) {
+        //Do not perform git diff if start_iter and end_iter is at the same line in addition to the line is tagged added
+        if(start_iter.get_line() == end_iter.get_line() && start_iter.has_tag(renderer->tag_added))
+          return;
 
-    parse_state = ParseState::idle;
-    delayed_buffer_changed_connection.disconnect();
-    delayed_buffer_changed_connection = Glib::signal_timeout().connect([this]() {
-      parse_state = ParseState::starting;
-      return false;
-    },
-                                                                       250);
-  },
-                                                                 false);
+        parse_state = ParseState::idle;
+        delayed_buffer_changed_connection.disconnect();
+        delayed_buffer_changed_connection = Glib::signal_timeout().connect(
+            [this]() {
+              parse_state = ParseState::starting;
+              return false;
+            },
+            250);
+      },
+      false);
 
   monitor_changed_connection = repository->monitor->signal_changed().connect([this](const Glib::RefPtr<Gio::File> &file,
                                                                                     const Glib::RefPtr<Gio::File> &,
                                                                                     Gio::FileMonitorEvent monitor_event) {
     if(monitor_event != Gio::FileMonitorEvent::FILE_MONITOR_EVENT_CHANGES_DONE_HINT) {
       delayed_monitor_changed_connection.disconnect();
-      delayed_monitor_changed_connection = Glib::signal_timeout().connect([this]() {
-        monitor_changed = true;
-        parse_state = ParseState::starting;
-        LockGuard lock(parse_mutex);
-        diff = nullptr;
-        return false;
-      },
-                                                                          500);
+      delayed_monitor_changed_connection = Glib::signal_timeout().connect(
+          [this]() {
+            monitor_changed = true;
+            parse_state = ParseState::starting;
+            LockGuard lock(parse_mutex);
+            diff = nullptr;
+            return false;
+          },
+          500);
     }
   });
 

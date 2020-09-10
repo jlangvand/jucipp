@@ -51,9 +51,15 @@ LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std:
 
 LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
   process = std::make_unique<TinyProcessLib::Process>(
-      filesystem::escape_argument(language_id + "-language-server"), root_path.string(), [this](const char *bytes, size_t n) {
-    server_message_stream.write(bytes, n);
-    parse_server_message(); }, [](const char *bytes, size_t n) { std::cerr.write(bytes, n); }, true, TinyProcessLib::Config{1048576});
+      filesystem::escape_argument(language_id + "-language-server"), root_path.string(),
+      [this](const char *bytes, size_t n) {
+        server_message_stream.write(bytes, n);
+        parse_server_message();
+      },
+      [](const char *bytes, size_t n) {
+        std::cerr.write(bytes, n);
+      },
+      true, TinyProcessLib::Config{1048576});
 }
 
 std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id) {
@@ -126,7 +132,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     LockGuard lock(read_write_mutex);
     process_id = process->get_id();
   }
-  write_request(nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities": {
+  write_request(
+      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities": {
   "workspace": { "symbol": { "dynamicRegistration": true } },
   "textDocument": {
     "synchronization": { "dynamicRegistration": true, "didSave": true },
@@ -168,38 +175,38 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
   "checkOnSave": { "enable": true }
 },
 "trace": "off")",
-                [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
-                  if(!error) {
-                    if(auto capabilities_pt = result.get_child_optional("capabilities")) {
-                      try {
-                        capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
-                      }
-                      catch(...) {
-                        capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
-                      }
-                      capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
-                      capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
-                      capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
-                      capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
-                      capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
-                      capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
-                      capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
-                      capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
-                      capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
-                      capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
-                      capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
-                      if(!capabilities.rename)
-                        capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
-                      capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
-                      if(!capabilities.code_action)
-                        capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
-                      capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
-                    }
+      [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        if(!error) {
+          if(auto capabilities_pt = result.get_child_optional("capabilities")) {
+            try {
+              capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
+            }
+            catch(...) {
+              capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
+            }
+            capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
+            capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
+            capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
+            capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
+            capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
+            capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
+            capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
+            capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
+            capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
+            capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
+            capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
+            if(!capabilities.rename)
+              capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
+            capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
+            if(!capabilities.code_action)
+              capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
+            capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
+          }
 
-                    write_notification("initialized", "");
-                  }
-                  result_processed.set_value();
-                });
+          write_notification("initialized", "");
+        }
+        result_processed.set_value();
+      });
   result_processed.get_future().get();
 
   initialized = true;
@@ -1024,7 +1031,11 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                           for(auto &quickfix_diagnostic : quickfix_diagnostics) {
                             if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
                               auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                              pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character), Offset(edit.range.end.line, edit.range.end.character)));
+                              pair.first->second.emplace_back(
+                                  edit.new_text,
+                                  filesystem::get_path_from_uri(file_it->first).string(),
+                                  std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                 Offset(edit.range.end.line, edit.range.end.character)));
                               break;
                             }
                           }
@@ -1034,7 +1045,11 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                         for(auto &diagnostic : diagnostics) {
                           if(edit.range.start.line == diagnostic.range.start.line) {
                             auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                            pair.first->second.emplace_back(edit.new_text, filesystem::get_path_from_uri(file_it->first).string(), std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character), Offset(edit.range.end.line, edit.range.end.character)));
+                            pair.first->second.emplace_back(
+                                edit.new_text,
+                                filesystem::get_path_from_uri(file_it->first).string(),
+                                std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                               Offset(edit.range.end.line, edit.range.end.character)));
                             break;
                           }
                         }
@@ -1400,17 +1415,19 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
 
 void Source::LanguageProtocolView::setup_signals() {
   if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
-    get_buffer()->signal_insert().connect([this](const Gtk::TextIter &start, const Glib::ustring &text_, int bytes) {
-      std::string text = text_;
-      escape_text(text);
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
-    },
-                                          false);
+    get_buffer()->signal_insert().connect(
+        [this](const Gtk::TextIter &start, const Glib::ustring &text_, int bytes) {
+          std::string text = text_;
+          escape_text(text);
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
+        },
+        false);
 
-    get_buffer()->signal_erase().connect([this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
-    },
-                                         false);
+    get_buffer()->signal_erase().connect(
+        [this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
+        },
+        false);
   }
   else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
     get_buffer()->signal_changed().connect([this]() {
@@ -1439,47 +1456,50 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
   if(capabilities.signature_help) {
     // Activate argument completions
-    get_buffer()->signal_changed().connect([this] {
-      if(!interactive_completion)
-        return;
-      if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-        return;
-      if(!has_focus())
-        return;
-      if(autocomplete_show_arguments)
-        autocomplete->stop();
-      autocomplete_show_arguments = false;
-      autocomplete_delayed_show_arguments_connection.disconnect();
-      autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect([this]() {
-        if(get_buffer()->get_has_selection())
-          return false;
-        if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-          return false;
-        if(!has_focus())
-          return false;
-        if(is_possible_argument()) {
-          autocomplete->stop();
-          autocomplete->run();
-        }
-        return false;
-      },
-                                                                                      500);
-    },
-                                           false);
+    get_buffer()->signal_changed().connect(
+        [this] {
+          if(!interactive_completion)
+            return;
+          if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+            return;
+          if(!has_focus())
+            return;
+          if(autocomplete_show_arguments)
+            autocomplete->stop();
+          autocomplete_show_arguments = false;
+          autocomplete_delayed_show_arguments_connection.disconnect();
+          autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect(
+              [this]() {
+                if(get_buffer()->get_has_selection())
+                  return false;
+                if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+                  return false;
+                if(!has_focus())
+                  return false;
+                if(is_possible_argument()) {
+                  autocomplete->stop();
+                  autocomplete->run();
+                }
+                return false;
+              },
+              500);
+        },
+        false);
 
     // Remove argument completions
-    signal_key_press_event().connect([this](GdkEventKey *event) {
-      if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
-         event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
-         event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
-         event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
-         (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
-        get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
-        CompletionDialog::get()->hide();
-      }
-      return false;
-    },
-                                     false);
+    signal_key_press_event().connect(
+        [this](GdkEventKey *event) {
+          if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
+             event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
+             event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
+             event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
+             (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
+            get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+            CompletionDialog::get()->hide();
+          }
+          return false;
+        },
+        false);
   }
 
   autocomplete->is_restart_key = [this](guint keyval) {
@@ -1826,12 +1846,13 @@ void Source::LanguageProtocolView::update_type_coverage() {
         if(update_type_coverage_retries > 0) { // Retry typeCoverage request, since these requests can fail while waiting for language server to start
           dispatcher.post([this] {
             update_type_coverage_connection.disconnect();
-            update_type_coverage_connection = Glib::signal_timeout().connect([this]() {
-              --update_type_coverage_retries;
-              update_type_coverage();
-              return false;
-            },
-                                                                             1000);
+            update_type_coverage_connection = Glib::signal_timeout().connect(
+                [this]() {
+                  --update_type_coverage_retries;
+                  update_type_coverage();
+                  return false;
+                },
+                1000);
           });
         }
         return;
