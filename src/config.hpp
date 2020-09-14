@@ -133,7 +133,6 @@ public:
   Source source;
   Log log;
 
-  boost::filesystem::path home_path;
   boost::filesystem::path home_juci_path;
 
 private:

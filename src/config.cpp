@@ -7,7 +7,7 @@
 #include <iostream>
 
 Config::Config() {
-  home_path = filesystem::get_home_path();
+  const auto home_path = filesystem::get_home_path();
   if(home_path.empty())
     throw std::runtime_error("Could not find home path");
   home_juci_path = home_path / ".juci";
