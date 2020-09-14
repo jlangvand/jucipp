@@ -8,6 +8,18 @@
 
 Config::Config() {
   const auto home_path = filesystem::get_home_path();
+  if(std::getenv("XDG_RUNTIME_DIR") != nullptr) {
+    if(auto ptr = std::getenv("XDG_CONFIG_HOME")) {
+      boost::filesystem::path config_dir(ptr);
+      home_juci_path = config_dir / "juci";
+      return;
+    }
+    else {
+      boost::filesystem::path config_dir(home_path / "config");
+      home_juci_path = config_dir / "juci";
+      return;
+    }
+  }
   if(home_path.empty())
     throw std::runtime_error("Could not find home path");
   home_juci_path = home_path / ".juci";
