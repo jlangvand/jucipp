@@ -10,6 +10,7 @@ Install language server, and create executable to enable server in juCi++:
 ```sh
 npm install -g flow-bin
 
+# usually as root:
 echo '#!/bin/bash
 flow lsp' > /usr/local/bin/javascript-language-server
 
@@ -29,6 +30,7 @@ Install language server, and create executable to enable server in juCi++:
 ```sh
 npm install -g typescript-language-server typescript
 
+# usually as root:
 echo '#!/bin/bash
 `npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
 
@@ -50,6 +52,7 @@ Install language server, and create symbolic link to enable server in juCi++:
 ```sh
 pip3 install python-language-server[rope,pycodestyle,yapf]
 
+# usually as root:
 ln -s `which pyls` /usr/local/bin/python-language-server
 ```
 
@@ -69,6 +72,7 @@ git clone https://github.com/rust-analyzer/rust-analyzer
 cd rust-analyzer
 cargo xtask install --server
 
+# usually as root:
 ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 ```
 
