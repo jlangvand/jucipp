@@ -18,12 +18,6 @@ Terminal::Terminal() : Source::SearchView() {
   bold_tag = get_buffer()->create_tag();
   bold_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
 
-  link_tag = get_buffer()->create_tag();
-  link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
-
-  invisible_tag = get_buffer()->create_tag();
-  invisible_tag->property_invisible() = true;
-
   red_tag = get_buffer()->create_tag();
   green_tag = get_buffer()->create_tag();
   yellow_tag = get_buffer()->create_tag();
@@ -31,6 +25,12 @@ Terminal::Terminal() : Source::SearchView() {
   magenta_tag = get_buffer()->create_tag();
   cyan_tag = get_buffer()->create_tag();
   gray_tag = get_buffer()->create_tag();
+
+  link_tag = get_buffer()->create_tag();
+  link_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
+
+  invisible_tag = get_buffer()->create_tag();
+  invisible_tag->property_invisible() = true;
 
   link_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::HAND1);
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
