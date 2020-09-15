@@ -27,6 +27,19 @@ Config::Config() {
 
 void Config::load() {
   try {
+    const auto old_config_file_path = filesystem::get_home_path() / ".juci" / "config" / "config.json";
+    if(juci_config_file != old_config_file_path && boost::filesystem::exists(old_config_file_path)) {
+      boost::filesystem::rename(old_config_file_path, old_config_file_path.parent_path().parent_path() / "config.json");
+      const auto old_config_directory_path = old_config_file_path.parent_path();
+      if(boost::filesystem::is_empty(old_config_directory_path)) {
+        boost::filesystem::remove_all(old_config_directory_path);
+      }
+      std::string command("mv " + old_config_directory_path.parent_path().string() + " " + juci_config_file.parent_path().string());
+      if(TinyProcessLib::Process(command).get_exit_status() == 0) {
+        boost::filesystem::remove_all(old_config_directory_path);
+      }
+    }
+
     boost::filesystem::create_directories(home_juci_path);
 
     if(!boost::filesystem::exists(juci_config_file))
