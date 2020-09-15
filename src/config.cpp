@@ -12,13 +12,13 @@ Config::Config() {
     if(auto ptr = std::getenv("XDG_CONFIG_HOME")) {
       boost::filesystem::path config_dir(ptr);
       home_juci_path = config_dir / "juci";
-      return;
     }
     else {
       boost::filesystem::path config_dir(home_path / "config");
       home_juci_path = config_dir / "juci";
-      return;
     }
+    juci_config_file = home_juci_path / "config.json";
+    return;
   }
   if(home_path.empty())
     throw std::runtime_error("Could not find home path");
