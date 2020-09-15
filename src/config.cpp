@@ -23,16 +23,15 @@ Config::Config() {
   if(home_path.empty())
     throw std::runtime_error("Could not find home path");
   home_juci_path = home_path / ".juci";
+  juci_config_file = home_juci_path / "config.json";
 }
 
 void Config::load() {
-  auto config_dir = home_juci_path / "config";
-  auto config_json = config_dir / "config.json";
   try {
-    boost::filesystem::create_directories(config_dir);
+    boost::filesystem::create_directories(home_juci_path);
 
-    if(!boost::filesystem::exists(config_json))
-      filesystem::write(config_json, default_config_file);
+    if(!boost::filesystem::exists(juci_config_file))
+      filesystem::write(juci_config_file, default_config_file);
 
     auto juci_style_path = home_juci_path / "styles";
     boost::filesystem::create_directories(juci_style_path);
@@ -50,12 +49,12 @@ void Config::load() {
       filesystem::write(juci_style_path, juci_dark_blue_style);
 
     boost::property_tree::ptree cfg;
-    boost::property_tree::json_parser::read_json(config_json.string(), cfg);
+    boost::property_tree::json_parser::read_json(juci_config_file.string(), cfg);
     update(cfg);
     read(cfg);
   }
   catch(const std::exception &e) {
-    dispatcher.post([config_json = std::move(config_json), e_what = std::string(e.what())] {
+    dispatcher.post([config_json = juci_config_file, e_what = std::string(e.what())] {
       ::Terminal::get().print("\e[31mError\e[m: could not parse " + config_json.string() + ": " + e_what + "\n", true);
     });
     std::stringstream ss;
@@ -90,7 +89,7 @@ void Config::update(boost::property_tree::ptree &cfg) {
   cfg_ok &= add_missing_nodes(cfg, default_cfg);
   cfg_ok &= remove_deprecated_nodes(cfg, default_cfg);
   if(!cfg_ok)
-    boost::property_tree::write_json((home_juci_path / "config" / "config.json").string(), cfg);
+    boost::property_tree::write_json(juci_config_file.string(), cfg);
 }
 
 void Config::make_version_dependent_corrections(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, const std::string &version) {

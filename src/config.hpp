@@ -134,6 +134,7 @@ public:
   Log log;
 
   boost::filesystem::path home_juci_path;
+  boost::filesystem::path juci_config_file;
 
 private:
   /// Used to dispatch Terminal outputs after juCi++ GUI setup and configuration

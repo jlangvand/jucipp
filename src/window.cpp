@@ -279,7 +279,7 @@ void Window::set_menu_actions() {
     about.present();
   });
   menu.add_action("preferences", []() {
-    Notebook::get().open(Config::get().home_juci_path / "config" / "config.json");
+    Notebook::get().open(Config::get().juci_config_file);
   });
   menu.add_action("snippets", []() {
     Notebook::get().open(Config::get().home_juci_path / "snippets.json");
@@ -466,7 +466,7 @@ void Window::set_menu_actions() {
   menu.add_action("file_save", [this]() {
     if(auto view = Notebook::get().get_current_view()) {
       if(Notebook::get().save_current()) {
-        if(view->file_path == Config::get().home_juci_path / "config" / "config.json") {
+        if(view->file_path == Config::get().juci_config_file) {
           configure();
           for(size_t c = 0; c < Notebook::get().size(); c++) {
             Notebook::get().get_view(c)->configure();
