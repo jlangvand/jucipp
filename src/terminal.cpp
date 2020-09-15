@@ -382,8 +382,8 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
                                      "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|" // gcc assert()
                                      "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                          // g_assert (glib.h)
                                      "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
-                                     "^    at .*?\\(([A-Z]:)?([\\/][^:]+):([0-9]+):([0-9]+)\\)$|"     // Node.js stack trace
-                                     "^      at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\)$|"        // Node.js Jest
+                                     "^ +at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\).*$|"          // Node.js stack trace
+                                     "^ +at ([A-Z]:)?([^:]+):([0-9]+):([0-9]+).*$|"                   // Node.js stack trace
                                      "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$",          // Python
                                      std::regex::optimize);
   std::smatch sm;
