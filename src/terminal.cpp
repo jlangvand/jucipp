@@ -205,9 +205,6 @@ Terminal::Terminal() : Source::SearchView() {
 }
 
 int Terminal::process(const std::string &command, const boost::filesystem::path &path, bool use_pipes) {
-  if(scroll_to_bottom)
-    scroll_to_bottom();
-
   std::unique_ptr<TinyProcessLib::Process> process;
   if(use_pipes)
     process = std::make_unique<TinyProcessLib::Process>(
@@ -230,9 +227,6 @@ int Terminal::process(const std::string &command, const boost::filesystem::path 
 }
 
 int Terminal::process(std::istream &stdin_stream, std::ostream &stdout_stream, const std::string &command, const boost::filesystem::path &path, std::ostream *stderr_stream) {
-  if(scroll_to_bottom)
-    scroll_to_bottom();
-
   TinyProcessLib::Process process(
       command, path.string(),
       [&stdout_stream](const char *bytes, size_t n) {
