@@ -374,17 +374,18 @@ bool Terminal::on_motion_notify_event(GdkEventMotion *event) {
 }
 
 boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, size_t pos, size_t length) {
-  const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                      // C/C++ compile warning/error/rename usages
-                                     "^In file included from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info
-                                     "^                 from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"         // C/C++ extra compile warning/error info (gcc)
-                                     "^ +--> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                    // Rust
-                                     "^Assertion failed: .*file ([A-Z]:)?([^:]+), line ([0-9]+)\\.$|" // clang assert()
-                                     "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|" // gcc assert()
-                                     "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                          // g_assert (glib.h)
-                                     "^([A-Z]:)?([\\/][^:]+):([0-9]+)$|"                              // Node.js
-                                     "^ +at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\).*$|"          // Node.js stack trace
-                                     "^ +at ([A-Z]:)?([^:]+):([0-9]+):([0-9]+).*$|"                   // Node.js stack trace
-                                     "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$",          // Python
+  const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                                     // C/C++ compile warning/error/rename usages
+                                     "^In file included from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"                        // C/C++ extra compile warning/error info
+                                     "^                 from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"                        // C/C++ extra compile warning/error info (gcc)
+                                     "^ +--> ([A-Z]:)?([^:]+):([0-9]+):([0-9]+)$|"                                   // Rust
+                                     "^Assertion failed: .*file ([A-Z]:)?([^:]+), line ([0-9]+)\\.$|"                // clang assert()
+                                     "^[^:]*: ([A-Z]:)?([^:]+):([0-9]+): .* Assertion .* failed\\.$|"                // gcc assert()
+                                     "^ERROR:([A-Z]:)?([^:]+):([0-9]+):.*$|"                                         // g_assert (glib.h)
+                                     "^([A-Z]:)?([\\\\/][^:]+):([0-9]+)$|"                                           // Node.js
+                                     "^ +at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\).*$|"                         // Node.js stack trace
+                                     "^ +at ([A-Z]:)?([^:]+):([0-9]+):([0-9]+).*$|"                                  // Node.js stack trace
+                                     "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$|"                         // Python
+                                     "^.*?([A-Z]:)?([a-zA-Z0-9._\\\\/][a-zA-Z0-9._\\-\\\\/]*):([0-9]+):([0-9]+).*$", // Posix file:line:column
                                      std::regex::optimize);
   std::smatch sm;
   if(std::regex_match(line.cbegin() + pos,
@@ -394,7 +395,8 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
       size_t subs = (sub == 1 ||
                      sub == 1 + 4 + 3 + 3 ||
                      sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 ||
-                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4)
+                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4 ||
+                     sub == 1 + 4 + 3 + 3 + 4 + 3 + 3 + 3 + 3 + 4 + 4 + 3)
                         ? 4
                         : 3;
       if(sm.length(sub + 1)) {
