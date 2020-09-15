@@ -269,54 +269,59 @@ void LanguageProtocol::Client::parse_server_message() {
         }
       }
 
-      server_message_stream.seekg(server_message_content_pos, std::ios::beg);
-      boost::property_tree::ptree pt;
-      boost::property_tree::read_json(server_message_stream, pt);
+      try {
+        server_message_stream.seekg(server_message_content_pos, std::ios::beg);
+        boost::property_tree::ptree pt;
+        boost::property_tree::read_json(server_message_stream, pt);
 
-      if(Config::get().log.language_server) {
-        std::cout << "language server: ";
-        boost::property_tree::write_json(std::cout, pt);
+        if(Config::get().log.language_server) {
+          std::cout << "language server: ";
+          boost::property_tree::write_json(std::cout, pt);
+        }
+
+        auto message_id = pt.get_optional<size_t>("id");
+        {
+          LockGuard lock(read_write_mutex);
+          if(auto result = pt.get_child_optional("result")) {
+            if(message_id) {
+              auto id_it = handlers.find(*message_id);
+              if(id_it != handlers.end()) {
+                auto function = std::move(id_it->second.second);
+                handlers.erase(id_it);
+                lock.unlock();
+                function(*result, false);
+                lock.lock();
+              }
+            }
+          }
+          else if(auto error = pt.get_child_optional("error")) {
+            if(!Config::get().log.language_server)
+              boost::property_tree::write_json(std::cerr, pt);
+            if(message_id) {
+              auto id_it = handlers.find(*message_id);
+              if(id_it != handlers.end()) {
+                auto function = std::move(id_it->second.second);
+                handlers.erase(id_it);
+                lock.unlock();
+                function(*error, true);
+                lock.lock();
+              }
+            }
+          }
+          else if(auto method = pt.get_optional<std::string>("method")) {
+            if(auto params = pt.get_child_optional("params")) {
+              lock.unlock();
+              if(message_id)
+                handle_server_request(*message_id, *method, *params);
+              else
+                handle_server_notification(*method, *params);
+              lock.lock();
+            }
+          }
+        }
       }
-
-      auto message_id = pt.get_optional<size_t>("id");
-      {
-        LockGuard lock(read_write_mutex);
-        if(auto result = pt.get_child_optional("result")) {
-          if(message_id) {
-            auto id_it = handlers.find(*message_id);
-            if(id_it != handlers.end()) {
-              auto function = std::move(id_it->second.second);
-              handlers.erase(id_it);
-              lock.unlock();
-              function(*result, false);
-              lock.lock();
-            }
-          }
-        }
-        else if(auto error = pt.get_child_optional("error")) {
-          if(!Config::get().log.language_server)
-            boost::property_tree::write_json(std::cerr, pt);
-          if(message_id) {
-            auto id_it = handlers.find(*message_id);
-            if(id_it != handlers.end()) {
-              auto function = std::move(id_it->second.second);
-              handlers.erase(id_it);
-              lock.unlock();
-              function(*error, true);
-              lock.lock();
-            }
-          }
-        }
-        else if(auto method = pt.get_optional<std::string>("method")) {
-          if(auto params = pt.get_child_optional("params")) {
-            lock.unlock();
-            if(message_id)
-              handle_server_request(*message_id, *method, *params);
-            else
-              handle_server_notification(*method, *params);
-            lock.lock();
-          }
-        }
+      catch(...) {
+        Terminal::get().async_print("\e[31mError\e[m: failed to parse message from language server\n", true);
       }
 
       server_message_stream = std::stringstream();
