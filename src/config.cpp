@@ -34,7 +34,7 @@ void Config::load() {
       if(boost::filesystem::is_empty(old_config_directory_path)) {
         boost::filesystem::remove_all(old_config_directory_path);
       }
-      std::string command("mv " + old_config_directory_path.parent_path().string() + " " + juci_config_file.parent_path().string());
+      const std::string command("mv " + old_config_directory_path.parent_path().string() + " " + juci_config_file.parent_path().string());
       if(TinyProcessLib::Process(command).get_exit_status() == 0) {
         boost::filesystem::remove_all(old_config_directory_path);
       }
