@@ -14,8 +14,7 @@ Config::Config() {
       home_juci_path = config_dir / "juci";
     }
     else {
-      boost::filesystem::path config_dir(home_path / "config");
-      home_juci_path = config_dir / "juci";
+      home_juci_path = home_path / ".config" / "juci";
     }
     juci_config_file = home_juci_path / "config.json";
     return;
