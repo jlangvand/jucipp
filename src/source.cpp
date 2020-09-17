@@ -66,6 +66,13 @@ Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path
       language = language_manager->get_language("cpphdr");
     else if(file_path.extension() == ".ts" || file_path.extension() == ".tsx" || file_path.extension() == ".jsx" || file_path.extension() == ".flow")
       language = language_manager->get_language("js");
+    else if(file_path.extension() == ".vert" || // listed on https://github.com/KhronosGroup/glslang
+            file_path.extension() == ".frag" ||
+            file_path.extension() == ".tesc" ||
+            file_path.extension() == ".tese" ||
+            file_path.extension() == ".geom" ||
+            file_path.extension() == ".comp")
+      language = language_manager->get_language("glsl");
     else if(!file_path.has_extension()) {
       for(auto &part : file_path) {
         if(part == "include") {

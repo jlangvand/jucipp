@@ -160,7 +160,7 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
        language_id == "c-sharp" || language_id == "html" || language_id == "cuda" ||
        language_id == "php" || language_id == "rust" || language_id == "swift" ||
        language_id == "go" || language_id == "scala" || language_id == "opencl" ||
-       language_id == "json" || language_id == "css")
+       language_id == "json" || language_id == "css" || language_id == "glsl")
       is_bracket_language = true;
   }
 

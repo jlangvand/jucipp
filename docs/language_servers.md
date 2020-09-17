@@ -78,3 +78,17 @@ ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 
 * Additional setup within a Rust project:
     * Add an empty `.rust-format` file to enable style format on save
+
+## GLSL
+Install language server, and create a script to enable server in juCi++:
+```sh
+git clone https://github.com/svenstaro/glsl-language-server --recursive
+cd glsl-language-server
+mkdir build
+cd build
+cmake ..
+make
+# usually as root:
+make install
+echo "/usr/local/bin/glslls --stdin" > /usr/local/bin/glsl-language-server
+```
