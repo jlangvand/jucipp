@@ -11,8 +11,7 @@ Install language server, and create executable to enable server in juCi++:
 npm install -g flow-bin
 
 # usually as root:
-echo '#!/bin/bash
-flow lsp' > /usr/local/bin/javascript-language-server
+echo -e '#!`which sh`\nflow lsp' > /usr/local/bin/javascript-language-server
 
 chmod 755 /usr/local/bin/javascript-language-server
 ```
@@ -31,8 +30,7 @@ Install language server, and create executable to enable server in juCi++:
 npm install -g typescript-language-server typescript
 
 # usually as root:
-echo '#!/bin/bash
-`npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
+echo -e '#!`which sh`\n`npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
 
 chmod 755 /usr/local/bin/javascript-language-server
 rm -f /usr/local/bin/typescript-language-server
@@ -90,5 +88,6 @@ cmake ..
 make
 # usually as root:
 make install
-echo "/usr/local/bin/glslls --stdin" > /usr/local/bin/glsl-language-server
+echo -e "#!`which sh`\n/usr/local/bin/glslls --stdin" > /usr/local/bin/glsl-language-server
+chmod 755 /usr/local/bin/glsl-language-server
 ```
