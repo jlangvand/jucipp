@@ -373,7 +373,10 @@ bool Terminal::on_motion_notify_event(GdkEventMotion *event) {
   return Gtk::TextView::on_motion_notify_event(event);
 }
 
-boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, size_t pos, size_t length) {
+boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
+  if(line.size() >= 1000) // Due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86164
+    return {};
+
   const static std::regex link_regex("^([A-Z]:)?([^:]+):([0-9]+):([0-9]+): .*$|"                                     // C/C++ compile warning/error/rename usages
                                      "^In file included from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"                        // C/C++ extra compile warning/error info
                                      "^                 from ([A-Z]:)?([^:]+):([0-9]+)[:,]$|"                        // C/C++ extra compile warning/error info (gcc)
@@ -385,12 +388,10 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line, siz
                                      "^ +at .*?\\(([A-Z]:)?([^:]+):([0-9]+):([0-9]+)\\).*$|"                         // Node.js stack trace
                                      "^ +at ([A-Z]:)?([^:]+):([0-9]+):([0-9]+).*$|"                                  // Node.js stack trace
                                      "^  File \"([A-Z]:)?([^\"]+)\", line ([0-9]+), in .*$|"                         // Python
-                                     "^.*?([A-Z]:)?([a-zA-Z0-9._\\\\/][a-zA-Z0-9._\\-\\\\/]*):([0-9]+):([0-9]+).*$", // Posix file:line:column
+                                     "^.*?([A-Z]:)?([a-zA-Z0-9._\\\\/][a-zA-Z0-9._\\-\\\\/]*):([0-9]+):([0-9]+).*$", // Posix path:line:column
                                      std::regex::optimize);
   std::smatch sm;
-  if(std::regex_match(line.cbegin() + pos,
-                      line.cbegin() + (length == std::string::npos ? line.size() : std::min(pos + length, line.size())),
-                      sm, link_regex)) {
+  if(std::regex_match(line, sm, link_regex)) {
     for(size_t sub = 1; sub < link_regex.mark_count();) {
       size_t subs = (sub == 1 ||
                      sub == 1 + 4 + 3 + 3 ||

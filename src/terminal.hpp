@@ -57,7 +57,7 @@ private:
     std::string path;
     int line, line_index;
   };
-  boost::optional<Link> find_link(const std::string &line, size_t pos = 0, size_t length = std::string::npos);
+  static boost::optional<Link> find_link(const std::string &line);
 
   Mutex processes_mutex;
   std::vector<std::shared_ptr<TinyProcessLib::Process>> processes GUARDED_BY(processes_mutex);

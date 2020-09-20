@@ -26,7 +26,7 @@ int main() {
 
   // Testing links
   {
-    auto link = terminal.find_link("~/test/test.cc:7:41: error: expected ';' after expression.");
+    auto link = Terminal::find_link("~/test/test.cc:7:41: error: expected ';' after expression.");
     assert(link);
     assert(link->start_pos == 0);
     assert(link->end_pos == 19);
@@ -35,34 +35,25 @@ int main() {
     assert(link->line_index == 41);
   }
   {
-    auto link = terminal.find_link("Assertion failed: (false), function main, file ~/test/test.cc, line 15.");
+    auto link = Terminal::find_link("In file included from ./test/test.cc:2,");
     assert(link);
-    assert(link->start_pos == 47);
-    assert(link->end_pos == 70);
-    assert(link->path == "~/test/test.cc");
-    assert(link->line == 15);
+    assert(link->start_pos == 22);
+    assert(link->end_pos == 38);
+    assert(link->path == "./test/test.cc");
+    assert(link->line == 2);
     assert(link->line_index == 1);
   }
   {
-    auto link = terminal.find_link("test: ~/examples/main.cpp:17: int main(int, char**): Assertion `false' failed.");
+    auto link = Terminal::find_link("                 from ./test/test.cc:2:");
     assert(link);
-    assert(link->start_pos == 6);
-    assert(link->end_pos == 28);
-    assert(link->path == "~/examples/main.cpp");
-    assert(link->line == 17);
+    assert(link->start_pos == 22);
+    assert(link->end_pos == 38);
+    assert(link->path == "./test/test.cc");
+    assert(link->line == 2);
     assert(link->line_index == 1);
   }
   {
-    auto link = terminal.find_link("ERROR:~/test/test.cc:36:int main(): assertion failed: (false)");
-    assert(link);
-    assert(link->start_pos == 6);
-    assert(link->end_pos == 23);
-    assert(link->path == "~/test/test.cc");
-    assert(link->line == 36);
-    assert(link->line_index == 1);
-  }
-  {
-    auto link = terminal.find_link("  --> src/main.rs:16:4");
+    auto link = Terminal::find_link("  --> src/main.rs:16:4");
     assert(link);
     assert(link->start_pos == 6);
     assert(link->end_pos == 22);
@@ -71,13 +62,83 @@ int main() {
     assert(link->line_index == 4);
   }
   {
-    auto link = terminal.find_link(R"(  File "/home/test/test.py", line 4, in <module>)");
+    auto link = Terminal::find_link("Assertion failed: (false), function main, file ~/test/test.cc, line 15.");
+    assert(link);
+    assert(link->start_pos == 47);
+    assert(link->end_pos == 70);
+    assert(link->path == "~/test/test.cc");
+    assert(link->line == 15);
+    assert(link->line_index == 1);
+  }
+  {
+    auto link = Terminal::find_link("test: ~/examples/main.cpp:17: int main(int, char**): Assertion `false' failed.");
+    assert(link);
+    assert(link->start_pos == 6);
+    assert(link->end_pos == 28);
+    assert(link->path == "~/examples/main.cpp");
+    assert(link->line == 17);
+    assert(link->line_index == 1);
+  }
+  {
+    auto link = Terminal::find_link("ERROR:~/test/test.cc:36:int main(): assertion failed: (false)");
+    assert(link);
+    assert(link->start_pos == 6);
+    assert(link->end_pos == 23);
+    assert(link->path == "~/test/test.cc");
+    assert(link->line == 36);
+    assert(link->line_index == 1);
+  }
+  {
+    auto link = Terminal::find_link("/test/test.js:10");
+    assert(link);
+    assert(link->start_pos == 0);
+    assert(link->end_pos == 16);
+    assert(link->path == "/test/test.js");
+    assert(link->line == 10);
+    assert(link->line_index == 1);
+  }
+  {
+    auto link = Terminal::find_link("  at something (src/main.js:16:4)");
+    assert(link);
+    assert(link->start_pos == 16);
+    assert(link->end_pos == 32);
+    assert(link->path == "src/main.js");
+    assert(link->line == 16);
+    assert(link->line_index == 4);
+  }
+  {
+    auto link = Terminal::find_link("  at src/main.js:16:4");
+    assert(link);
+    assert(link->start_pos == 5);
+    assert(link->end_pos == 21);
+    assert(link->path == "src/main.js");
+    assert(link->line == 16);
+    assert(link->line_index == 4);
+  }
+  {
+    auto link = Terminal::find_link(R"(  File "/home/test/test.py", line 4, in <module>)");
     assert(link);
     assert(link->start_pos == 8);
     assert(link->end_pos == 35);
     assert(link->path == "/home/test/test.py");
     assert(link->line == 4);
     assert(link->line_index == 1);
+  }
+  {
+    auto link = Terminal::find_link("Testing ./posix_path/test.txt:10:20 here");
+    assert(link);
+    assert(link->start_pos == 8);
+    assert(link->end_pos == 35);
+    assert(link->path == "./posix_path/test.txt");
+    assert(link->line == 10);
+    assert(link->line_index == 20);
+  }
+  {
+    // Avoid https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86164
+    std::string long_line;
+    for(size_t i = 0; i < 50000; ++i)
+      long_line += "x";
+    assert(!Terminal::find_link("/home/test/test.txt:1:1: " + long_line));
   }
 
   // Testing print
