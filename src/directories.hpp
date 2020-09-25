@@ -87,11 +87,15 @@ private:
   Gtk::Menu menu;
   Gtk::MenuItem menu_item_new_file;
   Gtk::MenuItem menu_item_new_folder;
-  Gtk::SeparatorMenuItem menu_item_separator;
+  Gtk::SeparatorMenuItem menu_item_new_separator;
   Gtk::MenuItem menu_item_rename;
   Gtk::MenuItem menu_item_delete;
+  Gtk::SeparatorMenuItem menu_item_open_separator;
+  Gtk::MenuItem menu_item_open;
   Gtk::Menu menu_root;
   Gtk::MenuItem menu_root_item_new_file;
   Gtk::MenuItem menu_root_item_new_folder;
+  Gtk::SeparatorMenuItem menu_root_item_separator;
+  Gtk::MenuItem menu_root_item_open;
   boost::filesystem::path menu_popup_row_path;
 };

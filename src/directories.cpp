@@ -358,7 +358,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
   menu_root_item_new_folder.signal_activate().connect(new_folder_function);
   menu_root.append(menu_root_item_new_folder);
 
-  menu.append(menu_item_separator);
+  menu.append(menu_item_new_separator);
 
   menu_item_rename.set_label("Rename");
   menu_item_rename.signal_activate().connect([this] {
@@ -467,6 +467,28 @@ Directories::Directories() : Gtk::ListViewText(1) {
     }
   });
   menu.append(menu_item_delete);
+
+  menu.append(menu_item_open_separator);
+  menu_root.append(menu_root_item_separator);
+
+  auto open_label = "Open With Default Application";
+  auto open_function = [this] {
+    if(menu_popup_row_path.empty())
+      return;
+#ifdef __APPLE__
+    Terminal::get().async_process("open " + menu_popup_row_path.string(), "", nullptr, true);
+#else
+    Terminal::get().async_process("xdg-open " + menu_popup_row_path.string(), "", nullptr, true);
+#endif
+  };
+
+  menu_item_open.set_label(open_label);
+  menu_item_open.signal_activate().connect(open_function);
+  menu.append(menu_item_open);
+
+  menu_root_item_open.set_label(open_label);
+  menu_root_item_open.signal_activate().connect(open_function);
+  menu_root.append(menu_root_item_open);
 
   menu.show_all();
   menu.accelerate(*this);
