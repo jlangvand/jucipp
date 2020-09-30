@@ -50,28 +50,29 @@ Glib::RefPtr<Gsv::StyleSchemeManager> Source::StyleSchemeManager::get_default() 
 Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path &file_path) {
   auto language_manager = LanguageManager::get_default();
   bool result_uncertain = false;
-  auto content_type = Gio::content_type_guess(file_path.string(), nullptr, 0, result_uncertain);
+  auto filename = file_path.filename().string();
+  auto content_type = Gio::content_type_guess(filename, nullptr, 0, result_uncertain);
   if(result_uncertain)
     content_type.clear();
-  auto language = language_manager->guess_language(file_path.string(), content_type);
+  auto language = language_manager->guess_language(filename, content_type);
   if(!language) {
-    auto filename = file_path.filename().string();
+    auto extension = file_path.extension().string();
     if(filename == "CMakeLists.txt")
       language = language_manager->get_language("cmake");
     else if(filename == "meson.build")
       language = language_manager->get_language("meson");
     else if(filename == "Makefile")
       language = language_manager->get_language("makefile");
-    else if(file_path.extension() == ".tcc")
+    else if(extension == ".tcc")
       language = language_manager->get_language("cpphdr");
-    else if(file_path.extension() == ".ts" || file_path.extension() == ".tsx" || file_path.extension() == ".jsx" || file_path.extension() == ".flow")
+    else if(extension == ".ts" || extension == ".tsx" || extension == ".jsx" || extension == ".flow")
       language = language_manager->get_language("js");
-    else if(file_path.extension() == ".vert" || // listed on https://github.com/KhronosGroup/glslang
-            file_path.extension() == ".frag" ||
-            file_path.extension() == ".tesc" ||
-            file_path.extension() == ".tese" ||
-            file_path.extension() == ".geom" ||
-            file_path.extension() == ".comp")
+    else if(extension == ".vert" || // listed on https://github.com/KhronosGroup/glslang
+            extension == ".frag" ||
+            extension == ".tesc" ||
+            extension == ".tese" ||
+            extension == ".geom" ||
+            extension == ".comp")
       language = language_manager->get_language("glsl");
     else if(!file_path.has_extension()) {
       for(auto &part : file_path) {
@@ -221,7 +222,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
     if(language_id == "cmake" || language_id == "makefile" || language_id == "python" ||
        language_id == "python3" || language_id == "sh" || language_id == "perl" ||
        language_id == "ruby" || language_id == "r" || language_id == "asm" ||
-       language_id == "automake" || language_id == "yaml")
+       language_id == "automake" || language_id == "yaml" || language_id == "docker")
       comment_characters = "#";
     else if(language_id == "latex" || language_id == "matlab" || language_id == "octave" || language_id == "bibtex")
       comment_characters = "%";
