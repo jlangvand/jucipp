@@ -91,4 +91,22 @@ int main() {
     g_assert(uri == "file:///ro%20ot/te%20st%C3%A6%C3%B8%C3%A5.txt");
     g_assert(path == filesystem::get_path_from_uri(uri));
   }
+
+  {
+    auto path = filesystem::get_cache_path();
+    path = filesystem::get_short_path(path);
+    g_assert(path == "~/.cache");
+  }
+
+  {
+    auto path = filesystem::get_data_path();
+    path = filesystem::get_short_path(path);
+    g_assert(path == "~/.local/share");
+  }
+
+  {
+    auto path = filesystem::get_config_path();
+    path = filesystem::get_short_path(path);
+    g_assert(path == "~/.config");
+  }
 }

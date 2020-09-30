@@ -99,6 +99,76 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
   return boost::filesystem::path();
 }
 
+bool filesystem::create_missing_path(const boost::filesystem::path &path) noexcept {
+  boost::system::error_code ec;
+  if(!boost::filesystem::exists(path, ec)) {
+    if(!boost::filesystem::create_directories(path, ec)) {
+      return (!ec);
+    }
+  }
+  return false;
+}
+
+boost::filesystem::path filesystem::get_environment_path(const char *variable) noexcept {
+  try {
+    auto ptr = std::getenv(variable);
+    if(ptr) {
+      return boost::filesystem::path(ptr);
+    }
+  }
+  catch(...) {
+  }
+  return boost::filesystem::path();
+}
+
+const boost::filesystem::path &filesystem::get_data_path() noexcept {
+  static boost::filesystem::path data_path;
+  if(!data_path.empty())
+    return data_path;
+
+  const auto env_path = get_environment_path("XDG_DATA_HOME");
+
+  if(env_path.empty()) {
+    data_path = get_home_path() / ".local" / "share";
+  }
+
+  create_missing_path(data_path);
+
+  return data_path;
+}
+
+const boost::filesystem::path &filesystem::get_config_path() noexcept {
+  static boost::filesystem::path config_path;
+  if(!config_path.empty())
+    return config_path;
+
+  const auto env_path = get_environment_path("XDG_CONFIG_HOME");
+
+  if(env_path.empty()) {
+    config_path = get_home_path() / ".config";
+  }
+
+  create_missing_path(config_path);
+
+  return config_path;
+}
+
+const boost::filesystem::path &filesystem::get_cache_path() noexcept {
+  static boost::filesystem::path cache_path;
+  if(!cache_path.empty())
+    return cache_path;
+
+  const auto env_path = get_environment_path("XDG_CACHE_HOME");
+
+  if(env_path.empty()) {
+    cache_path = get_home_path() / ".cache";
+  }
+
+  create_missing_path(cache_path);
+
+  return cache_path;
+}
+
 boost::filesystem::path filesystem::get_short_path(const boost::filesystem::path &path) noexcept {
 #ifdef _WIN32
   return path;

@@ -4,6 +4,10 @@
 #include <vector>
 
 class filesystem {
+private:
+  static bool create_missing_path(const boost::filesystem::path &path) noexcept;
+  static boost::filesystem::path get_environment_path(const char *variable) noexcept;
+
 public:
   static std::string read(const std::string &path);
   static std::string read(const boost::filesystem::path &path) { return read(path.string()); }
@@ -16,7 +20,19 @@ public:
   static std::string escape_argument(const std::string &argument);
   static std::string unescape_argument(const std::string &argument);
 
+  /// Return the $HOME environment variable. If HOME is not set, then AppData
+  /// is returned. If neither HOME or AppData is set, then an empty path is
+  /// returned.
   static boost::filesystem::path get_home_path() noexcept;
+  /// Return the XDG_CONFIG_HOME environment variable if set. If
+  /// XDG_CONFIG_HOME is not set the default $HOME/.config is returned.
+  static const boost::filesystem::path &get_config_path() noexcept;
+  /// Return the XDG_CACHE_HOME environment variable if set. If XDG_CACHE_HOME
+  /// is not set the default $HOME/.cache is returned.
+  static const boost::filesystem::path &get_cache_path() noexcept;
+  /// Return the XDG_DATA_HOME environment variable if set. If XDG_DATA_HOME
+  /// is not set the default $HOME/.local/share is returned.
+  static const boost::filesystem::path &get_data_path() noexcept;
   /// Replaces home path with ~
   static boost::filesystem::path get_short_path(const boost::filesystem::path &path) noexcept;
   /// Replaces ~ with home path (boost::filesystem does not recognize ~)
