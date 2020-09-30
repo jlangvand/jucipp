@@ -85,18 +85,15 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
   static boost::filesystem::path home_path;
   if(!home_path.empty())
     return home_path;
-  std::vector<std::string> environment_variables = {"HOME", "AppData"};
+  std::vector<const char *> environment_variables = {"HOME", "AppData"};
   for(auto &variable : environment_variables) {
-    if(auto ptr = std::getenv(variable.c_str())) {
-      boost::system::error_code ec;
-      boost::filesystem::path path(ptr);
-      if(boost::filesystem::exists(path, ec)) {
-        home_path = std::move(path);
-        return home_path;
-      }
+    auto path = get_environment_path(variable);
+    if(!path.empty()) {
+      home_path = std::move(path);
+      break;
     }
   }
-  return boost::filesystem::path();
+  return home_path;
 }
 
 bool filesystem::create_missing_path(const boost::filesystem::path &path) noexcept {
