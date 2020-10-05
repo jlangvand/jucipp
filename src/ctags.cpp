@@ -64,7 +64,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   location.symbol = line.substr(0, symbol_end);
   if(9 < location.symbol.size() && location.symbol[8] == ' ' && starts_with(location.symbol, "operator")) {
     auto &chr = location.symbol[9];
-    if(!((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_'))
+    if(!Source::BaseView::is_token_char(chr))
       location.symbol.erase(8, 1);
   }
 
@@ -174,13 +174,13 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   return location;
 }
 
-///Split up a type into its various significant parts
+// Split up a type into its various significant parts
 std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
   std::vector<std::string> parts;
   size_t text_start = std::string::npos;
   for(size_t c = 0; c < type.size(); ++c) {
     auto &chr = type[c];
-    if((chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || chr == '_' || chr == '~') {
+    if(Source::BaseView::is_token_char(chr) || chr == '~') {
       if(text_start == std::string::npos)
         text_start = c;
     }

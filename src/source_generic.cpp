@@ -203,15 +203,11 @@ void Source::GenericView::setup_autocomplete() {
     autocomplete_insert.clear();
   };
 
-  autocomplete.is_restart_key = [](guint keyval) {
-    return false;
-  };
-
   autocomplete.run_check = [this]() {
     auto start = get_buffer()->get_insert()->get_iter();
     auto end = start;
     size_t count = 0;
-    while(start.backward_char() && ((*start >= '0' && *start <= '9') || (*start >= 'a' && *start <= 'z') || (*start >= 'A' && *start <= 'Z') || *start == '_' || *start >= 0x00C0))
+    while(start.backward_char() && is_token_char(*start))
       ++count;
     if((start.is_start() || start.forward_char()) && count >= 3 && !(*start >= '0' && *start <= '9')) {
       LockGuard lock1(autocomplete.prefix_mutex);
@@ -223,7 +219,7 @@ void Source::GenericView::setup_autocomplete() {
     else if(!interactive_completion) {
       auto end_iter = get_buffer()->get_insert()->get_iter();
       auto iter = end_iter;
-      while(iter.backward_char() && autocomplete.is_continue_key(*iter)) {
+      while(iter.backward_char() && is_token_char(*iter)) {
       }
       if(iter != end_iter)
         iter.forward_char();

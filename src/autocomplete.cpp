@@ -65,8 +65,7 @@ void Autocomplete::run() {
     if(pass_buffer_and_strip_word) {
       auto pos = iter.get_offset() - 1;
       buffer = view->get_buffer()->get_text();
-      while(pos >= 0 && ((buffer[pos] >= 'a' && buffer[pos] <= 'z') || (buffer[pos] >= 'A' && buffer[pos] <= 'Z') ||
-                         (buffer[pos] >= '0' && buffer[pos] <= '9') || buffer[pos] == '_')) {
+      while(pos >= 0 && Source::BaseView::is_token_char(buffer[pos])) {
         buffer.replace(pos, 1, " ");
         column_nr--;
         pos--;

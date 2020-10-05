@@ -1531,6 +1531,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
   autocomplete->run_check = [this, is_possible_jsx_property]() {
     auto iter = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = iter;
     iter.backward_char();
     if(!is_code_iter(iter))
       return false;
@@ -1538,36 +1539,60 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     autocomplete_enable_snippets = false;
     autocomplete_show_arguments = false;
 
-    auto line = ' ' + get_line_before();
-    const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>\"']|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*\\?{0,1})(\\.)([a-zA-Z0-9_]*)$|" // .
-                                  "^.*(::)([a-zA-Z0-9_]*)$|"                                                                     // ::
-                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$",                                                // part of symbol
-                                  std::regex::optimize);
-    std::smatch sm;
-    if(std::regex_match(line, sm, regex)) {
+    size_t count = 0;
+    while(is_token_char(*iter) && iter.backward_char())
+      ++count;
+
+    auto prefix_start = iter;
+    if(prefix_start != prefix_end)
+      prefix_start.forward_char();
+
+    auto previous = iter;
+    if(*iter == '.') {
+      bool starts_with_num = false;
+      size_t count = 0;
+      while(iter.backward_char() && is_token_char(*iter)) {
+        ++count;
+        starts_with_num = Glib::Unicode::isdigit(*iter);
+      }
+      if((count >= 1 || *iter == ')' || *iter == ']' || *iter == '"' || *iter == '\'' || *iter == '?') && !starts_with_num) {
+        {
+          LockGuard lock(autocomplete->prefix_mutex);
+          autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+        }
+        return true;
+      }
+    }
+    else if((previous.backward_char() && *previous == ':' && *iter == ':')) {
       {
         LockGuard lock(autocomplete->prefix_mutex);
-        autocomplete->prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
-        if(!sm.length(2) && !sm.length(4))
-          autocomplete_enable_snippets = true;
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
       }
       return true;
     }
-    else if(is_possible_jsx_property(iter)) {
+    else if(count >= 3) { // part of symbol
+      {
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+      }
+      autocomplete_enable_snippets = true;
+      return true;
+    }
+    if(is_possible_jsx_property(iter)) {
       LockGuard lock(autocomplete->prefix_mutex);
       autocomplete->prefix = "";
       return true;
     }
-    else if(is_possible_argument()) {
+    if(is_possible_argument()) {
       autocomplete_show_arguments = true;
       LockGuard lock(autocomplete->prefix_mutex);
       autocomplete->prefix = "";
       return true;
     }
-    else if(!interactive_completion) {
+    if(!interactive_completion) {
       auto end_iter = get_buffer()->get_insert()->get_iter();
       auto iter = end_iter;
-      while(iter.backward_char() && autocomplete->is_continue_key(*iter)) {
+      while(iter.backward_char() && is_token_char(*iter)) {
       }
       if(iter != end_iter)
         iter.forward_char();

@@ -588,7 +588,7 @@ std::pair<std::map<boost::filesystem::path, Usages::Clang::PathSet>, Usages::Cla
   const static std::regex include_regex(R"R(^#[ \t]*include[ \t]*"([^"]+)".*$)R", std::regex::optimize);
 
   auto is_spelling_char = [](char chr) {
-    return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_';
+    return (chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || static_cast<unsigned char>(chr) >= 128;
   };
 
   for(auto &path : paths) {

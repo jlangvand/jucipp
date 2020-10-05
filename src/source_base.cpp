@@ -701,9 +701,7 @@ Gtk::TextIter Source::BaseView::get_tabs_end_iter() {
 }
 
 bool Source::BaseView::is_token_char(gunichar chr) {
-  if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr >= 128)
-    return true;
-  return false;
+  return (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || chr >= 128;
 }
 
 std::pair<Gtk::TextIter, Gtk::TextIter> Source::BaseView::get_token_iters(Gtk::TextIter iter) {
@@ -1424,63 +1422,70 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
     }
     return false;
   };
-  auto parse_variable = [&] {
+
+  enum class ParseVariableResult {
+    parsed,
+    skipped,
+    not_found
+  };
+
+  auto parse_variable = [&]() -> ParseVariableResult {
     if(i >= snippet.size())
       throw std::out_of_range("unexpected end");
     if(compare_variable("TM_SELECTED_TEXT")) {
       Gtk::TextIter start, end;
       if(get_buffer()->get_selection_bounds(start, end)) {
         insert += get_buffer()->get_text(start, end);
-        return true;
+        return ParseVariableResult::parsed;
       }
-      return false;
+      return ParseVariableResult::skipped;
     }
     else if(compare_variable("TM_CURRENT_LINE")) {
       auto start = get_buffer()->get_iter_at_line(iter.get_line());
       auto end = get_iter_at_line_end(iter.get_line());
       insert += get_buffer()->get_text(start, end);
       erase_line = true;
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_CURRENT_WORD")) {
       if(is_token_char(*iter)) {
         auto token_iters = get_token_iters(iter);
         insert += get_buffer()->get_text(token_iters.first, token_iters.second);
         erase_word = true;
-        return true;
+        return ParseVariableResult::parsed;
       }
-      return false;
+      return ParseVariableResult::skipped;
     }
     else if(compare_variable("TM_LINE_INDEX")) {
       insert += std::to_string(iter.get_line());
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_LINE_NUMBER")) {
       insert += std::to_string(iter.get_line() + 1);
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_FILENAME_BASE")) {
       insert += file_path.stem().string();
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_FILENAME")) {
       insert += file_path.filename().string();
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_DIRECTORY")) {
       insert += file_path.parent_path().string();
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("TM_FILEPATH")) {
       insert += file_path.string();
-      return true;
+      return ParseVariableResult::parsed;
     }
     else if(compare_variable("CLIPBOARD")) {
       insert += Gtk::Clipboard::get()->wait_for_text();
-      return true;
+      return ParseVariableResult::parsed;
     }
     // TODO: support other variables
-    return false;
+    return ParseVariableResult::not_found;
   };
 
   std::function<void(bool)> parse_snippet = [&](bool stop_at_curly_end) {
@@ -1517,10 +1522,10 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
             parameter_offsets_and_sizes_map[number].emplace_back(utf8_character_count(insert) - placeholder_character_count, placeholder_character_count);
           }
           else {
-            if(!parse_variable()) {
+            if(parse_variable() != ParseVariableResult::parsed) {
               if(snippet.at(i) == ':') { // Use default value
                 ++i;
-                if(!parse_variable())
+                if(parse_variable() != ParseVariableResult::parsed)
                   parse_snippet(true);
               }
             }
@@ -1535,8 +1540,8 @@ void Source::BaseView::insert_snippet(Gtk::TextIter iter, const std::string &sni
         }
         else if(parse_number(number))
           parameter_offsets_and_sizes_map[number].emplace_back(utf8_character_count(insert), 0);
-        else
-          parse_variable();
+        else if(parse_variable() == ParseVariableResult::not_found)
+          insert += '$';
       }
       else {
         insert += snippet[i];

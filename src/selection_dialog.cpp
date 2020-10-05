@@ -412,7 +412,7 @@ bool CompletionDialog::on_key_release(GdkEventKey *event) {
 }
 
 bool CompletionDialog::on_key_press(GdkEventKey *event) {
-  if((event->keyval >= '0' && event->keyval <= '9') || (event->keyval >= 'a' && event->keyval <= 'z') || (event->keyval >= 'A' && event->keyval <= 'Z') || event->keyval == '_' || gdk_keyval_to_unicode(event->keyval) >= 0x00C0 || event->keyval == GDK_KEY_BackSpace) {
+  if(Source::BaseView::is_token_char(gdk_keyval_to_unicode(event->keyval)) || event->keyval == GDK_KEY_BackSpace) {
     if(row_in_entry) {
       text_view->get_buffer()->erase(start_mark->get_iter(), text_view->get_buffer()->get_insert()->get_iter());
       row_in_entry = false;

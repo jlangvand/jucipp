@@ -1011,7 +1011,7 @@ void Source::View::extend_selection() {
 
   // It is impossible to identify <> used for templates by syntax alone, but
   // this function works in most cases.
-  auto is_template_arguments = [this](Gtk::TextIter start, Gtk::TextIter end) {
+  auto is_template_arguments = [](Gtk::TextIter start, Gtk::TextIter end) {
     if(*start != '<' || *end != '>' || start.get_line() != end.get_line())
       return false;
     auto prev = start;
@@ -1602,7 +1602,7 @@ void Source::View::show_or_hide() {
               else if(std::none_of(exact.begin(), exact.end(), [&text](const std::string &e) {
                         return starts_with(text, e);
                       }) &&
-                      std::none_of(followed_by_non_token_char.begin(), followed_by_non_token_char.end(), [this, &text](const std::string &e) {
+                      std::none_of(followed_by_non_token_char.begin(), followed_by_non_token_char.end(), [&text](const std::string &e) {
                         return starts_with(text, e) && text.size() > e.size() && !is_token_char(text[e.size()]);
                       })) {
                 end = get_buffer()->get_iter_at_line(end.get_line());
@@ -2622,7 +2622,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
               if(it == start_iter)
                 break;
               if(!square_outside_para_found && square_count == 0 && para_count == 0) {
-                if((*it >= 'A' && *it <= 'Z') || (*it >= 'a' && *it <= 'z') || (*it >= '0' && *it <= '9') || *it == '_' ||
+                if(is_token_char(*it) ||
                    *it == '-' || *it == ' ' || *it == '\t' || *it == '<' || *it == '>' || *it == '(' || *it == ':' ||
                    *it == '*' || *it == '&' || *it == '/' || it.ends_line() || !is_code_iter(it)) {
                   continue;

@@ -857,6 +857,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
 
   autocomplete.run_check = [this]() {
     auto iter = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = iter;
     iter.backward_char();
     if(!is_code_iter(iter))
       return false;
@@ -864,31 +865,57 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     enable_snippets = false;
     show_parameters = false;
 
-    auto line = ' ' + get_line_before();
-    const static std::regex regex("^.*([a-zA-Z_\\)\\]\\>]|[^a-zA-Z0-9_][a-zA-Z_][a-zA-Z0-9_]*)(\\.|->)([a-zA-Z0-9_]*)$|" // . or ->
-                                  "^.*(::)([a-zA-Z0-9_]*)$|"                                                             // ::
-                                  "^.*[^a-zA-Z0-9_]([a-zA-Z_][a-zA-Z0-9_]{2,})$",                                        // part of symbol
-                                  std::regex::optimize);
-    std::smatch sm;
-    if(std::regex_match(line, sm, regex)) {
+    size_t count = 0;
+    while(is_token_char(*iter) && iter.backward_char())
+      ++count;
+
+    auto prefix_start = iter;
+    if(prefix_start != prefix_end)
+      prefix_start.forward_char();
+
+    auto previous = iter;
+    if(*iter == '.') {
+      bool starts_with_num = false;
+      size_t count = 0;
+      while(iter.backward_char() && is_token_char(*iter)) {
+        ++count;
+        starts_with_num = Glib::Unicode::isdigit(*iter);
+      }
+      if((count >= 1 || *iter == ')' || *iter == ']') && !starts_with_num) {
+        {
+          LockGuard lock(autocomplete.prefix_mutex);
+          autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
+        }
+        return true;
+      }
+    }
+    else if((previous.backward_char() && ((*previous == ':' && *iter == ':') || (*previous == '-' && *iter == '>')))) {
+      if(*iter == ':' || (previous.backward_char() && (is_token_char(*previous) || *previous == ')' || *previous == ']'))) {
+        {
+          LockGuard lock(autocomplete.prefix_mutex);
+          autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
+        }
+        return true;
+      }
+    }
+    else if(count >= 3) { // part of symbol
       {
         LockGuard lock(autocomplete.prefix_mutex);
-        autocomplete.prefix = sm.length(2) ? sm[3].str() : sm.length(4) ? sm[5].str() : sm[6].str();
-        if(!sm.length(2) && !sm.length(4))
-          enable_snippets = true;
+        autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
       }
+      enable_snippets = true;
       return true;
     }
-    else if(is_possible_argument()) {
+    if(is_possible_argument()) {
       show_parameters = true;
       LockGuard lock(autocomplete.prefix_mutex);
       autocomplete.prefix = "";
       return true;
     }
-    else if(!interactive_completion) {
+    if(!interactive_completion) {
       auto end_iter = get_buffer()->get_insert()->get_iter();
       auto iter = end_iter;
-      while(iter.backward_char() && autocomplete.is_continue_key(*iter)) {
+      while(iter.backward_char() && is_token_char(*iter)) {
       }
       if(iter != end_iter)
         iter.forward_char();
@@ -1707,11 +1734,7 @@ Source::ClangViewRefactor::ClangViewRefactor(const boost::filesystem::path &file
       if(token.is_identifier()) {
         auto &token_offsets = clang_tokens_offsets[c];
         if(line == token_offsets.first.line - 1 && index >= token_offsets.first.index - 1 && index <= token_offsets.second.index - 1) {
-          auto token_spelling = token.get_spelling();
-          if(!token_spelling.empty() &&
-             (token_spelling.size() > 1 || (token_spelling.back() >= 'a' && token_spelling.back() <= 'z') ||
-              (token_spelling.back() >= 'A' && token_spelling.back() <= 'Z') ||
-              token_spelling.back() == '_')) {
+          if(get_token(iter) == token.get_spelling()) {
             auto cursor = token.get_cursor();
             auto kind = cursor.get_kind();
             if(kind == clangmm::Cursor::Kind::FunctionDecl || kind == clangmm::Cursor::Kind::CXXMethod ||

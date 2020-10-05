@@ -63,7 +63,7 @@ std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> Debu
       if(c > 0 && start_pos != std::string::npos) {
         auto argument = command.substr(start_pos, c - start_pos);
         if(executable.empty()) {
-          //Check for environment variable
+          // Check for environment variable
           bool env_arg = false;
           for(size_t c = 0; c < argument.size(); ++c) {
             if((argument[c] >= 'a' && argument[c] <= 'z') || (argument[c] >= 'A' && argument[c] <= 'Z') ||

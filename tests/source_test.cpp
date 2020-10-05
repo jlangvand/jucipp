@@ -678,6 +678,18 @@ int main() {
     }
     {
       buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "test$test");
+      g_assert(buffer->get_text() == "test$test");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "${TM_SELECTED_TEXT}");
+      g_assert(buffer->get_text() == "");
+
+      buffer->set_text("");
+      view.insert_snippet(buffer->get_insert()->get_iter(), "$TM_SELECTED_TEXT");
+      g_assert(buffer->get_text() == "");
+
+      buffer->set_text("");
       view.insert_snippet(buffer->get_insert()->get_iter(), "\\$");
       g_assert(buffer->get_text() == "$");
 

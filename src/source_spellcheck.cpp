@@ -495,9 +495,7 @@ bool Source::SpellCheckView::is_word_iter(const Gtk::TextIter &iter) {
     ++backslash_count;
   if(backslash_count % 2 == 1)
     return false;
-  if(*iter >= 0x2030) // Symbols and emojis
-    return false;
-  if(((*iter >= 'A' && *iter <= 'Z') || (*iter >= 'a' && *iter <= 'z') || *iter >= 128))
+  if(Glib::Unicode::isalpha(*iter))
     return true;
   if(*iter == '\'')
     return !is_code_iter(iter);

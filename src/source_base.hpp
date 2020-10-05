@@ -153,7 +153,10 @@ namespace Source {
     Gtk::TextIter get_tabs_end_iter(int line_nr);
     Gtk::TextIter get_tabs_end_iter();
 
-    bool is_token_char(gunichar chr);
+  public:
+    static bool is_token_char(gunichar chr);
+
+  protected:
     std::pair<Gtk::TextIter, Gtk::TextIter> get_token_iters(Gtk::TextIter iter);
     std::string get_token(const Gtk::TextIter &iter);
     void cleanup_whitespace_characters();
