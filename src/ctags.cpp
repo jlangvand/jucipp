@@ -138,6 +138,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
     if(add_markup) {
       location.source = Glib::Markup::escape_text(location.source);
       std::string symbol = Glib::Markup::escape_text(location.symbol);
+      auto symbol_size = symbol.size();
       if(symbol_ends_with_open_parenthesis)
         symbol += '(';
       bool first = true;
@@ -145,9 +146,9 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
       for(size_t i = 0; i < location.source.size(); i++) {
         if(!escaped) {
           if(starts_with(location.source, i, symbol)) {
-            location.source.insert(i + symbol.size(), "</b>");
+            location.source.insert(i + symbol_size, "</b>");
             location.source.insert(i, "<b>");
-            i += 7 + symbol.size() - 1;
+            i += 7 + symbol_size - 1;
             first = false;
           }
           else {
