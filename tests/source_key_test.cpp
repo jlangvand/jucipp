@@ -2485,6 +2485,34 @@ int main() {
     }
     {
       buffer->set_text("  test(\n"
+                       "    <div onClick={() => {}}>");
+      auto iter = buffer->end();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div onClick={() => {}}>\n"
+                                     "      \n"
+                                     "    </div>");
+      iter = buffer->end();
+      iter.backward_chars(11);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <>");
+      auto iter = buffer->end();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <>\n"
+                                     "      \n"
+                                     "    </>");
+      iter = buffer->end();
+      iter.backward_chars(8);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
                        "    <div>\n"
                        "    </div>\n");
       auto iter = buffer->end();

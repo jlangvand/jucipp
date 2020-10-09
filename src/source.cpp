@@ -1819,9 +1819,9 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
   else {
     long curly_count = 0;
     do {
-      if(*iter == positive_char && is_code_iter(iter))
+      if(curly_count == 0 && *iter == positive_char && is_code_iter(iter))
         count++;
-      else if(*iter == negative_char && is_code_iter(iter)) {
+      else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
         if(count == 0) {
           found_iter = iter;
           return true;
@@ -1859,14 +1859,14 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
   else {
     long curly_count = 0;
     do {
-      if(*iter == positive_char && is_code_iter(iter)) {
+      if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
         if(count == 0) {
           found_iter = iter;
           return true;
         }
         count++;
       }
-      else if(*iter == negative_char && is_code_iter(iter))
+      else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter))
         count--;
       else if(*iter == '{' && is_code_iter(iter)) {
         if(curly_count == 0)
