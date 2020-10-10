@@ -809,7 +809,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
       else if(is_generic_view) {
-        const static std::regex regex(R"(^\[error\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
+        const static std::regex regex(R"(^\[.*error.*\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
         std::string line;
         std::getline(stderr_stream, line);
         std::smatch sm;
@@ -825,7 +825,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
               start.backward_char();
 
             add_diagnostic_tooltip(start, end, true, [error_message = sm[1].str()](Tooltip &tooltip) {
-              tooltip.buffer->insert_at_cursor(error_message);
+              tooltip.insert_with_links_tagged(error_message);
             });
           }
           catch(...) {
