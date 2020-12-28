@@ -29,15 +29,15 @@ Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool
   if(extended_regex)
     flags += " -E";
 
-  auto escaped_pattern = '"' + pattern + '"';
-  for(size_t i = 1; i < escaped_pattern.size() - 1; ++i) {
+  auto escaped_pattern = " \"" + pattern + '"';
+  for(size_t i = 2; i < escaped_pattern.size() - 1; ++i) {
     if(escaped_pattern[i] == '"') {
       escaped_pattern.insert(i, "\\");
       ++i;
     }
   }
 
-  std::string command = Config::get().project.grep_command + " -R " + flags + " --color=always --binary-files=without-match " + exclude + " -n " + escaped_pattern + " *";
+  std::string command = Config::get().project.grep_command + " -RHn --color=always --binary-files=without-match" + flags + exclude + escaped_pattern + " *";
 
   std::stringstream stdin_stream;
   Terminal::get().process(stdin_stream, output, command, project_path);
