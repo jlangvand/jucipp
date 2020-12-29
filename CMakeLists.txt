@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 
 project(juci)
 set(JUCI_VERSION "1.6.2")

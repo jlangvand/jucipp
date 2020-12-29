@@ -340,7 +340,7 @@ void Window::set_menu_actions() {
       // Depending on default_build_management_system, generate build configuration
       if(Config::get().project.default_build_management_system == "cmake") {
         build_config_path = project_path / "CMakeLists.txt";
-        build_config = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_C_FLAGS \"${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.c)\n";
+        build_config = "cmake_minimum_required(VERSION 3.1)\n\nproject(" + project_name + ")\n\nset(CMAKE_C_FLAGS \"${CMAKE_C_FLAGS} -std=c11 -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.c)\n";
       }
       else if(Config::get().project.default_build_management_system == "meson") {
         build_config_path = project_path / "meson.build";
@@ -390,7 +390,7 @@ void Window::set_menu_actions() {
       // Depending on default_build_management_system, generate build configuration
       if(Config::get().project.default_build_management_system == "cmake") {
         build_config_path = project_path / "CMakeLists.txt";
-        build_config = "cmake_minimum_required(VERSION 2.8)\n\nproject(" + project_name + ")\n\nset(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.cpp)\n";
+        build_config = "cmake_minimum_required(VERSION 3.1)\n\nproject(" + project_name + ")\n\nset(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -std=c++1y -Wall -Wextra\")\n\nadd_executable(" + project_name + " main.cpp)\n";
       }
       else if(Config::get().project.default_build_management_system == "meson") {
         build_config_path = project_path / "meson.build";
