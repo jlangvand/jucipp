@@ -1157,20 +1157,19 @@ void Window::set_menu_actions() {
           std::vector<Source::Offset> rows;
 
           auto iter = view->get_buffer()->get_insert()->get_iter();
+          std::sort(usages.begin(), usages.end());
+          bool current_file_only = usages.begin()->first.file_path == usages.rbegin()->first.file_path && view->file_path == usages.begin()->first.file_path;
           for(auto &usage : usages) {
             std::string row;
-            bool current_page = true;
-            //add file name if usage is not in current page
-            if(view->file_path != usage.first.file_path) {
+            // Add file name if usage is not in current page
+            if(!current_file_only)
               row = usage.first.file_path.filename().string() + ":";
-              current_page = false;
-            }
             row += std::to_string(usage.first.line + 1) + ": " + usage.second;
             rows.emplace_back(usage.first);
             SelectionDialog::get()->add_row(row);
 
-            //Set dialog cursor to the last row if the textview cursor is at the same line
-            if(current_page &&
+            // Set dialog cursor to the last row if the textview cursor is at the same line
+            if((current_file_only || view->file_path == usage.first.file_path) &&
                iter.get_line() == static_cast<int>(usage.first.line) && iter.get_line_index() >= static_cast<int>(usage.first.index)) {
               SelectionDialog::get()->set_cursor_at_last_row();
             }
