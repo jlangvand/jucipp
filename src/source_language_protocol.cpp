@@ -996,20 +996,23 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
     dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
       if(last_count != update_diagnostics_async_count)
         return;
+      std::string range;
       std::string diagnostics_string;
       for(auto &diagnostic : diagnostics) {
         auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
         auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
-        auto range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+        range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
         auto message = diagnostic.message;
         escape_text(message);
         if(!diagnostics_string.empty())
           diagnostics_string += ',';
         diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + message + "\"}";
       }
-      auto start = get_buffer()->begin();
-      auto end = get_buffer()->end();
-      auto range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+      if(diagnostics.size() != 1) { // Use diagnostic range if only one diagnostic, otherwise use whole buffer
+        auto start = get_buffer()->begin();
+        auto end = get_buffer()->end();
+        range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+      }
 
       auto request = (R"("textDocument":{"uri":")" + uri + "\"},\"range\":" + range + ",\"context\":{\"diagnostics\":[" + diagnostics_string + "],\"only\":[\"quickfix\"]}");
       thread_pool.push([this, diagnostics = std::move(diagnostics), request = std::move(request), last_count]() mutable {
