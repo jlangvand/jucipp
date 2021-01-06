@@ -30,7 +30,9 @@ namespace Source {
     Offset(unsigned line, unsigned index, boost::filesystem::path file_path_ = {}) : line(line), index(index), file_path(std::move(file_path_)) {}
     operator bool() const { return !file_path.empty(); }
     bool operator<(const Offset &rhs) const {
-      return file_path < rhs.file_path || (file_path == rhs.file_path && (line < rhs.line || (line == rhs.line && index < rhs.index)));
+      return file_path < rhs.file_path ||
+             (file_path == rhs.file_path && (line < rhs.line ||
+                                             (line == rhs.line && index < rhs.index)));
     }
     bool operator==(const Offset &rhs) const { return (file_path == rhs.file_path && line == rhs.line && index == rhs.index); }
 
@@ -55,6 +57,17 @@ namespace Source {
     std::string source;
     std::string path;
     std::pair<Offset, Offset> offsets;
+
+    bool operator<(const FixIt &rhs) const {
+
+      return type < rhs.type ||
+             (type == rhs.type && (source < rhs.source ||
+                                   (source == rhs.source && (path < rhs.path ||
+                                                             (path == rhs.path && offsets < rhs.offsets)))));
+    }
+    bool operator==(const FixIt &rhs) const {
+      return type == rhs.type && source == rhs.source && path == rhs.path && offsets == rhs.offsets;
+    }
   };
 
   class View : public SpellCheckView, public DiffView {

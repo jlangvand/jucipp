@@ -71,7 +71,7 @@ namespace LanguageProtocol {
     Range range;
     int severity;
     std::vector<RelatedInformation> related_informations;
-    std::map<std::string, std::vector<Source::FixIt>> quickfixes;
+    std::map<std::string, std::set<Source::FixIt>> quickfixes;
   };
 
   class TextEdit {

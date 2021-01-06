@@ -1038,8 +1038,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                         for(auto &diagnostic : diagnostics) {
                           for(auto &quickfix_diagnostic : quickfix_diagnostics) {
                             if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
-                              auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                              pair.first->second.emplace_back(
+                              auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                              pair.first->second.emplace(
                                   edit.new_text,
                                   filesystem::get_path_from_uri(file_it->first).string(),
                                   std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
@@ -1052,8 +1052,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                       else { // Workaround for language server that does not report quickfix diagnostics
                         for(auto &diagnostic : diagnostics) {
                           if(edit.range.start.line == diagnostic.range.start.line) {
-                            auto pair = diagnostic.quickfixes.emplace(title, std::vector<Source::FixIt>{});
-                            pair.first->second.emplace_back(
+                            auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                            pair.first->second.emplace(
                                 edit.new_text,
                                 filesystem::get_path_from_uri(file_it->first).string(),
                                 std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
