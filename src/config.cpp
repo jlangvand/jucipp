@@ -11,8 +11,8 @@ Config::Config() {
   if(home_path.empty())
     throw std::runtime_error("Could not find home path");
 
-  home_juci_path = filesystem::get_config_path() / "juci";
-  juci_config_file = home_juci_path / "config.json";
+  juci_config_path = filesystem::get_config_path() / "juci";
+  juci_config_file = juci_config_path / "config.json";
 }
 
 void Config::load() {
@@ -30,12 +30,12 @@ void Config::load() {
       }
     }
 
-    boost::filesystem::create_directories(home_juci_path);
+    boost::filesystem::create_directories(juci_config_path);
 
     if(!boost::filesystem::exists(juci_config_file))
       filesystem::write(juci_config_file, default_config_file);
 
-    auto juci_style_path = home_juci_path / "styles";
+    auto juci_style_path = juci_config_path / "styles";
     boost::filesystem::create_directories(juci_style_path);
 
     juci_style_path /= "juci-light.xml";
@@ -81,7 +81,7 @@ void Config::update(boost::property_tree::ptree &cfg) {
       it_version->second.data() = JUCI_VERSION;
     }
 
-    auto style_path = home_juci_path / "styles";
+    auto style_path = juci_config_path / "styles";
     filesystem::write(style_path / "juci-light.xml", juci_light_style);
     filesystem::write(style_path / "juci-dark.xml", juci_dark_style);
     filesystem::write(style_path / "juci-dark-blue.xml", juci_dark_blue_style);

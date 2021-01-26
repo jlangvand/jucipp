@@ -41,7 +41,7 @@ Glib::RefPtr<Gsv::StyleSchemeManager> Source::StyleSchemeManager::get_default() 
   static auto instance = Gsv::StyleSchemeManager::create();
   static bool first = true;
   if(first) {
-    instance->prepend_search_path((Config::get().home_juci_path / "styles").string());
+    instance->prepend_search_path((Config::get().juci_config_path / "styles").string());
     first = false;
   }
   return instance;

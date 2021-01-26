@@ -5,7 +5,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 void Snippets::load() {
-  auto snippets_file = Config::get().home_juci_path / "snippets.json";
+  auto snippets_file = Config::get().juci_config_path / "snippets.json";
 
   boost::system::error_code ec;
   if(!boost::filesystem::exists(snippets_file, ec))

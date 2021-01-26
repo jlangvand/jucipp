@@ -282,7 +282,7 @@ void Window::set_menu_actions() {
     Notebook::get().open(Config::get().juci_config_file);
   });
   menu.add_action("snippets", []() {
-    Notebook::get().open(Config::get().home_juci_path / "snippets.json");
+    Notebook::get().open(Config::get().juci_config_path / "snippets.json");
   });
   menu.add_action("quit", [this]() {
     close();
@@ -2210,7 +2210,7 @@ void Window::save_session() {
     window_pt.put("height", height);
     root_pt.add_child("window", window_pt);
 
-    boost::property_tree::write_json((Config::get().home_juci_path / "last_session.json").string(), root_pt);
+    boost::property_tree::write_json((Config::get().juci_config_path / "last_session.json").string(), root_pt);
   }
   catch(...) {
   }
@@ -2219,7 +2219,7 @@ void Window::save_session() {
 void Window::load_session(std::vector<boost::filesystem::path> &directories, std::vector<std::pair<boost::filesystem::path, size_t>> &files, std::vector<std::pair<int, int>> &file_offsets, std::string &current_file, bool read_directories_and_files) {
   try {
     boost::property_tree::ptree root_pt;
-    boost::property_tree::read_json((Config::get().home_juci_path / "last_session.json").string(), root_pt);
+    boost::property_tree::read_json((Config::get().juci_config_path / "last_session.json").string(), root_pt);
     if(read_directories_and_files) {
       auto folder = root_pt.get<std::string>("folder");
       if(!folder.empty() && boost::filesystem::exists(folder) && boost::filesystem::is_directory(folder))
