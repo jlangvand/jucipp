@@ -209,6 +209,7 @@ void Config::read(const boost::property_tree::ptree &cfg) {
   terminal.font = cfg.get<std::string>("terminal.font");
   terminal.clear_on_compile = cfg.get<bool>("terminal.clear_on_compile");
   terminal.clear_on_run_command = cfg.get<bool>("terminal.clear_on_run_command");
+  terminal.hide_entry_on_run_command = cfg.get<bool>("terminal.hide_entry_on_run_command");
 
   log.libclang = cfg.get<bool>("log.libclang");
   log.language_server = cfg.get<bool>("log.language_server");

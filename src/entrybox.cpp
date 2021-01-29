@@ -110,6 +110,6 @@ void EntryBox::show() {
   show_all();
   if(entries.size() > 0) {
     entries.begin()->grab_focus();
-    entries.begin()->select_region(0, entries.begin()->get_text_length());
+    entries.begin()->select_region(0, -1);
   }
 }

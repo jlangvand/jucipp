@@ -27,6 +27,7 @@ public:
     std::string font;
     bool clear_on_compile;
     bool clear_on_run_command;
+    bool hide_entry_on_run_command;
   };
 
   class Project {

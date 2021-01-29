@@ -84,7 +84,8 @@ const std::string default_config_file =
         "font_comment": "Use \"\" to use source.font with slightly smaller size",
         "font": "",
         "clear_on_compile": true,
-        "clear_on_run_command": false
+        "clear_on_run_command": false,
+        "hide_entry_on_run_command": true
     },
     "project": {
         "default_build_path_comment": "Use <project_directory_name> to insert the project top level directory name",

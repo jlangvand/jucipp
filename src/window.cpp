@@ -1394,7 +1394,10 @@ void Window::set_menu_actions() {
               Terminal::get().async_print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
             });
           }
-          EntryBox::get().hide();
+          if(Config::get().terminal.hide_entry_on_run_command)
+            EntryBox::get().hide();
+          else
+            EntryBox::get().entries.front().select_region(0, -1);
         },
         30);
     auto entry_it = EntryBox::get().entries.begin();
