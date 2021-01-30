@@ -13,6 +13,7 @@ Config::Config() {
 
   juci_config_path = filesystem::get_config_path() / "juci";
   juci_config_file = juci_config_path / "config.json";
+  juci_data_path = filesystem::get_data_path() / "juci";
 }
 
 void Config::load() {
@@ -31,6 +32,7 @@ void Config::load() {
     }
 
     boost::filesystem::create_directories(juci_config_path);
+    boost::filesystem::create_directories(juci_data_path);
 
     if(!boost::filesystem::exists(juci_config_file))
       filesystem::write(juci_config_file, default_config_file);
