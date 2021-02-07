@@ -134,36 +134,38 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
   }
   write_request(
       nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities": {
-  "workspace": { "symbol": { "dynamicRegistration": true } },
+  "workspace": {
+    "symbol": { "dynamicRegistration": false }
+  },
   "textDocument": {
-    "synchronization": { "dynamicRegistration": true, "didSave": true },
+    "synchronization": { "dynamicRegistration": false, "didSave": true },
     "completion": {
-      "dynamicRegistration": true,
+      "dynamicRegistration": false,
       "completionItem": {
         "snippetSupport": true,
         "documentationFormat": ["markdown", "plaintext"]
       }
     },
     "hover": {
-      "dynamicRegistration": true,
+      "dynamicRegistration": false,
       "contentFormat": ["markdown", "plaintext"]
     },
     "signatureHelp": {
-      "dynamicRegistration": true,
+      "dynamicRegistration": false,
       "signatureInformation": {
         "documentationFormat": ["markdown", "plaintext"]
       }
     },
-    "definition": { "dynamicRegistration": true },
-    "references": { "dynamicRegistration": true },
-    "documentHighlight": { "dynamicRegistration": true },
-    "documentSymbol": { "dynamicRegistration": true },
-    "formatting": { "dynamicRegistration": true },
-    "rangeFormatting": { "dynamicRegistration": true },
-    "rename": { "dynamicRegistration": true },
+    "definition": { "dynamicRegistration": false },
+    "references": { "dynamicRegistration": false },
+    "documentHighlight": { "dynamicRegistration": false },
+    "documentSymbol": { "dynamicRegistration": false },
+    "formatting": { "dynamicRegistration": false },
+    "rangeFormatting": { "dynamicRegistration": false },
+    "rename": { "dynamicRegistration": false },
     "publishDiagnostics": { "relatedInformation":true },
     "codeAction": {
-      "dynamicRegistration": true,
+      "dynamicRegistration": false,
       "codeActionLiteralSupport": {
         "codeActionKind": { "valueSet": ["quickfix"] }
       }
