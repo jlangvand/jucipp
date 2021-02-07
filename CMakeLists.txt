@@ -14,6 +14,16 @@ set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "cmake, make, g++, libclang-dev, liblldb-dev, clang-format, pkg-config, libboost-system-dev, libboost-filesystem-dev, libboost-serialization-dev libgtksourceviewmm-3.0-dev, aspell-en, libaspell-dev, libgit2-dev, universal-ctags")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://gitlab.com/cppit/jucipp")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+  message(STATUS "using ccache.")
+else()
+  message(STATUS "ccache was not found.")
+endif(CCACHE_FOUND)
+
 include(CPack)
 
 set(CMAKE_CXX_STANDARD 14)
