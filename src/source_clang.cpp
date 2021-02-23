@@ -627,8 +627,8 @@ void Source::ClangViewParse::show_type_tooltips(const Gdk::Rectangle &rectangle)
 
                   if(is_safe(cursor)) { // Do not call state altering expressions
                     auto offsets = cursor.get_source_range().get_offsets();
-                    auto start = get_buffer()->get_iter_at_line_index(offsets.first.line - 1, offsets.first.index - 1);
-                    auto end = get_buffer()->get_iter_at_line_index(offsets.second.line - 1, offsets.second.index - 1);
+                    auto start = get_iter_at_line_index(offsets.first.line - 1, offsets.first.index - 1);
+                    auto end = get_iter_at_line_index(offsets.second.line - 1, offsets.second.index - 1);
 
                     std::string expression;
                     // Get full expression from cursor parent:
