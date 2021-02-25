@@ -387,8 +387,22 @@ bool Source::SpellCheckView::is_spellcheck_iter(const Gtk::TextIter &iter) {
     }
   }
   if(string_tag) {
-    if(iter.has_tag(string_tag) && !iter.begins_tag(string_tag))
+    if(iter.has_tag(string_tag) && !iter.begins_tag(string_tag)) {
+      // Check for string literal symbols
+      if(*iter == '\'' || *iter == '"') {
+        auto previous_iter = iter;
+        if(previous_iter.backward_char()) {
+          if(previous_iter.begins_tag(string_tag)) {
+            if(*previous_iter == 'L' || *previous_iter == 'u' || *previous_iter == 'U' || *previous_iter == 'R')
+              return false;
+          }
+          else if(*previous_iter == '8' && previous_iter.backward_char() && previous_iter.begins_tag(string_tag) &&
+                  *previous_iter == 'u')
+            return false;
+        }
+      }
       return true;
+    }
     // If iter is at the end of string_tag, with exception of after " and '
     else if(iter.ends_tag(string_tag)) {
       auto previous_iter = iter;
@@ -449,29 +463,9 @@ bool Source::SpellCheckView::is_code_iter(const Gtk::TextIter &iter) {
   if(!is_code_iter && (*iter == '\'' || *iter == '"')) {
     if(comment_tag && iter.ends_tag(comment_tag)) // ' or " at end of comments are not code iters
       return false;
-    if(*iter == '"') {
-      auto next_iter = iter;
-      next_iter.forward_char();
-      return !is_spellcheck_iter(next_iter);
-    }
-    // Have to look up ' manually since it can be a word iter:
-    auto previous_iter = iter;
-    if(previous_iter.backward_char() && *previous_iter == '\'') { // First, handle iter inside '':
-      auto next_iter = iter;
-      next_iter.forward_char();
-      return !is_spellcheck_iter(next_iter);
-    }
-    if(string_tag && (iter.has_tag(string_tag) || iter.ends_tag(string_tag))) {
-      long backslash_count = 0;
-      auto previous_iter = iter;
-      while(previous_iter.backward_char() && *previous_iter == '\\')
-        ++backslash_count;
-      if(backslash_count % 2 == 0) {
-        auto start_iter = iter;
-        if(start_iter.backward_to_tag_toggle(string_tag) && start_iter.begins_tag(string_tag) && *start_iter == '\'')
-          return true;
-      }
-    }
+    auto next_iter = iter;
+    next_iter.forward_char();
+    return !is_spellcheck_iter(next_iter);
   }
 
   if(is_bracket_language)
