@@ -437,9 +437,9 @@ void Project::LLDB::debug_start() {
           if(state == lldb::StateType::eStateStopped) {
             char buffer[100];
             auto thread = process.GetSelectedThread();
-            auto n = thread.GetStopDescription(buffer, 100);
+            auto n = thread.GetStopDescription(buffer, 100); // Returns number of bytes read. Might include null termination... Although maybe on newer versions only.
             if(n > 0)
-              status += " (" + std::string(buffer, n <= 100 ? n : 100) + ")";
+              status += " (" + std::string(buffer, n <= 100 ? (buffer[n - 1] == '\0' ? n - 1 : n) : 100) + ")";
             auto line_entry = thread.GetSelectedFrame().GetLineEntry();
             if(line_entry.IsValid()) {
               lldb::SBStream stream;
