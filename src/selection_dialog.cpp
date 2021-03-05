@@ -432,6 +432,10 @@ bool CompletionDialog::on_key_press(GdkEventKey *event) {
         list_view_text.set_cursor(list_view_text.get_model()->get_path(it));
         cursor_changed();
       }
+      else {
+        list_view_text.set_cursor(list_view_text.get_model()->get_path(list_view_text.get_model()->children().begin()));
+        cursor_changed();
+      }
     }
     else
       list_view_text.set_cursor(list_view_text.get_model()->get_path(list_view_text.get_model()->children().begin()));
@@ -445,6 +449,14 @@ bool CompletionDialog::on_key_press(GdkEventKey *event) {
       if(it) {
         list_view_text.set_cursor(list_view_text.get_model()->get_path(it));
         cursor_changed();
+      }
+      else {
+        auto last_it = list_view_text.get_model()->children().end();
+        last_it--;
+        if(last_it) {
+          list_view_text.set_cursor(list_view_text.get_model()->get_path(last_it));
+          cursor_changed();
+        }
       }
     }
     else {
