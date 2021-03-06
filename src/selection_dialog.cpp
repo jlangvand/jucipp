@@ -269,6 +269,8 @@ bool SelectionDialog::on_key_press(GdkEventKey *event) {
       it++;
       if(it)
         list_view_text.set_cursor(list_view_text.get_model()->get_path(it));
+      else
+        list_view_text.set_cursor(list_view_text.get_model()->get_path(list_view_text.get_model()->children().begin()));
     }
     return true;
   }
@@ -278,6 +280,12 @@ bool SelectionDialog::on_key_press(GdkEventKey *event) {
       it--;
       if(it)
         list_view_text.set_cursor(list_view_text.get_model()->get_path(it));
+      else {
+        auto last_it = list_view_text.get_model()->children().end();
+        last_it--;
+        if(last_it)
+          list_view_text.set_cursor(list_view_text.get_model()->get_path(last_it));
+      }
     }
     return true;
   }
