@@ -627,7 +627,7 @@ void Project::LLDB::debug_show_variables() {
       auto set_tooltip_buffer = [rows, index](Tooltip &tooltip) {
         auto variable = (*rows)[*index];
 
-        Glib::ustring value = variable.value;
+        Glib::ustring value = variable.get_value();
         if(!value.empty()) {
           Glib::ustring::iterator iter;
           while(!value.validate(iter)) {

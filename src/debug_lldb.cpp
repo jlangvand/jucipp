@@ -373,18 +373,21 @@ std::vector<Debug::LLDB::Variable> Debug::LLDB::get_variables() {
         auto frame = thread.GetFrameAtIndex(c_f);
         auto values = frame.GetVariables(true, true, true, false);
         for(uint32_t value_index = 0; value_index < values.GetSize(); value_index++) {
-          lldb::SBStream stream;
-          auto value = values.GetValueAtIndex(value_index);
+          auto value = std::make_shared<lldb::SBValue>(values.GetValueAtIndex(value_index));
 
           Debug::LLDB::Variable variable;
           variable.thread_index_id = thread.GetIndexID();
           variable.frame_index = c_f;
-          if(auto name = value.GetName())
+          if(auto name = value->GetName())
             variable.name = name;
-          value.GetDescription(stream);
-          variable.value = stream.GetData();
 
-          auto declaration = value.GetDeclaration();
+          variable.get_value = [value]() {
+            lldb::SBStream stream;
+            value->GetDescription(stream);
+            return std::string(stream.GetData());
+          };
+
+          auto declaration = value->GetDeclaration();
           if(declaration.IsValid()) {
             variable.declaration_found = true;
             variable.line_nr = declaration.GetLine();

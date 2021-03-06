@@ -23,7 +23,7 @@ namespace Debug {
       uint32_t thread_index_id;
       uint32_t frame_index;
       std::string name;
-      std::string value;
+      std::function<std::string()> get_value;
       bool declaration_found;
       boost::filesystem::path file_path;
       int line_nr;
