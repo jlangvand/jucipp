@@ -525,20 +525,20 @@ void Project::LLDB::debug_step_out() {
 void Project::LLDB::debug_backtrace() {
   if(debugging) {
     auto view = Notebook::get().get_current_view();
-    auto backtrace = Debug::LLDB::get().get_backtrace();
+    auto frames = Debug::LLDB::get().get_backtrace();
+
+    if(frames.size() == 0) {
+      Info::get().print("No backtrace found");
+      return;
+    }
 
     if(view)
       SelectionDialog::create(view, true, true);
     else
       SelectionDialog::create(true, true);
-    std::vector<Debug::LLDB::Frame> rows;
-    if(backtrace.size() == 0) {
-      Info::get().print("No backtrace found");
-      return;
-    }
 
     bool cursor_set = false;
-    for(auto &frame : backtrace) {
+    for(auto &frame : frames) {
       std::string row = "<i>" + frame.module_filename + "</i>";
 
       //Shorten frame.function_name if it is too long
@@ -551,7 +551,6 @@ void Project::LLDB::debug_backtrace() {
         auto file_path = frame.file_path.filename().string();
         row += ":<b>" + Glib::Markup::escape_text(file_path) + ":" + std::to_string(frame.line_nr) + "</b> - " + Glib::Markup::escape_text(frame.function_name);
       }
-      rows.emplace_back(frame);
       SelectionDialog::get()->add_row(row);
       if(!cursor_set && view && frame.file_path == view->file_path) {
         SelectionDialog::get()->set_cursor_at_last_row();
@@ -559,8 +558,8 @@ void Project::LLDB::debug_backtrace() {
       }
     }
 
-    SelectionDialog::get()->on_select = [rows = std::move(rows)](unsigned int index, const std::string &text, bool hide_window) {
-      auto frame = rows[index];
+    SelectionDialog::get()->on_select = [frames = std::move(frames)](unsigned int index, const std::string &text, bool hide_window) {
+      auto &frame = frames[index];
       if(!frame.file_path.empty()) {
         if(Notebook::get().open(frame.file_path)) {
           Debug::LLDB::get().select_frame(frame.index);
@@ -579,27 +578,26 @@ void Project::LLDB::debug_backtrace() {
 void Project::LLDB::debug_show_variables() {
   if(debugging) {
     auto view = Notebook::get().get_current_view();
-    auto variables = Debug::LLDB::get().get_variables();
+    auto variables = std::make_shared<std::vector<Debug::LLDB::Variable>>(Debug::LLDB::get().get_variables());
+
+    if(variables->size() == 0) {
+      Info::get().print("No variables found");
+      return;
+    }
 
     if(view)
       SelectionDialog::create(view, true, true);
     else
       SelectionDialog::create(true, true);
-    auto rows = std::make_shared<std::vector<Debug::LLDB::Variable>>();
-    if(variables.size() == 0) {
-      Info::get().print("No variables found");
-      return;
-    }
 
-    for(auto &variable : variables) {
+    for(auto &variable : *variables) {
       std::string row = "#" + std::to_string(variable.thread_index_id) + ":#" + std::to_string(variable.frame_index) + ":" + variable.file_path.filename().string() + ":" + std::to_string(variable.line_nr) + " - <b>" + Glib::Markup::escape_text(variable.name) + "</b>";
 
-      rows->emplace_back(variable);
       SelectionDialog::get()->add_row(row);
     }
 
-    SelectionDialog::get()->on_select = [rows](unsigned int index, const std::string &text, bool hide_window) {
-      auto variable = (*rows)[index];
+    SelectionDialog::get()->on_select = [variables](unsigned int index, const std::string &text, bool hide_window) {
+      auto &variable = (*variables)[index];
       Debug::LLDB::get().select_frame(variable.frame_index, variable.thread_index_id);
       if(!variable.file_path.empty()) {
         if(Notebook::get().open(variable.file_path)) {
@@ -617,15 +615,15 @@ void Project::LLDB::debug_show_variables() {
       self->debug_variable_tooltips.clear();
     };
 
-    SelectionDialog::get()->on_change = [self = this->shared_from_this(), rows, view](boost::optional<unsigned int> index, const std::string &text) {
+    SelectionDialog::get()->on_change = [self = this->shared_from_this(), variables, view](boost::optional<unsigned int> index, const std::string &text) {
       if(!index) {
         self->debug_variable_tooltips.hide();
         return;
       }
       self->debug_variable_tooltips.clear();
 
-      auto set_tooltip_buffer = [rows, index](Tooltip &tooltip) {
-        auto variable = (*rows)[*index];
+      auto set_tooltip_buffer = [variables, index](Tooltip &tooltip) {
+        auto &variable = (*variables)[*index];
 
         Glib::ustring value = variable.get_value();
         if(!value.empty()) {
