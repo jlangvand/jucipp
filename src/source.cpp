@@ -2424,8 +2424,9 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
             forward_to_code(close_element_iter);
             auto close_element_tabs_size = static_cast<size_t>(get_tabs_end_iter(close_element_iter).get_line_offset());
             if(!close_element_iter || close_element_tabs_size < tabs.size() ||
-               (close_element_tabs_size == tabs.size() && *close_element_iter == '<' && close_element_iter.forward_char() && forward_to_code(close_element_iter) &&
-                !(*close_element_iter == '/' && close_element_iter.forward_char() && forward_to_code(close_element_iter) && get_element(close_element_iter) == open_element_token))) {
+               (close_element_tabs_size == tabs.size() && (*close_element_iter == '{' ||
+                                                           (*close_element_iter == '<' && close_element_iter.forward_char() && forward_to_code(close_element_iter) &&
+                                                            !(*close_element_iter == '/' && close_element_iter.forward_char() && forward_to_code(close_element_iter) && get_element(close_element_iter) == open_element_token))))) {
               get_buffer()->insert_at_cursor('\n' + tabs + tab + '\n' + tabs + "</" + open_element_token + '>');
               auto insert_it = get_buffer()->get_insert()->get_iter();
               if(insert_it.backward_chars(tabs.size() + 1 + open_element_token.size() + 3)) {

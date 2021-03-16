@@ -2485,6 +2485,46 @@ int main() {
     }
     {
       buffer->set_text("  test(\n"
+                       "    <div>\n"
+                       "      <div>\n"
+                       "    </div>\n");
+      auto iter = buffer->get_iter_at_line(3);
+      iter.backward_char();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      <div>\n"
+                                     "        \n"
+                                     "      </div>\n"
+                                     "    </div>\n");
+      iter = buffer->get_iter_at_line(4);
+      iter.backward_char();
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
+                       "    <div>\n"
+                       "      <div>\n"
+                       "      {'hello'}\n"
+                       "    </div>\n");
+      auto iter = buffer->get_iter_at_line(3);
+      iter.backward_char();
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == "  test(\n"
+                                     "    <div>\n"
+                                     "      <div>\n"
+                                     "        \n"
+                                     "      </div>\n"
+                                     "      {'hello'}\n"
+                                     "    </div>\n");
+      iter = buffer->get_iter_at_line(4);
+      iter.backward_char();
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
+    {
+      buffer->set_text("  test(\n"
                        "    <div onClick={() => {}}>");
       auto iter = buffer->end();
       buffer->place_cursor(iter);
