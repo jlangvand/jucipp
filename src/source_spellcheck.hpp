@@ -28,9 +28,9 @@ namespace Source {
 
     Glib::RefPtr<Gtk::TextTag> comment_tag;
     Glib::RefPtr<Gtk::TextTag> string_tag;
+    Glib::RefPtr<Gtk::TextTag> no_spellcheck_tag;
 
   private:
-    Glib::RefPtr<Gtk::TextTag> no_spell_check_tag;
     Glib::RefPtr<Gtk::TextTag> spellcheck_error_tag;
 
     sigc::connection signal_tag_added_connection;

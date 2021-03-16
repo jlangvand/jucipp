@@ -206,7 +206,7 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
     else if(tag->property_name() == "gtksourceview:context-classes:string")
       string_tag = tag;
     else if(tag->property_name() == "gtksourceview:context-classes:no-spell-check")
-      no_spell_check_tag = tag;
+      no_spellcheck_tag = tag;
   });
   signal_tag_removed_connection = get_buffer()->get_tag_table()->signal_tag_removed().connect([this](const Glib::RefPtr<Gtk::TextTag> &tag) {
     if(tag->property_name() == "gtksourceview:context-classes:comment")
@@ -214,7 +214,7 @@ Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path,
     else if(tag->property_name() == "gtksourceview:context-classes:string")
       string_tag.reset();
     else if(tag->property_name() == "gtksourceview:context-classes:no-spell-check")
-      no_spell_check_tag.reset();
+      no_spellcheck_tag.reset();
   });
 }
 
@@ -342,8 +342,8 @@ bool Source::SpellCheckView::is_spellcheck_iter(const Gtk::TextIter &iter) {
       return true;
   }
   if(spellcheck_all) {
-    if(no_spell_check_tag) {
-      if(iter.has_tag(no_spell_check_tag) || iter.begins_tag(no_spell_check_tag) || iter.ends_tag(no_spell_check_tag))
+    if(no_spellcheck_tag) {
+      if(iter.has_tag(no_spellcheck_tag) || iter.begins_tag(no_spellcheck_tag) || iter.ends_tag(no_spellcheck_tag))
         return false;
       // workaround for gtksourceview bug
       if(iter.ends_line()) {
@@ -352,7 +352,7 @@ bool Source::SpellCheckView::is_spellcheck_iter(const Gtk::TextIter &iter) {
           if(*previous_iter == '\'' || *previous_iter == '"') {
             auto next_iter = iter;
             next_iter.forward_char();
-            if(next_iter.begins_tag(no_spell_check_tag) || next_iter.is_end())
+            if(next_iter.begins_tag(no_spellcheck_tag) || next_iter.is_end())
               return false;
           }
         }
@@ -360,7 +360,7 @@ bool Source::SpellCheckView::is_spellcheck_iter(const Gtk::TextIter &iter) {
       // for example, mark first " as not spellcheck iter in this case: r""
       if(*iter == '\'' || *iter == '"') {
         auto previous_iter = iter;
-        if(previous_iter.backward_char() && *previous_iter != '\'' && *previous_iter != '\"' && previous_iter.ends_tag(no_spell_check_tag))
+        if(previous_iter.backward_char() && *previous_iter != '\'' && *previous_iter != '\"' && previous_iter.ends_tag(no_spellcheck_tag))
           return false;
       }
     }

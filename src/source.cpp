@@ -1398,19 +1398,17 @@ void Source::View::extend_selection() {
         return tabs;
       };
 
-      // Forward to code iter
-      forward_to_code(start_stored);
-      if(start_stored > end_stored)
-        end_stored = start_stored;
-
       // Forward start to non-empty line
       start = start_stored;
+      forward_to_code(start);
       start = get_buffer()->get_iter_at_line(start.get_line());
-      while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
+      while(!start.is_end() && (*start == ' ' || *start == '\t' || start.ends_line()) && start.forward_char()) {
       }
 
       // Forward end to end of line
       end = end_stored;
+      if(start > end)
+        end = start;
       if(!end.ends_line())
         end.forward_to_line_end();
 
@@ -1482,6 +1480,34 @@ void Source::View::extend_selection() {
           end = get_buffer()->end();
         }
       }
+
+      // Select no_spellcheck_tag block if markdown, and not about to select line
+      if(no_spellcheck_tag && language->get_id() == "markdown" && start_stored.has_tag(no_spellcheck_tag) && end_stored.has_tag(no_spellcheck_tag) &&
+         !(start.starts_line() && end.ends_line() && start.has_tag(no_spellcheck_tag) && end.has_tag(no_spellcheck_tag))) {
+        start = start_stored;
+        end = end_stored;
+        if(!start.starts_tag(no_spellcheck_tag))
+          start.backward_to_tag_toggle(no_spellcheck_tag);
+        if(!end.ends_tag(no_spellcheck_tag))
+          end.forward_to_tag_toggle(no_spellcheck_tag);
+        auto prev = start;
+        while(*start == '`' && start.forward_char()) {
+        }
+        if(start.get_offset() - prev.get_offset() > 1) {
+          start.forward_to_line_end();
+          start.forward_char();
+        }
+        while(end.backward_char() && *end == '`') {
+        }
+        if(!end.ends_line())
+          end.forward_char();
+
+        if(start == start_stored && end == end_stored) {
+          start = get_buffer()->begin();
+          end = get_buffer()->end();
+        }
+      }
+
       get_buffer()->select_range(start, end);
       return;
     }
