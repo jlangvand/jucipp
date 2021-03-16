@@ -1402,7 +1402,7 @@ void Source::View::extend_selection() {
       start = start_stored;
       forward_to_code(start);
       start = get_buffer()->get_iter_at_line(start.get_line());
-      while(!start.is_end() && (*start == ' ' || *start == '\t' || start.ends_line()) && start.forward_char()) {
+      while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
       }
 
       // Forward end to end of line
