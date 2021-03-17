@@ -41,7 +41,7 @@ LanguageProtocol::Location::Location(const boost::property_tree::ptree &pt, std:
 
 LanguageProtocol::Diagnostic::RelatedInformation::RelatedInformation(const boost::property_tree::ptree &pt) : message(pt.get<std::string>("message")), location(pt.get_child("location")) {}
 
-LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) : message(pt.get<std::string>("message")), range(pt.get_child("range")), severity(pt.get<int>("severity", 0)) {
+LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) : message(pt.get<std::string>("message")), range(pt.get_child("range")), severity(pt.get<int>("severity", 0)), code(pt.get<std::string>("code", "")) {
   auto related_information_it = pt.get_child("relatedInformation", boost::property_tree::ptree());
   for(auto it = related_information_it.begin(); it != related_information_it.end(); ++it)
     related_informations.emplace_back(it->second);
@@ -1008,7 +1008,12 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         escape_text(message);
         if(!diagnostics_string.empty())
           diagnostics_string += ',';
-        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + message + "\"}";
+        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + message + "\"";
+        if(diagnostic.severity != 0)
+          diagnostics_string += ",\"severity\":" + std::to_string(diagnostic.severity);
+        if(!diagnostic.code.empty())
+          diagnostics_string += ",\"code\":\"" + diagnostic.code + "\"";
+        diagnostics_string += "}";
       }
       if(diagnostics.size() != 1) { // Use diagnostic range if only one diagnostic, otherwise use whole buffer
         auto start = get_buffer()->begin();

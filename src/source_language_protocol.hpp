@@ -69,7 +69,9 @@ namespace LanguageProtocol {
     Diagnostic(const boost::property_tree::ptree &pt);
     std::string message;
     Range range;
+    /// 1: error, 2: warning, 3: information, 4: hint
     int severity;
+    std::string code;
     std::vector<RelatedInformation> related_informations;
     std::map<std::string, std::set<Source::FixIt>> quickfixes;
   };
