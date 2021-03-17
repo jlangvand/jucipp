@@ -1481,9 +1481,9 @@ void Source::View::extend_selection() {
         }
       }
 
-      // Select no_spellcheck_tag block if markdown, and not about to select line
+      // Select no_spellcheck_tag block if markdown
       if(no_spellcheck_tag && language->get_id() == "markdown" && start_stored.has_tag(no_spellcheck_tag) && end_stored.has_tag(no_spellcheck_tag) &&
-         !(start.starts_line() && end.ends_line() && start.has_tag(no_spellcheck_tag) && end.has_tag(no_spellcheck_tag))) {
+         (!start.has_tag(no_spellcheck_tag) || !end.has_tag(no_spellcheck_tag))) {
         start = start_stored;
         end = end_stored;
         if(!start.starts_tag(no_spellcheck_tag))
