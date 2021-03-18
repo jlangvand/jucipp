@@ -49,6 +49,12 @@ LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) 
 
 LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std::string new_text_) : range(pt.get_child("range")), new_text(new_text_.empty() ? pt.get<std::string>("newText") : std::move(new_text_)) {}
 
+LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const boost::property_tree::ptree &pt) : file(filesystem::get_path_from_uri(pt.get<std::string>("textDocument.uri", "")).string()) {
+  auto edits_it = pt.get_child("edits", boost::property_tree::ptree());
+  for(auto it = edits_it.begin(); it != edits_it.end(); ++it)
+    edits.emplace_back(it->second);
+}
+
 LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
   process = std::make_unique<TinyProcessLib::Process>(
       filesystem::escape_argument(language_id + "-language-server"), root_path.string(),
@@ -774,16 +780,9 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
               }
               else if(auto changes_pt = result.get_child_optional("documentChanges")) {
                 for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
-                  if(auto document = change_it->second.get_child_optional("textDocument")) {
-                    auto file = filesystem::get_path_from_uri(document->get<std::string>("uri", ""));
-                    if(filesystem::file_in_path(file, project_path)) {
-                      std::vector<LanguageProtocol::TextEdit> edits;
-                      auto edits_pt = change_it->second.get_child("edits", boost::property_tree::ptree());
-                      for(auto edit_it = edits_pt.begin(); edit_it != edits_pt.end(); ++edit_it)
-                        edits.emplace_back(edit_it->second);
-                      changes.emplace_back(Changes{file.string(), std::move(edits)});
-                    }
-                  }
+                  LanguageProtocol::TextDocumentEdit text_document_edit(change_it->second);
+                  if(filesystem::file_in_path(text_document_edit.file, project_path))
+                    changes.emplace_back(Changes{std::move(text_document_edit.file), std::move(text_document_edit.edits)});
                 }
               }
             }
@@ -1030,21 +1029,36 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
           if(!error && last_count == update_diagnostics_async_count) {
             try {
               for(auto it = result.begin(); it != result.end(); ++it) {
-                if(it->second.get<std::string>("kind") == "quickfix") {
+                auto kind = it->second.get<std::string>("kind", "");
+                if(kind == "quickfix" || kind.empty()) { // Workaround for typescript-language-server (kind.empty())
                   auto title = it->second.get<std::string>("title");
                   std::vector<LanguageProtocol::Diagnostic> quickfix_diagnostics;
                   if(auto diagnostics_pt = it->second.get_child_optional("diagnostics")) {
                     for(auto it = diagnostics_pt->begin(); it != diagnostics_pt->end(); ++it)
                       quickfix_diagnostics.emplace_back(it->second);
                   }
-                  auto changes = it->second.get_child("edit.changes");
-                  for(auto file_it = changes.begin(); file_it != changes.end(); ++file_it) {
-                    for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
-                      LanguageProtocol::TextEdit edit(edit_it->second);
-                      if(!quickfix_diagnostics.empty()) {
-                        for(auto &diagnostic : diagnostics) {
-                          for(auto &quickfix_diagnostic : quickfix_diagnostics) {
-                            if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                  if(auto changes = it->second.get_child_optional("edit.changes")) {
+                    for(auto file_it = changes->begin(); file_it != changes->end(); ++file_it) {
+                      for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
+                        LanguageProtocol::TextEdit edit(edit_it->second);
+                        if(!quickfix_diagnostics.empty()) {
+                          for(auto &diagnostic : diagnostics) {
+                            for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                              if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                                auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                                pair.first->second.emplace(
+                                    edit.new_text,
+                                    filesystem::get_path_from_uri(file_it->first).string(),
+                                    std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                   Offset(edit.range.end.line, edit.range.end.character)));
+                                break;
+                              }
+                            }
+                          }
+                        }
+                        else { // Workaround for language server that does not report quickfix diagnostics
+                          for(auto &diagnostic : diagnostics) {
+                            if(edit.range.start.line == diagnostic.range.start.line) {
                               auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                               pair.first->second.emplace(
                                   edit.new_text,
@@ -1056,16 +1070,47 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                           }
                         }
                       }
-                      else { // Workaround for language server that does not report quickfix diagnostics
-                        for(auto &diagnostic : diagnostics) {
-                          if(edit.range.start.line == diagnostic.range.start.line) {
-                            auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
-                            pair.first->second.emplace(
-                                edit.new_text,
-                                filesystem::get_path_from_uri(file_it->first).string(),
-                                std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                               Offset(edit.range.end.line, edit.range.end.character)));
-                            break;
+                    }
+                  }
+                  else {
+                    auto changes_pt = it->second.get_child_optional("edit.documentChanges");
+                    if(!changes_pt) { // Workaround for typescript-language-server
+                      if(auto arguments_pt = it->second.get_child_optional("arguments")) {
+                        if(!arguments_pt->empty())
+                          changes_pt = arguments_pt->begin()->second.get_child_optional("documentChanges");
+                      }
+                    }
+                    if(changes_pt) {
+                      for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
+                        LanguageProtocol::TextDocumentEdit text_document_edit(change_it->second);
+                        for(auto &edit : text_document_edit.edits) {
+                          if(!quickfix_diagnostics.empty()) {
+                            for(auto &diagnostic : diagnostics) {
+                              for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                                if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                                  auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                                  pair.first->second.emplace(
+                                      edit.new_text,
+                                      text_document_edit.file,
+                                      std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                     Offset(edit.range.end.line, edit.range.end.character)));
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                          else { // Workaround for language server that does not report quickfix diagnostics
+                            for(auto &diagnostic : diagnostics) {
+                              if(edit.range.start.line == diagnostic.range.start.line) {
+                                auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                                pair.first->second.emplace(
+                                    edit.new_text,
+                                    text_document_edit.file,
+                                    std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
+                                                                   Offset(edit.range.end.line, edit.range.end.character)));
+                                break;
+                              }
+                            }
                           }
                         }
                       }

@@ -83,6 +83,14 @@ namespace LanguageProtocol {
     std::string new_text;
   };
 
+  class TextDocumentEdit {
+  public:
+    TextDocumentEdit(const boost::property_tree::ptree &pt);
+
+    std::string file;
+    std::vector<TextEdit> edits;
+  };
+
   class Capabilities {
   public:
     enum class TextDocumentSync { none = 0,
