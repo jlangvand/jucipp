@@ -273,7 +273,7 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
   stdin_buffer.clear();
 
   auto process = std::make_shared<TinyProcessLib::Process>(
-      command, path.string(),
+      "STDBUF1=L " + command, path.string(),
       [this, quiet](const char *bytes, size_t n) {
         if(!quiet) {
           // Print stdout message sequentially to avoid the GUI becoming unresponsive
