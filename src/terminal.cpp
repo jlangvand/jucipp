@@ -274,17 +274,33 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
 
 #if !defined(__APPLE__) && !defined(_WIN32)
   static auto stdbuf = filesystem::find_executable("stdbuf").string();
+
+  std::string cd_path_and_command;
+  if(!path.empty()) {
+    auto path_escaped = path.string();
+    size_t pos = 0;
+    // Based on https://www.reddit.com/r/cpp/comments/3vpjqg/a_new_platform_independent_process_library_for_c11/cxsxyb7
+    while((pos = path_escaped.find('\'', pos)) != std::string::npos) {
+      path_escaped.replace(pos, 1, "'\\''");
+      pos += 4;
+    }
+    cd_path_and_command = "cd '" + path_escaped + "' && " + command; // To avoid resolving symbolic links
+  }
+  else
+    cd_path_and_command = command;
 #endif
 
   auto process = std::make_shared<TinyProcessLib::Process>(
 #if defined(__APPLE__)
       "STDBUF1=L " + command,
+      path.string(),
 #elif defined(_WIN32)
       command,
-#else
-      !stdbuf.empty() ? std::vector<std::string>{stdbuf, "-oL", "/bin/sh", "-c", command} : std::vector<std::string>{"/bin/sh", "-c", command},
-#endif
       path.string(),
+#else
+      !stdbuf.empty() ? std::vector<std::string>{stdbuf, "-oL", "/bin/sh", "-c", cd_path_and_command} : std::vector<std::string>{"/bin/sh", "-c", cd_path_and_command},
+      "",
+#endif
       [this, quiet](const char *bytes, size_t n) {
         if(!quiet) {
           // Print stdout message sequentially to avoid the GUI becoming unresponsive
