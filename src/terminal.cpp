@@ -272,8 +272,19 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
     scroll_to_bottom();
   stdin_buffer.clear();
 
+#if !defined(__APPLE__) && !defined(_WIN32)
+  static auto stdbuf = filesystem::find_executable("stdbuf").string();
+#endif
+
   auto process = std::make_shared<TinyProcessLib::Process>(
-      "STDBUF1=L " + command, path.string(),
+#if defined(__APPLE__)
+      "STDBUF1=L " + command,
+#elif defined(_WIN32)
+      command,
+#else
+      !stdbuf.empty() ? std::vector<std::string>{stdbuf, "-oL", "/bin/sh", "-c", command} : std::vector<std::string>{"/bin/sh", "-c", command},
+#endif
+      path.string(),
       [this, quiet](const char *bytes, size_t n) {
         if(!quiet) {
           // Print stdout message sequentially to avoid the GUI becoming unresponsive
