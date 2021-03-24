@@ -64,24 +64,24 @@ bool Meson::update_default_build(const boost::filesystem::path &default_build_pa
   Dialog::Message message("Creating/updating default build", [&canceled] {
     canceled = true;
   });
-  std::promise<int> promise;
+  boost::optional<int> exit_status;
   auto process = Terminal::get().async_process(Config::get().project.meson.command + ' ' + (compile_commands_exists ? "--internal regenerate " : "") + "--buildtype plain " + filesystem::escape_argument(project_path.string()),
                                                default_build_path,
-                                               [&promise](int exit_status) {
-                                                 promise.set_value(exit_status);
+                                               [&exit_status](int exit_status_) {
+                                                 exit_status = exit_status_;
                                                });
-  auto future = promise.get_future();
   bool killed = false;
-  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+  while(!exit_status) {
     if(canceled && !killed) {
       process->kill();
       killed = true;
     }
     while(Gtk::Main::events_pending())
       Gtk::Main::iteration();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   message.hide();
-  return future.get() == 0;
+  return exit_status == 0;
 }
 
 bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, bool force) {
@@ -106,24 +106,24 @@ bool Meson::update_debug_build(const boost::filesystem::path &debug_build_path, 
   Dialog::Message message("Creating/updating debug build", [&canceled] {
     canceled = true;
   });
-  std::promise<int> promise;
+  boost::optional<int> exit_status;
   auto process = Terminal::get().async_process(Config::get().project.meson.command + ' ' + (compile_commands_exists ? "--internal regenerate " : "") + "--buildtype debug " + filesystem::escape_argument(project_path.string()),
                                                debug_build_path,
-                                               [&promise](int exit_status) {
-                                                 promise.set_value(exit_status);
+                                               [&exit_status](int exit_status_) {
+                                                 exit_status = exit_status_;
                                                });
-  auto future = promise.get_future();
   bool killed = false;
-  while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+  while(!exit_status) {
     if(canceled && !killed) {
       process->kill();
       killed = true;
     }
     while(Gtk::Main::events_pending())
       Gtk::Main::iteration();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   message.hide();
-  return future.get() == 0;
+  return exit_status == 0;
 }
 
 boost::filesystem::path Meson::get_executable(const boost::filesystem::path &build_path, const boost::filesystem::path &file_path) {

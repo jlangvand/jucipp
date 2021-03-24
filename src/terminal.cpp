@@ -337,7 +337,7 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
     processes.emplace_back(process);
   }
 
-  std::thread exit_status_thread([this, process, pid, callback = std::move(callback)]() {
+  std::thread([this, process, pid, callback = std::move(callback)]() mutable {
     auto exit_status = process->get_exit_status();
     {
       LockGuard lock(processes_mutex);
@@ -348,10 +348,12 @@ std::shared_ptr<TinyProcessLib::Process> Terminal::async_process(const std::stri
         }
       }
     }
-    if(callback)
-      callback(exit_status);
-  });
-  exit_status_thread.detach();
+    if(callback) {
+      dispatcher.post([callback = std::move(callback), exit_status] {
+        callback(exit_status);
+      });
+    }
+  }).detach();
 
   return process;
 }

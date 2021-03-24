@@ -1391,7 +1391,7 @@ void Window::set_menu_actions() {
             Terminal::get().async_print("\e[2mRunning: " + content + "\e[m\n");
 
             Terminal::get().async_process(content, directory_folder, [content](int exit_status) {
-              Terminal::get().async_print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+              Terminal::get().print("\e[2m" + content + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
             });
           }
           if(Config::get().terminal.hide_entry_on_run_command)

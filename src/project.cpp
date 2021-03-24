@@ -386,109 +386,107 @@ void Project::LLDB::debug_start() {
     if(exit_status != EXIT_SUCCESS)
       debugging = false;
     else {
-      self->dispatcher.post([self, run_arguments, project_path] {
-        std::vector<std::pair<boost::filesystem::path, int>> breakpoints;
-        for(size_t c = 0; c < Notebook::get().size(); c++) {
-          auto view = Notebook::get().get_view(c);
-          if(filesystem::file_in_path(view->file_path, *project_path)) {
-            auto iter = view->get_buffer()->begin();
-            if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size() > 0)
-              breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
-            while(view->get_source_buffer()->forward_iter_to_source_mark(iter, "debug_breakpoint"))
-              breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
-          }
+      std::vector<std::pair<boost::filesystem::path, int>> breakpoints;
+      for(size_t c = 0; c < Notebook::get().size(); c++) {
+        auto view = Notebook::get().get_view(c);
+        if(filesystem::file_in_path(view->file_path, *project_path)) {
+          auto iter = view->get_buffer()->begin();
+          if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size() > 0)
+            breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
+          while(view->get_source_buffer()->forward_iter_to_source_mark(iter, "debug_breakpoint"))
+            breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
         }
+      }
 
-        std::string remote_host;
-        auto debug_run_arguments_it = debug_run_arguments.find(project_path->string());
-        if(debug_run_arguments_it != debug_run_arguments.end() && debug_run_arguments_it->second.remote_enabled)
-          remote_host = debug_run_arguments_it->second.remote_host_port;
+      std::string remote_host;
+      auto debug_run_arguments_it = debug_run_arguments.find(project_path->string());
+      if(debug_run_arguments_it != debug_run_arguments.end() && debug_run_arguments_it->second.remote_enabled)
+        remote_host = debug_run_arguments_it->second.remote_host_port;
 
-        static auto on_exit_it = Debug::LLDB::get().on_exit.end();
-        if(on_exit_it != Debug::LLDB::get().on_exit.end())
-          Debug::LLDB::get().on_exit.erase(on_exit_it);
-        Debug::LLDB::get().on_exit.emplace_back([self, run_arguments](int exit_status) {
-          debugging = false;
-          Terminal::get().async_print("\e[2m" + *run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
-          self->dispatcher.post([] {
-            debug_update_status("");
-          });
+      static auto on_exit_it = Debug::LLDB::get().on_exit.end();
+      if(on_exit_it != Debug::LLDB::get().on_exit.end())
+        Debug::LLDB::get().on_exit.erase(on_exit_it);
+      Debug::LLDB::get().on_exit.emplace_back([self, run_arguments](int exit_status) {
+        debugging = false;
+        Terminal::get().async_print("\e[2m" + *run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        self->dispatcher.post([] {
+          debug_update_status("");
         });
-        on_exit_it = std::prev(Debug::LLDB::get().on_exit.end());
-
-        static auto on_event_it = Debug::LLDB::get().on_event.end();
-        if(on_event_it != Debug::LLDB::get().on_event.end())
-          Debug::LLDB::get().on_event.erase(on_event_it);
-        Debug::LLDB::get().on_event.emplace_back([self](const lldb::SBEvent &event) {
-          std::string status;
-          boost::filesystem::path stop_path;
-          unsigned stop_line = 0, stop_column = 0;
-
-          LockGuard lock(Debug::LLDB::get().mutex);
-          auto process = lldb::SBProcess::GetProcessFromEvent(event);
-          auto state = lldb::SBProcess::GetStateFromEvent(event);
-          lldb::SBStream stream;
-          event.GetDescription(stream);
-          std::string event_desc = stream.GetData();
-          event_desc.pop_back();
-          auto pos = event_desc.rfind(" = ");
-          if(pos != std::string::npos && pos + 3 < event_desc.size())
-            status = event_desc.substr(pos + 3);
-          if(state == lldb::StateType::eStateStopped) {
-            char buffer[100];
-            auto thread = process.GetSelectedThread();
-            auto n = thread.GetStopDescription(buffer, 100); // Returns number of bytes read. Might include null termination... Although maybe on newer versions only.
-            if(n > 0)
-              status += " (" + std::string(buffer, n <= 100 ? (buffer[n - 1] == '\0' ? n - 1 : n) : 100) + ")";
-            auto line_entry = thread.GetSelectedFrame().GetLineEntry();
-            if(line_entry.IsValid()) {
-              lldb::SBStream stream;
-              line_entry.GetFileSpec().GetDescription(stream);
-              auto line = line_entry.GetLine();
-              status += " " + boost::filesystem::path(stream.GetData()).filename().string() + ":" + std::to_string(line);
-              auto column = line_entry.GetColumn();
-              if(column == 0)
-                column = 1;
-              stop_path = filesystem::get_normal_path(stream.GetData());
-              stop_line = line - 1;
-              stop_column = column - 1;
-            }
-          }
-
-          self->dispatcher.post([status = std::move(status), stop_path = std::move(stop_path), stop_line, stop_column] {
-            debug_update_status(status);
-            Project::debug_stop.first = stop_path;
-            Project::debug_stop.second.first = stop_line;
-            Project::debug_stop.second.second = stop_column;
-            debug_update_stop();
-
-            if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
-              if(Notebook::get().open(stop_path)) {
-                auto view = Notebook::get().get_current_view();
-                view->place_cursor_at_line_index(stop_line, stop_column);
-                view->scroll_to_cursor_delayed(true, false);
-              }
-            }
-            else if(auto view = Notebook::get().get_current_view())
-              view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
-          });
-        });
-        on_event_it = std::prev(Debug::LLDB::get().on_event.end());
-
-        std::vector<std::string> startup_commands;
-        if(dynamic_cast<CargoBuild *>(self->build.get())) {
-          std::stringstream istream, ostream;
-          if(Terminal::get().process(istream, ostream, "rustc --print sysroot") == 0) {
-            auto sysroot = ostream.str();
-            while(!sysroot.empty() && (sysroot.back() == '\n' || sysroot.back() == '\r'))
-              sysroot.pop_back();
-            startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_rust_formatters.py\"");
-            startup_commands.emplace_back("type summary add --no-value --python-function lldb_rust_formatters.print_val -x \".*\" --category Rust");
-            startup_commands.emplace_back("type category enable Rust");
-          }
-        }
-        Debug::LLDB::get().start(*run_arguments, *project_path, breakpoints, startup_commands, remote_host);
       });
+      on_exit_it = std::prev(Debug::LLDB::get().on_exit.end());
+
+      static auto on_event_it = Debug::LLDB::get().on_event.end();
+      if(on_event_it != Debug::LLDB::get().on_event.end())
+        Debug::LLDB::get().on_event.erase(on_event_it);
+      Debug::LLDB::get().on_event.emplace_back([self](const lldb::SBEvent &event) {
+        std::string status;
+        boost::filesystem::path stop_path;
+        unsigned stop_line = 0, stop_column = 0;
+
+        LockGuard lock(Debug::LLDB::get().mutex);
+        auto process = lldb::SBProcess::GetProcessFromEvent(event);
+        auto state = lldb::SBProcess::GetStateFromEvent(event);
+        lldb::SBStream stream;
+        event.GetDescription(stream);
+        std::string event_desc = stream.GetData();
+        event_desc.pop_back();
+        auto pos = event_desc.rfind(" = ");
+        if(pos != std::string::npos && pos + 3 < event_desc.size())
+          status = event_desc.substr(pos + 3);
+        if(state == lldb::StateType::eStateStopped) {
+          char buffer[100];
+          auto thread = process.GetSelectedThread();
+          auto n = thread.GetStopDescription(buffer, 100); // Returns number of bytes read. Might include null termination... Although maybe on newer versions only.
+          if(n > 0)
+            status += " (" + std::string(buffer, n <= 100 ? (buffer[n - 1] == '\0' ? n - 1 : n) : 100) + ")";
+          auto line_entry = thread.GetSelectedFrame().GetLineEntry();
+          if(line_entry.IsValid()) {
+            lldb::SBStream stream;
+            line_entry.GetFileSpec().GetDescription(stream);
+            auto line = line_entry.GetLine();
+            status += " " + boost::filesystem::path(stream.GetData()).filename().string() + ":" + std::to_string(line);
+            auto column = line_entry.GetColumn();
+            if(column == 0)
+              column = 1;
+            stop_path = filesystem::get_normal_path(stream.GetData());
+            stop_line = line - 1;
+            stop_column = column - 1;
+          }
+        }
+
+        self->dispatcher.post([status = std::move(status), stop_path = std::move(stop_path), stop_line, stop_column] {
+          debug_update_status(status);
+          Project::debug_stop.first = stop_path;
+          Project::debug_stop.second.first = stop_line;
+          Project::debug_stop.second.second = stop_column;
+          debug_update_stop();
+
+          if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
+            if(Notebook::get().open(stop_path)) {
+              auto view = Notebook::get().get_current_view();
+              view->place_cursor_at_line_index(stop_line, stop_column);
+              view->scroll_to_cursor_delayed(true, false);
+            }
+          }
+          else if(auto view = Notebook::get().get_current_view())
+            view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
+        });
+      });
+      on_event_it = std::prev(Debug::LLDB::get().on_event.end());
+
+      std::vector<std::string> startup_commands;
+      if(dynamic_cast<CargoBuild *>(self->build.get())) {
+        std::stringstream istream, ostream;
+        if(Terminal::get().process(istream, ostream, "rustc --print sysroot") == 0) {
+          auto sysroot = ostream.str();
+          while(!sysroot.empty() && (sysroot.back() == '\n' || sysroot.back() == '\r'))
+            sysroot.pop_back();
+          startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_rust_formatters.py\"");
+          startup_commands.emplace_back("type summary add --no-value --python-function lldb_rust_formatters.print_val -x \".*\" --category Rust");
+          startup_commands.emplace_back("type category enable Rust");
+        }
+      }
+      Debug::LLDB::get().start(*run_arguments, *project_path, breakpoints, startup_commands, remote_host);
     }
   });
 }
@@ -893,7 +891,7 @@ void Project::Clang::compile_and_run() {
     compiling = false;
     if(exit_status == 0) {
       Terminal::get().async_process(arguments, project_path, [arguments](int exit_status) {
-        Terminal::get().async_print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        Terminal::get().print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });
@@ -973,7 +971,7 @@ void Project::Markdown::compile_and_run() {
     Terminal::get().async_process(
         command, "", [command](int exit_status) {
           if(exit_status == 127)
-            Terminal::get().async_print("\e[31mError\e[m: executable not found: " + command + "\n", true);
+            Terminal::get().print("\e[31mError\e[m: executable not found: " + command + "\n", true);
         },
         true);
   }
@@ -1001,7 +999,7 @@ void Project::Python::compile_and_run() {
 
   Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1027,7 +1025,7 @@ void Project::JavaScript::compile_and_run() {
 
   Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
-    Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }
 
@@ -1040,7 +1038,7 @@ void Project::HTML::compile_and_run() {
 
     Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
     Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
-      Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+      Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
     });
   }
   else if(auto view = Notebook::get().get_current_view())
@@ -1088,7 +1086,7 @@ void Project::Rust::compile_and_run() {
     compiling = false;
     if(exit_status == 0) {
       Terminal::get().async_process(arguments, self->build->project_path, [arguments](int exit_status) {
-        Terminal::get().async_print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        Terminal::get().print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
   });

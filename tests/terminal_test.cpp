@@ -281,68 +281,68 @@ int main() {
   // async_process tests
   {
     terminal.clear();
-    std::promise<int> done;
-    terminal.async_process("echo test", "", [&done](int exit_status) {
-      done.set_value(exit_status);
+    boost::optional<int> exit_status;
+    terminal.async_process("echo test", "", [&exit_status](int exit_status_) {
+      exit_status = exit_status_;
     });
-    auto future = done.get_future();
-    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(!exit_status) {
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    assert(future.get() == 0);
+    assert(exit_status == 0);
     assert(buffer->get_text() == "test\n");
     assert(!buffer->begin().starts_tag(terminal.bold_tag));
     assert(!buffer->end().ends_tag(terminal.bold_tag));
   }
   {
     terminal.clear();
-    std::promise<int> done;
+    boost::optional<int> exit_status;
     terminal.async_process(
-        "echo test", "", [&done](int exit_status) {
-          done.set_value(exit_status);
+        "echo test", "", [&exit_status](int exit_status_) {
+          exit_status = exit_status_;
         },
         true);
-    auto future = done.get_future();
-    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(!exit_status) {
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    assert(future.get() == 0);
+    assert(exit_status == 0);
     assert(buffer->get_text() == "");
   }
   {
     terminal.clear();
-    std::promise<int> done;
-    terminal.async_process("testing_invalid_command", "", [&done](int exit_status) {
-      done.set_value(exit_status);
+    boost::optional<int> exit_status;
+    terminal.async_process("testing_invalid_command", "", [&exit_status](int exit_status_) {
+      exit_status = exit_status_;
     });
-    auto future = done.get_future();
-    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(!exit_status) {
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    assert(future.get() != 0);
+    assert(exit_status != 0);
     assert(buffer->begin().starts_tag(terminal.bold_tag));
     assert(buffer->end().ends_tag(terminal.bold_tag));
     assert(buffer->get_text() != "");
   }
   {
     terminal.clear();
-    std::promise<int> done;
+    boost::optional<int> exit_status;
     terminal.async_process(
-        "testing_invalid_command", "", [&done](int exit_status) {
-          done.set_value(exit_status);
+        "testing_invalid_command", "", [&exit_status](int exit_status_) {
+          exit_status = exit_status_;
         },
         true);
-    auto future = done.get_future();
-    while(future.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+    while(!exit_status) {
       while(Gtk::Main::events_pending())
         Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    assert(future.get() != 0);
+    assert(exit_status != 0);
     assert(buffer->get_text() == "");
   }
 
