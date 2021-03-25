@@ -32,7 +32,7 @@ namespace Debug {
 
   private:
     LLDB();
-    void destroy_();
+    void destroy_() EXCLUDES(mutex);
 
     static bool initialized;
 
@@ -58,32 +58,32 @@ namespace Debug {
 
     void start(const std::string &command, const boost::filesystem::path &path = "",
                const std::vector<std::pair<boost::filesystem::path, int>> &breakpoints = {},
-               const std::vector<std::string> &startup_commands = {}, const std::string &remote_host = "");
-    void continue_debug(); //can't use continue as function name
-    void stop();
-    void kill();
-    void step_over();
-    void step_into();
-    void step_out();
-    std::pair<std::string, std::string> run_command(const std::string &command);
-    std::vector<Frame> get_backtrace();
-    std::vector<Variable> get_variables();
-    void select_frame(uint32_t frame_index, uint32_t thread_index_id = 0);
+               const std::vector<std::string> &startup_commands = {}, const std::string &remote_host = "") EXCLUDES(mutex);
+    void continue_debug() EXCLUDES(mutex); //can't use continue as function name
+    void stop() EXCLUDES(mutex);
+    void kill() EXCLUDES(mutex);
+    void step_over() EXCLUDES(mutex);
+    void step_into() EXCLUDES(mutex);
+    void step_out() EXCLUDES(mutex);
+    std::pair<std::string, std::string> run_command(const std::string &command) EXCLUDES(mutex);
+    std::vector<Frame> get_backtrace() EXCLUDES(mutex);
+    std::vector<Variable> get_variables() EXCLUDES(mutex);
+    void select_frame(uint32_t frame_index, uint32_t thread_index_id = 0) EXCLUDES(mutex);
 
     /// Get value using variable name and location
-    std::string get_value(const std::string &variable_name, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);
+    std::string get_value(const std::string &variable_name, const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index) EXCLUDES(mutex);
     /// Get value from expression
-    std::string get_value(const std::string &expression);
-    std::string get_return_value(const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index);
+    std::string get_value(const std::string &expression) EXCLUDES(mutex);
+    std::string get_return_value(const boost::filesystem::path &file_path, unsigned int line_nr, unsigned int line_index) EXCLUDES(mutex);
 
-    bool is_invalid();
-    bool is_stopped();
-    bool is_running();
+    bool is_invalid() EXCLUDES(mutex);
+    bool is_stopped() EXCLUDES(mutex);
+    bool is_running() EXCLUDES(mutex);
 
-    void add_breakpoint(const boost::filesystem::path &file_path, int line_nr);
-    void remove_breakpoint(const boost::filesystem::path &file_path, int line_nr, int line_count);
+    void add_breakpoint(const boost::filesystem::path &file_path, int line_nr) EXCLUDES(mutex);
+    void remove_breakpoint(const boost::filesystem::path &file_path, int line_nr, int line_count) EXCLUDES(mutex);
 
-    void write(const std::string &buffer);
+    void write(const std::string &buffer) EXCLUDES(mutex);
 
   private:
     std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> parse_run_arguments(const std::string &command);
