@@ -12,7 +12,7 @@ Install language server, and create executable to enable server in juCi++:
 ```sh
 npm install -g flow-bin
 
-# usually as root:
+# Usually as root:
 echo '#!/bin/sh
 flow lsp' > /usr/local/bin/javascript-language-server
 chmod 755 /usr/local/bin/javascript-language-server
@@ -31,7 +31,7 @@ Install language server, and create executable to enable server in juCi++:
 ```sh
 npm install -g typescript-language-server typescript
 
-# usually as root:
+# Usually as root:
 echo '#!/bin/sh
 `npm root -g`/typescript-language-server/lib/cli.js --stdio' > /usr/local/bin/javascript-language-server
 chmod 755 /usr/local/bin/javascript-language-server
@@ -46,13 +46,12 @@ cp /usr/local/bin/javascript-language-server /usr/local/bin/typescriptreact-lang
 ## Python3
 * Prerequisites:
     * Python3
-    * In juCi++ preferences, set `project.python_command` to `PYTHONUNBUFFERED=1 python3`
 
 Install language server, and create symbolic link to enable server in juCi++:
 ```sh
 pip3 install python-language-server[rope,pycodestyle,yapf]
 
-# usually as root:
+# Usually as root:
 ln -s `which pyls` /usr/local/bin/python-language-server
 ```
 
@@ -72,7 +71,7 @@ git clone https://github.com/rust-analyzer/rust-analyzer
 cd rust-analyzer
 cargo xtask install --server
 
-# usually as root:
+# Usually as root:
 ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 ```
 
@@ -88,7 +87,7 @@ mkdir build
 cd build
 cmake ..
 make
-# usually as root:
+# Usually as root:
 make install
 echo '#!/bin/sh
 /usr/local/bin/glslls --stdin' > /usr/local/bin/glsl-language-server
