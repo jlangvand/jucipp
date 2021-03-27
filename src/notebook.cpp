@@ -174,8 +174,30 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     source_views.emplace_back(new Source::ClangView(file_path, language));
   else if(language && !language_protocol_language_id.empty() && !filesystem::find_executable(language_protocol_language_id + "-language-server").empty())
     source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id));
-  else
+  else {
+    if(language) {
+      static std::set<std::string> shown;
+      std::string language_id = language->get_id();
+      if(shown.find(language_id) == shown.end()) {
+        if(language_id == "js") {
+          Terminal::get().print("\e[33mWarning\e[m: Could not find JavaScript/TypeScript language server.\n");
+          Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#javascripttypescript.\n");
+          shown.emplace(language_id);
+        }
+        else if(language_id == "python") {
+          Terminal::get().print("\e[33mWarning\e[m: Could not find Python language server.\n");
+          Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#python3.\n");
+          shown.emplace(language_id);
+        }
+        else if(language_id == "rust") {
+          Terminal::get().print("\e[33mWarning\e[m: Could not find Rust language server.\n");
+          Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
+          shown.emplace(language_id);
+        }
+      }
+    }
     source_views.emplace_back(new Source::GenericView(file_path, language));
+  }
 
   auto view = source_views.back();
 

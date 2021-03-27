@@ -1,6 +1,8 @@
 # Setup of tested language servers
 
-## JavaScript with Flow static type checker
+## JavaScript/TypeScript
+
+### JavaScript with Flow static type checker
 * Prerequisites:
     * Node.js
 * Recommended:
@@ -19,7 +21,7 @@ chmod 755 /usr/local/bin/javascript-language-server
 * Additional setup within a JavaScript project:
     * Add a `.prettierrc` file to enable style format on save
 
-## TypeScript or JavaScript without Flow
+### TypeScript or JavaScript without Flow
 * Prerequisites:
     * Node.js
 * Recommended:
