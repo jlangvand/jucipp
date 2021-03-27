@@ -35,6 +35,7 @@ public:
 
   static const std::vector<boost::filesystem::path> &get_executable_search_paths();
 
+  /// Returns full executable path if found, or empty path otherwise.
   static boost::filesystem::path find_executable(const std::string &executable_name);
 
   /// Get uri from path
