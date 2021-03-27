@@ -180,17 +180,17 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
       std::string language_id = language->get_id();
       if(shown.find(language_id) == shown.end()) {
         if(language_id == "js") {
-          Terminal::get().print("\e[33mWarning\e[m: Could not find JavaScript/TypeScript language server.\n");
+          Terminal::get().print("\e[33mWarning\e[m: could not find JavaScript/TypeScript language server.\n");
           Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#javascripttypescript.\n");
           shown.emplace(language_id);
         }
         else if(language_id == "python") {
-          Terminal::get().print("\e[33mWarning\e[m: Could not find Python language server.\n");
+          Terminal::get().print("\e[33mWarning\e[m: could not find Python language server.\n");
           Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#python3.\n");
           shown.emplace(language_id);
         }
         else if(language_id == "rust") {
-          Terminal::get().print("\e[33mWarning\e[m: Could not find Rust language server.\n");
+          Terminal::get().print("\e[33mWarning\e[m: could not find Rust language server.\n");
           Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
           shown.emplace(language_id);
         }
