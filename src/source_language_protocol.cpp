@@ -863,7 +863,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           changes_renamed.emplace_back(change);
         }
         else
-          Terminal::get().print("\e[31mError\e[m: could not write to file " + change->file + '\n', true);
+          Terminal::get().print("\e[31mError\e[m: could not write to file " + filesystem::get_short_path(change->file).string() + '\n', true);
       }
 
       for(auto &pair : changes_in_opened_files) {

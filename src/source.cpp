@@ -421,7 +421,7 @@ bool Source::View::save() {
     }
   }
   catch(const Glib::Error &error) {
-    Terminal::get().print("\e[31mError\e[m: Could not save file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
+    Terminal::get().print("\e[31mError\e[m: could not save file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
     return false;
   }
 

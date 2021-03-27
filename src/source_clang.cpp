@@ -196,7 +196,7 @@ void Source::ClangViewParse::parse_initialize() {
           parse_state = ParseState::stop;
           parse_mutex.unlock();
           dispatcher.post([this] {
-            Terminal::get().print("\e[31mError\e[m: failed to reparse " + filesystem::get_short_path(this->file_path).string() + ".\n", true);
+            Terminal::get().print("\e[31mError\e[m: failed to reparse " + filesystem::get_short_path(this->file_path).string() + "\n", true);
             status_state = "";
             if(update_status_state)
               update_status_state(this);

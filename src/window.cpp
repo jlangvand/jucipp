@@ -293,7 +293,7 @@ void Window::set_menu_actions() {
     if(!path.empty()) {
       boost::system::error_code ec;
       if(boost::filesystem::exists(path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(path).string() + " already exists\n", true);
       }
       else {
         if(filesystem::write(path)) {
@@ -302,10 +302,9 @@ void Window::set_menu_actions() {
           Notebook::get().open(path);
           if(!Directories::get().path.empty())
             Directories::get().on_save_file(path);
-          Terminal::get().print("New file " + path.string() + " created.\n");
         }
         else
-          Terminal::get().print("\e[31mError\e[m: could not create new file " + path.string() + ".\n", true);
+          Terminal::get().print("\e[31mError\e[m: could not create new file " + filesystem::get_short_path(path).string() + "\n", true);
       }
     }
   });
@@ -320,10 +319,9 @@ void Window::set_menu_actions() {
           Directories::get().update();
         else
           Directories::get().open(path);
-        Terminal::get().print("New folder " + path.string() + " created.\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: " + path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(path).string() + " already exists\n", true);
       Directories::get().select(path);
     }
   });
@@ -347,22 +345,22 @@ void Window::set_menu_actions() {
         build_config = "project('" + project_name + "', 'c')\n\nadd_project_arguments('-std=c11', '-Wall', '-Wextra', language: 'c')\n\nexecutable('" + project_name + "', 'main.c')\n";
       }
       else {
-        Terminal::get().print("\e[31mError\e[m: build management system " + Config::get().project.default_build_management_system + " not supported.\n", true);
+        Terminal::get().print("\e[31mError\e[m: build management system " + Config::get().project.default_build_management_system + " not supported\n", true);
         return;
       }
       auto c_main_path = project_path / "main.c";
       auto clang_format_path = project_path / ".clang-format";
       boost::system::error_code ec;
       if(boost::filesystem::exists(build_config_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + build_config_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(build_config_path).string() + " already exists\n", true);
         return;
       }
       if(boost::filesystem::exists(c_main_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + c_main_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(c_main_path).string() + " already exists\n", true);
         return;
       }
       if(boost::filesystem::exists(clang_format_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + clang_format_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(clang_format_path).string() + " already exists\n", true);
         return;
       }
       std::string c_main = "#include <stdio.h>\n\nint main() {\n  printf(\"Hello World!\\n\");\n}\n";
@@ -371,10 +369,10 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(c_main_path);
         Directories::get().update();
-        Terminal::get().print("C project " + project_name + " \e[32mcreated\e[m.\n");
+        Terminal::get().print("C project " + project_name + " \e[32mcreated\e[m\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: Could not create project " + project_path.string() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
   menu.add_action("file_new_project_cpp", []() {
@@ -397,22 +395,22 @@ void Window::set_menu_actions() {
         build_config = "project('" + project_name + "', 'cpp')\n\nadd_project_arguments('-std=c++1y', '-Wall', '-Wextra', language: 'cpp')\n\nexecutable('" + project_name + "', 'main.cpp')\n";
       }
       else {
-        Terminal::get().print("\e[31mError\e[m: build management system " + Config::get().project.default_build_management_system + " not supported.\n", true);
+        Terminal::get().print("\e[31mError\e[m: build management system " + Config::get().project.default_build_management_system + " not supported\n", true);
         return;
       }
       auto cpp_main_path = project_path / "main.cpp";
       auto clang_format_path = project_path / ".clang-format";
       boost::system::error_code ec;
       if(boost::filesystem::exists(build_config_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + build_config_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(build_config_path).string() + " already exists\n", true);
         return;
       }
       if(boost::filesystem::exists(cpp_main_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + cpp_main_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(cpp_main_path).string() + " already exists\n", true);
         return;
       }
       if(boost::filesystem::exists(clang_format_path, ec)) {
-        Terminal::get().print("\e[31mError\e[m: " + clang_format_path.string() + " already exists.\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(clang_format_path).string() + " already exists\n", true);
         return;
       }
       std::string cpp_main = "#include <iostream>\n\nint main() {\n  std::cout << \"Hello World!\\n\";\n}\n";
@@ -421,10 +419,10 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(cpp_main_path);
         Directories::get().update();
-        Terminal::get().print("C++ project " + project_name + " \e[32mcreated\e[m.\n");
+        Terminal::get().print("C++ project " + project_name + " \e[32mcreated\e[m\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: Could not create project " + project_path.string() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
 
@@ -448,13 +446,13 @@ void Window::set_menu_actions() {
       if(boost::filesystem::exists(view->file_path, ec)) {
         std::ifstream can_read(view->file_path.string());
         if(!can_read) {
-          Terminal::get().print("\e[31mError\e[m: could not read " + view->file_path.string() + "\n", true);
+          Terminal::get().print("\e[31mError\e[m: could not read " + filesystem::get_short_path(view->file_path).string() + "\n", true);
           return;
         }
         can_read.close();
       }
       else {
-        Terminal::get().print("\e[31mError\e[m: " + view->file_path.string() + " does not exist\n", true);
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(view->file_path).string() + " does not exist\n", true);
         return;
       }
 
@@ -487,10 +485,9 @@ void Window::set_menu_actions() {
           if(!Directories::get().path.empty())
             Directories::get().update();
           Notebook::get().open(path);
-          Terminal::get().print("File saved to: " + filesystem::get_short_path(filesystem::get_normal_path(path)).string() + "\n");
         }
         else
-          Terminal::get().print("Error saving file\n", true);
+          Terminal::get().print("\e[31mError\e[m: could not save file " + filesystem::get_short_path(path).string() + '\n', true);
       }
     }
   });

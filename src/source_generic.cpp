@@ -31,7 +31,7 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
         boost::property_tree::xml_parser::read_xml(language_file.string(), pt);
       }
       catch(const std::exception &e) {
-        Terminal::get().print("\e[31mError\e[m: error parsing language file " + language_file.string() + ": " + e.what() + '\n', true);
+        Terminal::get().print("\e[31mError\e[m: error parsing language file " + filesystem::get_short_path(language_file).string() + ": " + e.what() + '\n', true);
       }
       bool has_context_class = false;
       parse_language_file(has_context_class, pt);

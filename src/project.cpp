@@ -366,7 +366,7 @@ void Project::LLDB::debug_start() {
         Terminal::get().print("\e[31mError\e[m: build folder no longer valid, please rebuild project.\n", true);
       else {
         Terminal::get().print("\e[33mWarning\e[m: could not find executable.\n");
-        Terminal::get().print("\e[32mSolution\e[m: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+        Terminal::get().print("Either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
       }
       return;
     }
@@ -874,7 +874,7 @@ void Project::Clang::compile_and_run() {
         Terminal::get().print("\e[31mError\e[m: build folder no longer valid, please rebuild project.\n", true);
       else {
         Terminal::get().print("\e[33mWarning\e[m: could not find executable.\n");
-        Terminal::get().print("\e[32mSolution\e[m: either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
+        Terminal::get().print("Either use Project Set Run Arguments, or open a source file within a directory where an executable is defined.\n");
       }
       return;
     }
