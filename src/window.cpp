@@ -371,7 +371,7 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(c_main_path);
         Directories::get().update();
-        Terminal::get().print("C project " + project_name + " created.\n");
+        Terminal::get().print("\e[32mC project " + project_name + " created.\e[m\n");
       }
       else
         Terminal::get().print("\e[31mError\e[m: Could not create project " + project_path.string() + "\n", true);
@@ -421,7 +421,7 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(cpp_main_path);
         Directories::get().update();
-        Terminal::get().print("C++ project " + project_name + " created.\n");
+        Terminal::get().print("\e[32mC++ project " + project_name + " created.\e[m\n");
       }
       else
         Terminal::get().print("\e[31mError\e[m: Could not create project " + project_path.string() + "\n", true);
