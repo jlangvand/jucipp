@@ -140,6 +140,24 @@ int main() {
       long_line += "x";
     assert(!Terminal::find_link("/home/test/test.txt:1:1: " + long_line));
   }
+  {
+    auto link = Terminal::find_link("https://test.org");
+    assert(link);
+    assert(link->start_pos == 0);
+    assert(link->end_pos == 16);
+    assert(link->path == "https://test.org");
+    assert(link->line == 0);
+    assert(link->line_index == 0);
+  }
+  {
+    auto link = Terminal::find_link("Testing https://test.org here");
+    assert(link);
+    assert(link->start_pos == 8);
+    assert(link->end_pos == 24);
+    assert(link->path == "https://test.org");
+    assert(link->line == 0);
+    assert(link->line_index == 0);
+  }
 
   // Testing print
   {

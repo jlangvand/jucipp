@@ -36,21 +36,19 @@ Terminal::Terminal() : Source::SearchView() {
   default_mouse_cursor = Gdk::Cursor::create(Gdk::CursorType::XTERM);
 
   class DetectPossibleLink {
-    bool delimiter_found = false, dot_found = false, number_after_delimiter_and_dot_found = false;
+    bool delimiter_found = false, dot_found = false;
 
   public:
     bool operator()(char chr) {
       if(chr == '\n') {
-        auto all_found = delimiter_found && dot_found && number_after_delimiter_and_dot_found;
-        delimiter_found = dot_found = number_after_delimiter_and_dot_found = false;
+        auto all_found = delimiter_found && dot_found;
+        delimiter_found = dot_found = false;
         return all_found;
       }
       else if(chr == '/' || chr == '\\')
         delimiter_found = true;
       else if(chr == '.')
         dot_found = true;
-      else if(delimiter_found && dot_found && chr >= '0' && chr <= '9')
-        number_after_delimiter_and_dot_found = true;
       return false;
     }
   };
@@ -450,6 +448,14 @@ boost::optional<Terminal::Link> Terminal::find_link(const std::string &line) {
       sub += subs;
     }
   }
+  const static std::regex uri_regex("^.*(https?://[\\w\\-.~:/?#%\\[\\]@!$&'()*+,;=]+[\\w\\-~/#@$*+;=]).*$", std::regex::optimize);
+  if(std::regex_match(line, sm, uri_regex)) {
+    auto start_pos = static_cast<int>(sm.position(1));
+    auto end_pos = static_cast<int>(start_pos + sm.length(1));
+    int start_pos_utf8 = utf8_character_count(line, 0, start_pos);
+    int end_pos_utf8 = start_pos_utf8 + utf8_character_count(line, start_pos, end_pos - start_pos);
+    return Link{start_pos_utf8, end_pos_utf8, sm[1].str(), 0, 0};
+  }
   return {};
 }
 
@@ -577,6 +583,11 @@ bool Terminal::on_button_press_event(GdkEventButton *button_event) {
       if(!end.ends_line())
         end.forward_to_line_end();
       if(auto link = find_link(get_buffer()->get_text(start, end, false).raw())) {
+        if(starts_with(link->path, "http://") || starts_with(link->path, "https://")) {
+          Notebook::get().open_uri(link->path);
+          return true;
+        }
+
         auto path = filesystem::get_long_path(link->path);
 
         if(path.is_relative()) {
