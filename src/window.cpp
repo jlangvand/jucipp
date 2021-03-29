@@ -924,7 +924,7 @@ void Window::set_menu_actions() {
   menu.add_action("source_find_file", []() {
     auto view_folder = Project::get_preferably_view_folder();
     auto build = Project::Build::create(view_folder);
-    auto exclude_paths = build->get_exclude_paths();
+    auto exclude_folders = build->get_exclude_folders();
     if(!build->project_path.empty())
       view_folder = build->project_path;
 
@@ -945,8 +945,9 @@ void Window::set_menu_actions() {
       auto path = iter->path();
       // ignore folders
       if(!boost::filesystem::is_regular_file(path, ec)) {
-        if(std::any_of(exclude_paths.begin(), exclude_paths.end(), [&path](const boost::filesystem::path &exclude_path) {
-             return path == exclude_path;
+        auto filename = path.filename();
+        if(std::any_of(exclude_folders.begin(), exclude_folders.end(), [&filename](const std::string &exclude_folder) {
+             return filename == exclude_folder;
            }))
           iter.no_push();
         continue;

@@ -10,16 +10,14 @@ Grep::Grep(const boost::filesystem::path &path, const std::string &pattern, bool
     return;
   auto build = Project::Build::create(path);
   std::string exclude;
-  if(!build->project_path.empty()) {
-    project_path = build->project_path;
-    for(auto &exclude_path : build->get_exclude_paths()) {
+  for(auto &exclude_folder : build->get_exclude_folders())
 #ifdef JUCI_USE_GREP_EXCLUDE
-      exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(exclude_path, build->project_path).string()) + "/*";
+    exclude += " --exclude=\"" + exclude_folder + "/*\" --exclude=\"*/" + exclude_folder + "/*\""; // BSD grep does not support --exclude-dir
 #else
-      exclude += " --exclude-dir=" + filesystem::escape_argument(filesystem::get_relative_path(exclude_path, build->project_path).string());
+    exclude += " --exclude-dir=\"" + exclude_folder + '"'; // Need to use --exclude-dir on Linux for some reason (could not get --exclude to work)
 #endif
-    }
-  }
+  if(!build->project_path.empty())
+    project_path = build->project_path;
   else
     project_path = path;
 

@@ -21,7 +21,7 @@ namespace Project {
     /// Returns true if the project path reported by build system is correct
     virtual bool is_valid() { return true; }
 
-    virtual std::vector<boost::filesystem::path> get_exclude_paths();
+    std::vector<std::string> get_exclude_folders();
 
     static std::unique_ptr<Build> create(const boost::filesystem::path &path);
   };
@@ -39,8 +39,6 @@ namespace Project {
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
 
     bool is_valid() override;
-
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class MesonBuild : public Build {
@@ -56,13 +54,10 @@ namespace Project {
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
 
     bool is_valid() override;
-
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class CompileCommandsBuild : public Build {
   public:
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class CargoBuild : public Build {
@@ -74,17 +69,13 @@ namespace Project {
 
     std::string get_compile_command() override;
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override { return get_debug_path() / project_path.filename(); }
-
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class NpmBuild : public Build {
   public:
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 
   class PythonMain : public Build {
   public:
-    std::vector<boost::filesystem::path> get_exclude_paths() override;
   };
 } // namespace Project

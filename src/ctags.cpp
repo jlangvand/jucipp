@@ -22,11 +22,10 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
   if(boost::filesystem::is_directory(path, ec)) {
     auto build = Project::Build::create(path);
     std::string exclude;
-    if(!build->project_path.empty()) {
+    for(auto &exclude_folder : build->get_exclude_folders())
+      exclude += " --exclude=\"" + exclude_folder + "/*\" --exclude=\"*/" + exclude_folder + "/*\"";
+    if(!build->project_path.empty())
       project_path = build->project_path;
-      for(auto &exclude_path : build->get_exclude_paths())
-        exclude += " --exclude=" + filesystem::escape_argument(filesystem::get_relative_path(exclude_path, project_path).string());
-    }
     else
       project_path = path;
     command = Config::get().project.ctags_command + options + fields + exclude + " -R *";
