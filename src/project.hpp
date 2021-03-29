@@ -59,7 +59,7 @@ namespace Project {
     virtual void compile_and_run();
     virtual void recreate_build();
 
-    virtual void show_symbols();
+    void show_symbols();
 
     virtual std::pair<std::string, std::string> debug_get_run_arguments();
     virtual Project::DebugOptions *debug_get_options() { return nullptr; }
@@ -105,7 +105,6 @@ namespace Project {
   class LanguageProtocol : public virtual Base {
   public:
     virtual std::string get_language_id() = 0;
-    void show_symbols() override;
   };
 
   class Clang : public LLDB {
