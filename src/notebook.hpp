@@ -50,6 +50,7 @@ public:
   bool save(size_t index);
   bool save_current();
   bool close(size_t index);
+  bool close(Source::View *view);
   bool close_current();
   void next();
   void previous();

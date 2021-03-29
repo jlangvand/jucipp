@@ -145,6 +145,7 @@ namespace LanguageProtocol {
 
     ~Client();
 
+    boost::optional<Capabilities> get_capabilities(Source::LanguageProtocolView *view);
     Capabilities initialize(Source::LanguageProtocolView *view);
     void close(Source::LanguageProtocolView *view);
 

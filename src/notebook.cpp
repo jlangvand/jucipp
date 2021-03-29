@@ -333,7 +333,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
 
   //Set up tab label
   tab_labels.emplace_back(new TabLabel([this, view]() {
-    close(get_index(view));
+    close(view);
   }));
   view->update_tab_label = [this](Source::BaseView *view) {
     std::string title = view->file_path.filename().string();
@@ -582,6 +582,14 @@ bool Notebook::close(size_t index) {
   return true;
 }
 
+bool Notebook::close(Source::View *view) {
+  return close(get_index(view));
+}
+
+bool Notebook::close_current() {
+  return close(get_current_view());
+}
+
 void Notebook::delete_cursor_locations(Source::View *view) {
   for(auto it = cursor_locations.begin(); it != cursor_locations.end();) {
     if(it->view == view) {
@@ -605,10 +613,6 @@ void Notebook::delete_cursor_locations(Source::View *view) {
       }
     }
   }
-}
-
-bool Notebook::close_current() {
-  return close(get_index(get_current_view()));
 }
 
 void Notebook::next() {

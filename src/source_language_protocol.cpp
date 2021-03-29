@@ -121,6 +121,18 @@ LanguageProtocol::Client::~Client() {
     process->kill();
 }
 
+boost::optional<LanguageProtocol::Capabilities> LanguageProtocol::Client::get_capabilities(Source::LanguageProtocolView *view) {
+  if(view) {
+    LockGuard lock(views_mutex);
+    views.emplace(view);
+  }
+
+  LockGuard lock(initialize_mutex);
+  if(initialized)
+    return capabilities;
+  return {};
+}
+
 LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::LanguageProtocolView *view) {
   if(view) {
     LockGuard lock(views_mutex);
@@ -452,35 +464,43 @@ void Source::LanguageProtocolView::initialize() {
     update_status_state(this);
 
   set_editable(false);
-  initialize_thread = std::thread([this] {
-    auto capabilities = client->initialize(this);
 
-    dispatcher.post([this, capabilities] {
-      this->capabilities = capabilities;
-      set_editable(true);
+  auto init = [this](const LanguageProtocol::Capabilities &capabilities) {
+    this->capabilities = capabilities;
+    set_editable(true);
 
-      std::string text = get_buffer()->get_text();
-      escape_text(text);
-      client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
+    std::string text = get_buffer()->get_text();
+    escape_text(text);
+    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
 
-      if(!initialized) {
-        setup_signals();
-        setup_autocomplete();
-        setup_navigation_and_refactoring();
-        Menu::get().toggle_menu_items();
-      }
+    if(!initialized) {
+      setup_signals();
+      setup_autocomplete();
+      setup_navigation_and_refactoring();
+      Menu::get().toggle_menu_items();
+    }
 
-      if(status_state == "initializing...") {
-        status_state = "";
-        if(update_status_state)
-          update_status_state(this);
-      }
+    if(status_state == "initializing...") {
+      status_state = "";
+      if(update_status_state)
+        update_status_state(this);
+    }
 
-      update_type_coverage();
+    update_type_coverage();
 
-      initialized = true;
+    initialized = true;
+  };
+
+  if(auto capabilities = client->get_capabilities(this))
+    init(*capabilities);
+  else {
+    initialize_thread = std::thread([this, init] {
+      auto capabilities = client->initialize(this);
+      dispatcher.post([init, capabilities] {
+        init(capabilities);
+      });
     });
-  });
+  }
 }
 
 void Source::LanguageProtocolView::close() {
@@ -743,8 +763,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
   if(capabilities.rename || capabilities.document_highlight) {
     rename_similar_tokens = [this](const std::string &text) {
-      class Changes {
-      public:
+      struct Changes {
         std::string file;
         std::vector<LanguageProtocol::TextEdit> text_edits;
       };
@@ -754,10 +773,10 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         return;
 
       auto iter = get_buffer()->get_insert()->get_iter();
-      std::vector<Changes> changes;
+      std::vector<Changes> changes_vec;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::filesystem::path project_path;
             auto build = Project::Build::create(file_path);
@@ -774,7 +793,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                     std::vector<LanguageProtocol::TextEdit> edits;
                     for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it)
                       edits.emplace_back(edit_it->second);
-                    changes.emplace_back(Changes{std::move(file), std::move(edits)});
+                    changes_vec.emplace_back(Changes{std::move(file), std::move(edits)});
                   }
                 }
               }
@@ -782,28 +801,28 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
                 for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
                   LanguageProtocol::TextDocumentEdit text_document_edit(change_it->second);
                   if(filesystem::file_in_path(text_document_edit.file, project_path))
-                    changes.emplace_back(Changes{std::move(text_document_edit.file), std::move(text_document_edit.edits)});
+                    changes_vec.emplace_back(Changes{std::move(text_document_edit.file), std::move(text_document_edit.edits)});
                 }
               }
             }
             catch(...) {
-              changes.clear();
+              changes_vec.clear();
             }
           }
           result_processed.set_value();
         });
       }
       else {
-        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
               for(auto it = result.begin(); it != result.end(); ++it)
                 edits.emplace_back(it->second, text);
-              changes.emplace_back(Changes{file_path.string(), std::move(edits)});
+              changes_vec.emplace_back(Changes{file_path.string(), std::move(edits)});
             }
             catch(...) {
-              changes.clear();
+              changes_vec.clear();
             }
           }
           result_processed.set_value();
@@ -811,95 +830,105 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       }
       result_processed.get_future().get();
 
-      std::vector<Changes *> changes_renamed;
+      auto current_view = Notebook::get().get_current_view();
 
-      std::vector<Changes *> changes_in_unopened_files;
-      std::vector<std::pair<Changes *, Source::View *>> changes_in_opened_files;
-      for(auto &change : changes) {
-        auto view_it = views.end();
+      struct ChangesAndView {
+        Changes *changes;
+        Source::View *view;
+        bool close;
+      };
+      std::vector<ChangesAndView> changes_and_views;
+
+      for(auto &changes : changes_vec) {
+        Source::View *view = nullptr;
         for(auto it = views.begin(); it != views.end(); ++it) {
-          if((*it)->file_path == change.file) {
-            view_it = it;
+          if((*it)->file_path == changes.file) {
+            view = *it;
             break;
           }
         }
-        if(view_it != views.end())
-          changes_in_opened_files.emplace_back(&change, *view_it);
-        else
-          changes_in_unopened_files.emplace_back(&change);
-      }
-
-      // Write changes to unopened files first, since this might improve server handling of opened files that will be changed after
-      for(auto &change : changes_in_unopened_files) {
-        Glib::ustring buffer;
-        {
-          std::ifstream stream(change->file, std::ifstream::binary);
-          if(stream)
-            buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
-        }
-        std::ofstream stream(change->file, std::ifstream::binary);
-        if(!buffer.empty() && stream) {
-          std::vector<size_t> lines_start_pos = {0};
-          for(size_t c = 0; c < buffer.size(); ++c) {
-            if(buffer[c] == '\n')
-              lines_start_pos.emplace_back(c + 1);
-          }
-          for(auto edit_it = change->text_edits.rbegin(); edit_it != change->text_edits.rend(); ++edit_it) {
-            auto start_line = edit_it->range.start.line;
-            auto end_line = edit_it->range.end.line;
-            if(static_cast<size_t>(start_line) < lines_start_pos.size()) {
-              auto start = lines_start_pos[start_line] + edit_it->range.start.character;
-              size_t end;
-              if(static_cast<size_t>(end_line) >= lines_start_pos.size())
-                end = buffer.size();
-              else
-                end = lines_start_pos[end_line] + edit_it->range.end.character;
-              if(start < buffer.size() && end <= buffer.size()) {
-                buffer.replace(start, end - start, edit_it->new_text);
-              }
-            }
-          }
-          stream.write(buffer.data(), buffer.bytes());
-          changes_renamed.emplace_back(change);
+        if(!view) {
+          if(!Notebook::get().open(changes.file))
+            return;
+          view = Notebook::get().get_current_view();
+          changes_and_views.emplace_back(ChangesAndView{&changes, view, true});
         }
         else
-          Terminal::get().print("\e[31mError\e[m: could not write to file " + filesystem::get_short_path(change->file).string() + '\n', true);
+          changes_and_views.emplace_back(ChangesAndView{&changes, view, false});
       }
 
-      for(auto &pair : changes_in_opened_files) {
-        auto change = pair.first;
-        auto view = pair.second;
+      if(current_view)
+        Notebook::get().open(current_view);
+
+      if(!changes_and_views.empty()) {
+        Terminal::get().print("Renamed ");
+        Terminal::get().print(previous_text, true);
+        Terminal::get().print(" to ");
+        Terminal::get().print(text, true);
+        Terminal::get().print(" at:\n");
+      }
+
+      for(auto &changes_and_view : changes_and_views) {
+        auto changes = changes_and_view.changes;
+        auto view = changes_and_view.view;
         auto buffer = view->get_buffer();
         buffer->begin_user_action();
 
         auto end_iter = buffer->end();
         // If entire buffer is replaced
-        if(change->text_edits.size() == 1 &&
-           change->text_edits[0].range.start.line == 0 && change->text_edits[0].range.start.character == 0 &&
-           (change->text_edits[0].range.end.line > end_iter.get_line() ||
-            (change->text_edits[0].range.end.line == end_iter.get_line() && change->text_edits[0].range.end.character >= end_iter.get_line_offset())))
-          view->replace_text(change->text_edits[0].new_text);
+        if(changes->text_edits.size() == 1 &&
+           changes->text_edits[0].range.start.line == 0 && changes->text_edits[0].range.start.character == 0 &&
+           (changes->text_edits[0].range.end.line > end_iter.get_line() ||
+            (changes->text_edits[0].range.end.line == end_iter.get_line() && changes->text_edits[0].range.end.character >= end_iter.get_line_offset()))) {
+          view->replace_text(changes->text_edits[0].new_text);
+
+          Terminal::get().print(filesystem::get_short_path(view->file_path).string() + ":1:1\n");
+        }
         else {
-          for(auto edit_it = change->text_edits.rbegin(); edit_it != change->text_edits.rend(); ++edit_it) {
+          struct TerminalOutput {
+            std::string prefix;
+            std::string new_text;
+            std::string postfix;
+          };
+          std::list<TerminalOutput> terminal_output_list;
+
+          for(auto edit_it = changes->text_edits.rbegin(); edit_it != changes->text_edits.rend(); ++edit_it) {
             auto start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
             auto end_iter = view->get_iter_at_line_pos(edit_it->range.end.line, edit_it->range.end.character);
+            if(view != current_view)
+              view->get_buffer()->place_cursor(start_iter);
             buffer->erase(start_iter, end_iter);
             start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
+
+            auto start_line_iter = buffer->get_iter_at_line(start_iter.get_line());
+            while((*start_line_iter == ' ' || *start_line_iter == '\t') && start_line_iter < start_iter && start_line_iter.forward_char()) {
+            }
+            auto end_line_iter = start_iter;
+            while(!end_line_iter.ends_line() && end_line_iter.forward_char()) {
+            }
+            terminal_output_list.emplace_front(TerminalOutput{filesystem::get_short_path(view->file_path).string() + ':' + std::to_string(edit_it->range.start.line + 1) + ':' + std::to_string(edit_it->range.start.character + 1) + ": " + buffer->get_text(start_line_iter, start_iter),
+                                                              edit_it->new_text,
+                                                              buffer->get_text(start_iter, end_line_iter) + '\n'});
+
             buffer->insert(start_iter, edit_it->new_text);
+          }
+
+          for(auto &output : terminal_output_list) {
+            Terminal::get().print(output.prefix);
+            Terminal::get().print(output.new_text, true);
+            Terminal::get().print(output.postfix);
           }
         }
 
         buffer->end_user_action();
-        view->save();
-        changes_renamed.emplace_back(change);
+        if(!view->save())
+          return;
       }
 
-      if(!changes_renamed.empty()) {
-        Terminal::get().print("Renamed ");
-        Terminal::get().print(previous_text, true);
-        Terminal::get().print(" to ");
-        Terminal::get().print(text, true);
-        Terminal::get().print("\n");
+      for(auto &changes_and_view : changes_and_views) {
+        if(changes_and_view.close)
+          Notebook::get().close(changes_and_view.view);
+        changes_and_view.close = false;
       }
     };
   }
