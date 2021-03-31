@@ -6,6 +6,12 @@ int main() {
     auto home_path = filesystem::get_home_path();
     g_assert(!home_path.empty());
   }
+  {
+    auto home_path = filesystem::get_current_path();
+    g_assert(!home_path.empty());
+    g_assert(boost::filesystem::exists(home_path));
+    g_assert(boost::filesystem::is_directory(home_path));
+  }
 
   {
     auto original = "test () '\"";
