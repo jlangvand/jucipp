@@ -43,8 +43,7 @@ target_link_libraries(juci_shared
 
 set(JUCI_FILES
   config.cpp
-  dialogs.cpp
-  dialogs_unix.cpp
+  dialog.cpp
   directories.cpp
   entrybox.cpp
   info.cpp

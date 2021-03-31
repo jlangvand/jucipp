@@ -1,4 +1,4 @@
-#include "dialogs.hpp"
+#include "dialog.hpp"
 
 Dialog::Message::Message(const std::string &text, std::function<void()> &&on_cancel, bool show_progress_bar) : Gtk::Window(Gtk::WindowType::WINDOW_POPUP) {}
 

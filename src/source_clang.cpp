@@ -7,7 +7,7 @@
 #endif
 #include "compile_commands.hpp"
 #include "ctags.hpp"
-#include "dialogs.hpp"
+#include "dialog.hpp"
 #include "documentation.hpp"
 #include "filesystem.hpp"
 #include "info.hpp"

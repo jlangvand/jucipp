@@ -4,7 +4,7 @@
 #include "debug_lldb.hpp"
 #endif
 #include "compile_commands.hpp"
-#include "dialogs.hpp"
+#include "dialog.hpp"
 #include "directories.hpp"
 #include "entrybox.hpp"
 #include "filesystem.hpp"

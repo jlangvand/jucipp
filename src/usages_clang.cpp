@@ -1,7 +1,7 @@
 #include "usages_clang.hpp"
 #include "compile_commands.hpp"
 #include "config.hpp"
-#include "dialogs.hpp"
+#include "dialog.hpp"
 #include "filesystem.hpp"
 #include "utility.hpp"
 #include <chrono>

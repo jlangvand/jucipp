@@ -9,7 +9,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 
 add_library(test_stubs OBJECT
   stubs/config.cpp
-  stubs/dialogs.cpp
+  stubs/dialog.cpp
   stubs/directories.cpp
   stubs/info.cpp
   stubs/notebook.cpp

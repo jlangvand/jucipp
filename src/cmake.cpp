@@ -1,7 +1,7 @@
 #include "cmake.hpp"
 #include "compile_commands.hpp"
 #include "config.hpp"
-#include "dialogs.hpp"
+#include "dialog.hpp"
 #include "filesystem.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
