@@ -727,9 +727,18 @@ void Source::View::setup_signals() {
 
 void Source::View::setup_format_style(bool is_generic_view) {
   static auto prettier = filesystem::find_executable("prettier");
-  if(!prettier.empty() && language &&
-     (language->get_id() == "js" || language->get_id() == "json" || language->get_id() == "css" || language->get_id() == "html" ||
-      language->get_id() == "markdown" || language->get_id() == "yaml")) {
+  auto prefer_prettier = language && (language->get_id() == "js" || language->get_id() == "json" || language->get_id() == "css" || language->get_id() == "html" ||
+                                      language->get_id() == "markdown" || language->get_id() == "yaml");
+  if(prettier.empty() && prefer_prettier) {
+    static bool shown = false;
+    if(!shown) {
+      Terminal::get().print("\e[33mWarning\e[m: could not find Prettier code formatter.\n");
+      Terminal::get().print("To install Prettier, run the following command in a terminal: npm i -g prettier\n");
+    }
+    shown = true;
+  }
+
+  if(!prettier.empty() && prefer_prettier) {
     if(is_generic_view) {
       goto_next_diagnostic = [this] {
         place_cursor_at_next_diagnostic();
