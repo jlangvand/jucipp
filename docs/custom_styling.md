@@ -10,7 +10,7 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
 
 ```css
 .juci_window {
-  background: url("/home/eidheim/Pictures/juci_background.png");
+  background: url('/home/eidheim/Pictures/juci_background.png');
   background-size: 100% 100%;
 }
 
