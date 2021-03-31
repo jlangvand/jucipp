@@ -1676,6 +1676,15 @@ void Window::set_menu_actions() {
     else
       fullscreen();
   });
+  menu.add_action("window_toggle_directories", [this] {
+    directories_scrolled_window.set_visible(!directories_scrolled_window.get_visible());
+  });
+  menu.add_action("window_toggle_terminal", [this] {
+    terminal_scrolled_window.set_visible(!terminal_scrolled_window.get_visible());
+  });
+  menu.add_action("window_toggle_menu", [this] {
+    set_show_menubar(!get_show_menubar());
+  });
   menu.add_action("window_toggle_tabs", [] {
     for(auto &notebook : Notebook::get().notebooks)
       notebook.set_show_tabs(!notebook.get_show_tabs());

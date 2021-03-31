@@ -217,6 +217,9 @@ const std::string default_config_file =
         "window_toggle_full_screen": "F11",)RAW"
 #endif
     R"RAW(
+        "window_toggle_directories": "",
+        "window_toggle_terminal": "",
+        "window_toggle_menu": "",
         "window_toggle_tabs": "",
         "window_toggle_zen_mode": "",
         "window_clear_terminal": ""

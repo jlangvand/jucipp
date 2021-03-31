@@ -518,7 +518,19 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='action'>app.window_toggle_full_screen</attribute>
         </item>
         <item>
-          <attribute name='label' translatable='yes'>_Toggle _Tabs _Visibility</attribute>
+          <attribute name='label' translatable='yes'>_Toggle _Directories</attribute>
+          <attribute name='action'>app.window_toggle_directories</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Toggle _Terminal</attribute>
+          <attribute name='action'>app.window_toggle_terminal</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Toggle _Menu</attribute>
+          <attribute name='action'>app.window_toggle_menu</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Toggle _Tabs</attribute>
           <attribute name='action'>app.window_toggle_tabs</attribute>
         </item>
         <item>
