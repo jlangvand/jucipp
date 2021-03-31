@@ -16,6 +16,9 @@ public:
   static std::string escape_argument(const std::string &argument);
   static std::string unescape_argument(const std::string &argument);
 
+  /// Does not resolve symbolic links. Returns empty path on failure
+  static boost::filesystem::path get_current_path() noexcept;
+  /// Returns empty path on failure
   static boost::filesystem::path get_home_path() noexcept;
   /// Replaces home path with ~
   static boost::filesystem::path get_short_path(const boost::filesystem::path &path) noexcept;

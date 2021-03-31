@@ -35,11 +35,8 @@ boost::filesystem::path Project::get_preferably_view_folder() {
   else if(!Directories::get().path.empty())
     return Directories::get().path;
   else {
-    boost::system::error_code ec;
-    auto current_path = boost::filesystem::current_path(ec);
-    if(ec)
-      return boost::filesystem::path();
-    return current_path;
+    auto current_path = filesystem::get_current_path();
+    return !current_path.empty() ? current_path : boost::filesystem::path();
   }
 }
 
@@ -49,11 +46,8 @@ boost::filesystem::path Project::get_preferably_directory_folder() {
   else if(auto view = Notebook::get().get_current_view())
     return view->file_path.parent_path();
   else {
-    boost::system::error_code ec;
-    auto current_path = boost::filesystem::current_path(ec);
-    if(ec)
-      return boost::filesystem::path();
-    return current_path;
+    auto current_path = filesystem::get_current_path();
+    return !current_path.empty() ? current_path : boost::filesystem::path();
   }
 }
 

@@ -1,4 +1,5 @@
 #include "filesystem.hpp"
+#include "process.hpp"
 #include "utility.hpp"
 #include <algorithm>
 #include <fstream>
@@ -79,6 +80,33 @@ std::string filesystem::unescape_argument(const std::string &argument) {
       backslash_count = 0;
   }
   return unescaped;
+}
+
+boost::filesystem::path filesystem::get_current_path() noexcept {
+  static boost::filesystem::path current_path;
+  if(!current_path.empty())
+    return current_path;
+#ifdef _WIN32
+  boost::system::error_code ec;
+  auto path = boost::filesystem::current_path(ec);
+  if(!ec) {
+    current_path = std::move(path);
+    return current_path;
+  }
+  return boost::filesystem::path();
+#else
+  std::string path;
+  TinyProcessLib::Process process("pwd", "", [&path](const char *buffer, size_t length) {
+    path += std::string(buffer, length);
+  });
+  if(process.get_exit_status() == 0) {
+    if(!path.empty() && path.back() == '\n')
+      path.pop_back();
+    current_path = boost::filesystem::path(path);
+    return current_path;
+  }
+  return boost::filesystem::path();
+#endif
 }
 
 boost::filesystem::path filesystem::get_home_path() noexcept {

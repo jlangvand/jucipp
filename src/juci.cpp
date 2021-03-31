@@ -24,13 +24,12 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
   char **argv = cmd->get_arguments(argc);
   ctx.parse(argc, argv);
   if(argc >= 2) {
-    boost::system::error_code current_path_ec;
-    auto current_path = boost::filesystem::current_path(current_path_ec);
-    if(current_path_ec)
+    auto current_path = filesystem::get_current_path();
+    if(current_path.empty())
       errors.emplace_back("\e[31mError\e[m: could not find current path\n");
     for(int c = 1; c < argc; c++) {
       boost::filesystem::path path(argv[c]);
-      if(path.is_relative() && !current_path_ec)
+      if(path.is_relative() && !current_path.empty())
         path = current_path / path;
       boost::system::error_code ec;
       if(boost::filesystem::exists(path, ec)) {

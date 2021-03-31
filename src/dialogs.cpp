@@ -1,4 +1,5 @@
 #include "dialogs.hpp"
+#include "filesystem.hpp"
 #include <cmath>
 
 Dialog::Message::Message(const std::string &text, std::function<void()> &&on_cancel, bool show_progress_bar) : Gtk::Window(Gtk::WindowType::WINDOW_POPUP) {
@@ -84,9 +85,8 @@ std::string Dialog::gtk_dialog(const boost::filesystem::path &path, const std::s
   else if(!path.empty())
     gtk_file_chooser_set_current_folder(reinterpret_cast<GtkFileChooser *>(dialog.gobj()), path.string().c_str());
   else {
-    boost::system::error_code ec;
-    auto current_path = boost::filesystem::current_path(ec);
-    if(!ec)
+    auto current_path = filesystem::get_current_path();
+    if(!current_path.empty())
       gtk_file_chooser_set_current_folder(reinterpret_cast<GtkFileChooser *>(dialog.gobj()), current_path.string().c_str());
   }
 
