@@ -23,6 +23,7 @@ int main() {
   Config::get().project.ctags_command = "ctags";
 #endif
   Config::get().project.grep_command = "grep";
+  Config::get().project.default_build_path = "build";
   Config::get().project.debug_build_path = "build";
 
   auto tests_path = boost::filesystem::canonical(JUCI_TESTS_PATH);
