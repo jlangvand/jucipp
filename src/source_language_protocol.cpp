@@ -115,10 +115,12 @@ LanguageProtocol::Client::~Client() {
     if(process->try_get_exit_status(exit_status))
       break;
   }
+  if(exit_status == -1) {
+    process->kill();
+    exit_status = process->get_exit_status();
+  }
   if(Config::get().log.language_server)
     std::cout << "Language server exit status: " << exit_status << std::endl;
-  if(exit_status == -1)
-    process->kill();
 }
 
 boost::optional<LanguageProtocol::Capabilities> LanguageProtocol::Client::get_capabilities(Source::LanguageProtocolView *view) {
