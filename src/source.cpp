@@ -733,7 +733,18 @@ void Source::View::setup_format_style(bool is_generic_view) {
     static bool shown = false;
     if(!shown) {
       Terminal::get().print("\e[33mWarning\e[m: could not find Prettier code formatter.\n");
-      Terminal::get().print("To install Prettier, run the following command in a terminal: npm i -g prettier\n");
+      Terminal::get().print("To install Prettier, run the following command in a terminal: ");
+#if defined(__APPLE__)
+      Terminal::get().print("brew install prettier");
+#elif defined(__linux)
+      if(!filesystem::find_executable("pacman").empty())
+        Terminal::get().print("sudo pacman -S prettier");
+      else
+        Terminal::get().print("npm i -g prettier");
+#else
+      Terminal::get().print("npm i -g prettier");
+#endif
+      Terminal::get().print("\n");
     }
     shown = true;
   }
