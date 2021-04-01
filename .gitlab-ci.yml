@@ -55,6 +55,15 @@ address-sanitizer:
     - make -j$(nproc)
     - broadwayd & CTEST_OUTPUT_ON_FAILURE=1 LSAN_OPTIONS=detect_leaks=0 make test
 
+undefined-sanitizer:
+  image: cppit/jucipp:arch
+  stage: test
+  script:
+    - mkdir build && cd build
+    - CXXFLAGS="-fsanitize=undefined" cmake -DBUILD_TESTING=1 ..
+    - make -j$(nproc)
+    - broadwayd & CTEST_OUTPUT_ON_FAILURE=1 make test
+
 check-format:
   image: cppit/jucipp:arch
   stage: lint
