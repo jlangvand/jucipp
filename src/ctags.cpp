@@ -1,5 +1,6 @@
 #include "ctags.hpp"
 #include "config.hpp"
+#include "dialog.hpp"
 #include "filesystem.hpp"
 #include "project_build.hpp"
 #include "terminal.hpp"
@@ -35,8 +36,43 @@ Ctags::Ctags(const boost::filesystem::path &path, bool enable_scope, bool enable
     command = Config::get().project.ctags_command + options + fields + " --c-kinds=+p --c++-kinds=+p " + filesystem::escape_argument(path.string());
   }
 
-  std::stringstream stdin_stream;
-  Terminal::get().process(stdin_stream, output, command, project_path);
+  TinyProcessLib::Process process(
+      command, project_path.string(),
+      [this](const char *output, size_t length) {
+        this->output.write(output, length);
+      },
+      [](const char *bytes, size_t n) {
+        Terminal::get().async_print(std::string(bytes, n), true);
+      });
+
+  int exit_status;
+  size_t count = 0;
+  while(!process.try_get_exit_status(exit_status)) {
+    ++count;
+    if(count > 1000)
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  if(!process.try_get_exit_status(exit_status)) {
+    bool canceled = false;
+    Dialog::Message message("Please wait until ctags command completes", [&canceled] {
+      canceled = true;
+    });
+    bool killed = false;
+    while(!process.try_get_exit_status(exit_status)) {
+      if(canceled && !killed) {
+        process.kill();
+        killed = true;
+      }
+      while(Gtk::Main::events_pending())
+        Gtk::Main::iteration();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    message.hide();
+    if(killed)
+      output = std::stringstream();
+  }
 }
 
 Ctags::operator bool() {
