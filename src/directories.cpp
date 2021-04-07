@@ -103,8 +103,6 @@ bool Directories::TreeStore::drag_data_delete_vfunc(const Gtk::TreeModel::Path &
 }
 
 Directories::Directories() : Gtk::ListViewText(1) {
-  set_enable_tree_lines(true);
-
   tree_store = TreeStore::create();
   tree_store->set_column_types(column_record);
   set_model(tree_store);
