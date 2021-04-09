@@ -83,48 +83,47 @@ std::string filesystem::unescape_argument(const std::string &argument) {
 }
 
 boost::filesystem::path filesystem::get_current_path() noexcept {
-  static boost::filesystem::path current_path;
-  if(!current_path.empty())
-    return current_path;
+  auto current_path = [] {
 #ifdef _WIN32
-  boost::system::error_code ec;
-  auto path = boost::filesystem::current_path(ec);
-  if(!ec) {
-    current_path = std::move(path);
-    return current_path;
-  }
-  return boost::filesystem::path();
+    boost::system::error_code ec;
+    auto path = boost::filesystem::current_path(ec);
+    if(!ec)
+      return path;
+    return boost::filesystem::path();
 #else
-  std::string path;
-  TinyProcessLib::Process process("pwd", "", [&path](const char *buffer, size_t length) {
-    path += std::string(buffer, length);
-  });
-  if(process.get_exit_status() == 0) {
-    if(!path.empty() && path.back() == '\n')
-      path.pop_back();
-    current_path = boost::filesystem::path(path);
-    return current_path;
-  }
-  return boost::filesystem::path();
+    std::string path;
+    TinyProcessLib::Process process("pwd", "", [&path](const char *buffer, size_t length) {
+      path += std::string(buffer, length);
+    });
+    if(process.get_exit_status() == 0) {
+      if(!path.empty() && path.back() == '\n')
+        path.pop_back();
+      return boost::filesystem::path(path);
+    }
+    return boost::filesystem::path();
 #endif
+  };
+
+  static boost::filesystem::path path = current_path();
+  return path;
 }
 
 boost::filesystem::path filesystem::get_home_path() noexcept {
-  static boost::filesystem::path home_path;
-  if(!home_path.empty())
-    return home_path;
-  std::vector<std::string> environment_variables = {"HOME", "AppData"};
-  for(auto &variable : environment_variables) {
-    if(auto ptr = std::getenv(variable.c_str())) {
-      boost::system::error_code ec;
-      boost::filesystem::path path(ptr);
-      if(boost::filesystem::exists(path, ec)) {
-        home_path = std::move(path);
-        return home_path;
+  auto home_path = [] {
+    std::vector<std::string> environment_variables = {"HOME", "AppData"};
+    for(auto &variable : environment_variables) {
+      if(auto ptr = std::getenv(variable.c_str())) {
+        boost::system::error_code ec;
+        boost::filesystem::path path(ptr);
+        if(boost::filesystem::exists(path, ec))
+          return path;
       }
     }
-  }
-  return boost::filesystem::path();
+    return boost::filesystem::path();
+  };
+
+  static boost::filesystem::path path = home_path();
+  return path;
 }
 
 boost::filesystem::path filesystem::get_short_path(const boost::filesystem::path &path) noexcept {
@@ -260,22 +259,25 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
 
 // Based on https://stackoverflow.com/a/11295568
 const std::vector<boost::filesystem::path> &filesystem::get_executable_search_paths() {
-  static std::vector<boost::filesystem::path> result;
-  if(!result.empty())
-    return result;
+  auto executable_search_paths = [] {
+    std::vector<boost::filesystem::path> paths;
 
-  const std::string env = getenv("PATH");
-  const char delimiter = ':';
+    const std::string env = getenv("PATH");
+    const char delimiter = ':';
 
-  size_t previous = 0;
-  size_t pos;
-  while((pos = env.find(delimiter, previous)) != std::string::npos) {
-    result.emplace_back(env.substr(previous, pos - previous));
-    previous = pos + 1;
-  }
-  result.emplace_back(env.substr(previous));
+    size_t previous = 0;
+    size_t pos;
+    while((pos = env.find(delimiter, previous)) != std::string::npos) {
+      paths.emplace_back(env.substr(previous, pos - previous));
+      previous = pos + 1;
+    }
+    paths.emplace_back(env.substr(previous));
 
-  return result;
+    return paths;
+  };
+
+  static std::vector<boost::filesystem::path> paths = executable_search_paths();
+  return paths;
 }
 
 boost::filesystem::path filesystem::find_executable(const std::string &executable_name) {

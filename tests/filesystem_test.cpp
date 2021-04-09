@@ -3,14 +3,26 @@
 
 int main() {
   {
-    auto home_path = filesystem::get_home_path();
-    g_assert(!home_path.empty());
+    auto path = filesystem::get_home_path();
+    g_assert(!path.empty());
+    g_assert(boost::filesystem::exists(path));
+    g_assert(boost::filesystem::is_directory(path));
   }
   {
-    auto home_path = filesystem::get_current_path();
-    g_assert(!home_path.empty());
-    g_assert(boost::filesystem::exists(home_path));
-    g_assert(boost::filesystem::is_directory(home_path));
+    auto path = filesystem::get_current_path();
+    g_assert(!path.empty());
+    g_assert(boost::filesystem::exists(path));
+    g_assert(boost::filesystem::is_directory(path));
+  }
+
+  {
+    auto paths = filesystem::get_executable_search_paths();
+    g_assert(!paths.empty());
+    for(auto &path : paths) {
+      g_assert(!path.empty());
+      g_assert(boost::filesystem::exists(path));
+      g_assert(boost::filesystem::is_directory(path));
+    }
   }
 
   {
