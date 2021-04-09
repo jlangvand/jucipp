@@ -20,8 +20,10 @@ int main() {
     g_assert(!paths.empty());
     for(auto &path : paths) {
       g_assert(!path.empty());
+#ifndef _WIN32
       g_assert(boost::filesystem::exists(path));
       g_assert(boost::filesystem::is_directory(path));
+#endif
     }
   }
 
