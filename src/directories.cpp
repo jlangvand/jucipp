@@ -695,7 +695,7 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
           repository->clear_saved_status();
         connection->disconnect();
         *connection = Glib::signal_timeout().connect(
-            [path_and_row, this]() {
+            [this, path_and_row]() {
               if(directories.find(path_and_row->first.string()) != directories.end())
                 add_or_update_path(path_and_row->first, path_and_row->second, true);
               return false;
@@ -748,8 +748,12 @@ void Directories::add_or_update_path(const boost::filesystem::path &dir_path, co
       already_added.emplace(filename);
       ++it;
     }
-    else
+    else {
+      auto path_it = directories.find(it->get_value(column_record.path).string());
+      if(path_it != directories.end())
+        directories.erase(path_it);
       it = tree_store->erase(it);
+    }
   }
 
   for(auto &filename : filenames) {
@@ -817,7 +821,13 @@ void Directories::colorize_path(boost::filesystem::path dir_path_, bool include_
   if(it == directories.end())
     return;
 
-  if(it != directories.end() && it->second.repository) {
+  boost::system::error_code ec;
+  if(!boost::filesystem::exists(*dir_path, ec)) {
+    directories.erase(it);
+    return;
+  }
+
+  if(it->second.repository) {
     auto repository = it->second.repository;
     thread_pool.push([this, dir_path, repository, include_parent_paths] {
       Git::Repository::Status status;
