@@ -474,9 +474,9 @@ Directories::Directories() : Gtk::ListViewText(1) {
     if(menu_popup_row_path.empty())
       return;
 #ifdef __APPLE__
-    Terminal::get().async_process("open " + menu_popup_row_path.string(), "", nullptr, true);
+    Terminal::get().async_process("open " + filesystem::escape_argument(menu_popup_row_path.string()), "", nullptr, true);
 #else
-    Terminal::get().async_process("xdg-open " + menu_popup_row_path.string(), "", nullptr, true);
+    Terminal::get().async_process("xdg-open " + filesystem::escape_argument(menu_popup_row_path.string()), "", nullptr, true);
 #endif
   };
 
