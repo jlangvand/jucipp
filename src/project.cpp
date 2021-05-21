@@ -474,9 +474,13 @@ void Project::LLDB::debug_start() {
           auto sysroot = ostream.str();
           while(!sysroot.empty() && (sysroot.back() == '\n' || sysroot.back() == '\r'))
             sysroot.pop_back();
-          startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_rust_formatters.py\"");
-          startup_commands.emplace_back("type summary add --no-value --python-function lldb_rust_formatters.print_val -x \".*\" --category Rust");
-          startup_commands.emplace_back("type category enable Rust");
+          std::string line;
+          std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ofstream::binary);
+          if(input) {
+            startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_lookup.py\"");
+            while(std::getline(input, line))
+              startup_commands.emplace_back(line);
+          }
         }
       }
       Debug::LLDB::get().start(*run_arguments, *project_path, breakpoints, startup_commands, remote_host);
