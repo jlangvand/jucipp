@@ -113,7 +113,7 @@ namespace LanguageProtocol {
   };
 
   class Client {
-    Client(boost::filesystem::path root_path, std::string language_id);
+    Client(boost::filesystem::path root_path, std::string language_id, const std::string &language_server);
     boost::filesystem::path root_path;
     std::string language_id;
 
@@ -141,7 +141,7 @@ namespace LanguageProtocol {
     std::vector<std::thread> timeout_threads GUARDED_BY(timeout_threads_mutex);
 
   public:
-    static std::shared_ptr<Client> get(const boost::filesystem::path &file_path, const std::string &language_id);
+    static std::shared_ptr<Client> get(const boost::filesystem::path &file_path, const std::string &language_id, const std::string &language_server);
 
     ~Client();
 
@@ -161,7 +161,7 @@ namespace LanguageProtocol {
 namespace Source {
   class LanguageProtocolView : public View {
   public:
-    LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_);
+    LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_);
     void initialize();
     void close();
     ~LanguageProtocolView() override;
@@ -190,6 +190,7 @@ namespace Source {
     bool initialized = false;
 
     std::string language_id;
+    std::string language_server;
     LanguageProtocol::Capabilities capabilities;
 
     std::shared_ptr<LanguageProtocol::Client> client;

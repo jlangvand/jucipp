@@ -55,9 +55,9 @@ LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const boost::property_tree:
     edits.emplace_back(it->second);
 }
 
-LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
+LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_, const std::string &language_server) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
   process = std::make_unique<TinyProcessLib::Process>(
-      filesystem::escape_argument(language_id + "-language-server"), root_path.string(),
+      filesystem::escape_argument(language_server), root_path.string(),
       [this](const char *bytes, size_t n) {
         server_message_stream.write(bytes, n);
         parse_server_message();
@@ -68,7 +68,7 @@ LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string
       true, TinyProcessLib::Config{1048576});
 }
 
-std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id) {
+std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const boost::filesystem::path &file_path, const std::string &language_id, const std::string &language_server) {
   boost::filesystem::path root_path;
   auto build = Project::Build::create(file_path);
   if(!build->project_path.empty())
@@ -87,7 +87,7 @@ std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const bo
     it = cache.emplace(cache_id, std::weak_ptr<Client>()).first;
   auto instance = it->second.lock();
   if(!instance)
-    it->second = instance = std::shared_ptr<Client>(new Client(root_path, language_id), [](Client *client_ptr) {
+    it->second = instance = std::shared_ptr<Client>(new Client(root_path, language_id, language_server), [](Client *client_ptr) {
       std::thread delete_thread([client_ptr] { // Delete client in the background
         delete client_ptr;
       });
@@ -451,8 +451,8 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
   // write_response(*id, "");
 }
 
-Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_)
-    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), client(LanguageProtocol::Client::get(file_path, language_id)) {
+Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_)
+    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), language_server(std::move(language_server_)), client(LanguageProtocol::Client::get(file_path, language_id, language_server)) {
   initialize();
 }
 
@@ -534,7 +534,7 @@ void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
   dispatcher.reset();
   Source::DiffView::rename(path);
   uri = filesystem::get_uri_from_path(path);
-  client = LanguageProtocol::Client::get(file_path, language_id);
+  client = LanguageProtocol::Client::get(file_path, language_id, language_server);
   initialize();
 }
 

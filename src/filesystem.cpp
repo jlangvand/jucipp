@@ -126,6 +126,24 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
   return path;
 }
 
+boost::filesystem::path filesystem::get_rust_sysroot_path() noexcept {
+  auto rust_sysroot_path = [] {
+    std::string path;
+    TinyProcessLib::Process process("rustc --print sysroot", "", [&path](const char *buffer, size_t length) {
+      path += std::string(buffer, length);
+    });
+    if(process.get_exit_status() == 0) {
+      while(!path.empty() && (path.back() == '\n' || path.back() == '\r'))
+        path.pop_back();
+      return boost::filesystem::path(path);
+    }
+    return boost::filesystem::path();
+  };
+
+  static boost::filesystem::path path = rust_sysroot_path();
+  return path;
+}
+
 boost::filesystem::path filesystem::get_short_path(const boost::filesystem::path &path) noexcept {
 #ifdef _WIN32
   return path;

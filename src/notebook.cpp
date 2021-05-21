@@ -173,7 +173,15 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr" || language->get_id() == "c" || language->get_id() == "cpp" || language->get_id() == "objc"))
     source_views.emplace_back(new Source::ClangView(file_path, language));
   else if(language && !language_protocol_language_id.empty() && !filesystem::find_executable(language_protocol_language_id + "-language-server").empty())
-    source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id));
+    source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, language_protocol_language_id + "-language-server"));
+  else if(language && language_protocol_language_id == "rust" && !filesystem::get_rust_sysroot_path().empty()) {
+    auto rust_analyzer = filesystem::get_rust_sysroot_path().string() + "/bin/rust-analyzer";
+    boost::system::error_code ec;
+    if(boost::filesystem::exists(rust_analyzer, ec))
+      source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, rust_analyzer));
+    else
+      source_views.emplace_back(new Source::GenericView(file_path, language));
+  }
   else {
     if(language) {
       static std::set<std::string> shown;

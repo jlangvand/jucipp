@@ -469,11 +469,8 @@ void Project::LLDB::debug_start() {
 
       std::vector<std::string> startup_commands;
       if(dynamic_cast<CargoBuild *>(self->build.get())) {
-        std::stringstream istream, ostream;
-        if(Terminal::get().process(istream, ostream, "rustc --print sysroot") == 0) {
-          auto sysroot = ostream.str();
-          while(!sysroot.empty() && (sysroot.back() == '\n' || sysroot.back() == '\r'))
-            sysroot.pop_back();
+        auto sysroot = filesystem::get_rust_sysroot_path().string();
+        if(!sysroot.empty()) {
           std::string line;
           std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ofstream::binary);
           if(input) {
