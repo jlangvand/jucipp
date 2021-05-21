@@ -1,6 +1,7 @@
 #include "project_build.hpp"
 #include "config.hpp"
 #include "filesystem.hpp"
+#include "terminal.hpp"
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <regex>
@@ -200,6 +201,27 @@ bool Project::MesonBuild::is_valid() {
   catch(...) {
   }
   return true;
+}
+
+bool Project::CargoBuild::update_default(bool force) {
+  auto default_build_path = get_default_path();
+  if(default_build_path.empty())
+    return false;
+
+  boost::system::error_code ec;
+  if(!boost::filesystem::exists(default_build_path, ec)) {
+    boost::system::error_code ec;
+    boost::filesystem::create_directories(default_build_path, ec);
+    if(ec) {
+      Terminal::get().print("\e[31mError\e[m: could not create " + filesystem::get_short_path(default_build_path).string() + ": " + ec.message() + "\n", true);
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Project::CargoBuild::update_debug(bool force) {
+  return update_default(force);
 }
 
 std::string Project::CargoBuild::get_compile_command() {

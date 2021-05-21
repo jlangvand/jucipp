@@ -63,9 +63,9 @@ namespace Project {
   class CargoBuild : public Build {
   public:
     boost::filesystem::path get_default_path() override { return project_path / "target" / "debug"; }
-    bool update_default(bool force = false) override { return true; }
+    bool update_default(bool force = false) override;
     boost::filesystem::path get_debug_path() override { return get_default_path(); }
-    bool update_debug(bool force = false) override { return true; }
+    bool update_debug(bool force = false) override;
 
     std::string get_compile_command() override;
     boost::filesystem::path get_executable(const boost::filesystem::path &path) override { return get_debug_path() / project_path.filename(); }
