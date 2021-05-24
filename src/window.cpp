@@ -429,6 +429,33 @@ void Window::set_menu_actions() {
         Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
+  menu.add_action("file_new_project_rust", []() {
+    auto sysroot = filesystem::get_rust_sysroot_path();
+    if(sysroot.empty()) {
+      Terminal::get().print("\e[33mWarning\e[m: could not find Rust.\n");
+      Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
+      return;
+    }
+    boost::filesystem::path project_path = Dialog::new_folder(Project::get_preferably_directory_folder());
+    if(!project_path.empty()) {
+      auto project_name = project_path.filename().string();
+      for(auto &chr : project_name) {
+        if(chr == ' ')
+          chr = '_';
+      }
+      if(Terminal::get().process("cargo init " + filesystem::escape_argument(project_path.string()) + " --bin --vcs none --name " + project_name) == 0) {
+        filesystem::write(project_path / ".rustfmt.toml", "");
+        Directories::get().open(project_path);
+        Notebook::get().open(project_path / "src" / "main.rs");
+        Directories::get().update();
+        Terminal::get().print("Rust project ");
+        Terminal::get().print(project_path.filename().string(), true);
+        Terminal::get().print(" \e[32mcreated\e[m\n");
+      }
+      else
+        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
+    }
+  });
 
   menu.add_action("file_open_file", []() {
     auto path = Dialog::open_file(Project::get_preferably_view_folder());

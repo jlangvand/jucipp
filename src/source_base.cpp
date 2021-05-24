@@ -169,6 +169,10 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
 #endif
   tab_char = Config::get().source.default_tab_char;
   tab_size = Config::get().source.default_tab_size;
+  if(language && (language->get_id() == "python" || language->get_id() == "rust")) {
+    tab_char = ' ';
+    tab_size = 4;
+  }
   if(Config::get().source.auto_tab_char_and_size) {
     auto tab_char_and_size = find_tab_char_and_size();
     if(tab_char_and_size.second != 0) {
@@ -408,9 +412,6 @@ void Source::BaseView::check_last_write_time(boost::optional<std::time_t> last_w
 }
 
 std::pair<char, unsigned> Source::BaseView::find_tab_char_and_size() {
-  if(language && language->get_id() == "python")
-    return {' ', 4};
-
   std::map<char, size_t> tab_chars;
   std::map<unsigned, size_t> tab_sizes;
   auto iter = get_buffer()->begin();

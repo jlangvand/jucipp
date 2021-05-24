@@ -68,7 +68,7 @@ namespace Project {
     bool update_debug(bool force = false) override;
 
     std::string get_compile_command() override;
-    boost::filesystem::path get_executable(const boost::filesystem::path &path) override { return get_debug_path() / project_path.filename(); }
+    boost::filesystem::path get_executable(const boost::filesystem::path &path) override;
   };
 
   class NpmBuild : public Build {

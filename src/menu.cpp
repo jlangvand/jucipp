@@ -135,6 +135,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
             <attribute name='label' translatable='no'>C++</attribute>
             <attribute name='action'>app.file_new_project_cpp</attribute>
           </item>
+          <item>
+            <attribute name='label' translatable='no'>Rust</attribute>
+            <attribute name='action'>app.file_new_project_rust</attribute>
+          </item>
         </submenu>
       </section>
       <section>

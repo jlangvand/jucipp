@@ -85,7 +85,7 @@ ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 ```
 
 - Additional setup within a Rust project:
-  - Add an empty `.rust-format` file to enable style format on save
+  - Add an empty `.rustfmt.toml` file to enable style format on save
 
 ## GLSL
 

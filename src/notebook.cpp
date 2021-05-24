@@ -175,10 +175,10 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   else if(language && !language_protocol_language_id.empty() && !filesystem::find_executable(language_protocol_language_id + "-language-server").empty())
     source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, language_protocol_language_id + "-language-server"));
   else if(language && language_protocol_language_id == "rust" && !filesystem::get_rust_sysroot_path().empty()) {
-    auto rust_analyzer = filesystem::get_rust_sysroot_path().string() + "/bin/rust-analyzer";
+    auto rust_analyzer = filesystem::get_rust_sysroot_path() / "bin" / "rust-analyzer";
     boost::system::error_code ec;
     if(boost::filesystem::exists(rust_analyzer, ec))
-      source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, rust_analyzer));
+      source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, rust_analyzer.string()));
     else
       source_views.emplace_back(new Source::GenericView(file_path, language));
   }

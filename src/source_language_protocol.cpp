@@ -568,6 +568,20 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           style_file_search_path = style_file_search_path.parent_path();
         }
 
+        if(!has_style_file && language && language->get_id() == "rust") {
+          auto style_file_search_path = file_path.parent_path();
+          while(true) {
+            if(boost::filesystem::exists(style_file_search_path / "rustfmt.toml", ec) ||
+               boost::filesystem::exists(style_file_search_path / ".rustfmt.toml", ec)) {
+              has_style_file = true;
+              break;
+            }
+            if(style_file_search_path == style_file_search_path.root_directory())
+              break;
+            style_file_search_path = style_file_search_path.parent_path();
+          }
+        }
+
         if(!has_style_file && !continue_without_style_file)
           return;
       }

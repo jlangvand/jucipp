@@ -227,3 +227,12 @@ bool Project::CargoBuild::update_debug(bool force) {
 std::string Project::CargoBuild::get_compile_command() {
   return Config::get().project.cargo_command + " build";
 }
+
+boost::filesystem::path Project::CargoBuild::get_executable(const boost::filesystem::path &path) {
+  auto project_name = project_path.filename().string();
+  for(auto &chr : project_name) {
+    if(chr == ' ')
+      chr = '_';
+  }
+  return get_debug_path() / project_name;
+}

@@ -908,7 +908,7 @@ std::pair<std::string, std::string> Project::Rust::get_run_arguments() {
     arguments = run_arguments_it->second;
 
   if(arguments.empty())
-    arguments = filesystem::get_short_path(build->get_executable(project_path)).string();
+    arguments = filesystem::escape_argument(filesystem::get_short_path(build->get_executable(project_path)).string());
 
   return {project_path, arguments};
 }
@@ -921,8 +921,7 @@ void Project::Rust::compile() {
 
   Terminal::get().print("\e[2mCompiling project " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
 
-  auto command = build->get_compile_command();
-  Terminal::get().async_process(command, build->project_path, [](int exit_status) {
+  Terminal::get().async_process(build->get_compile_command(), build->project_path, [](int exit_status) {
     compiling = false;
   });
 }
