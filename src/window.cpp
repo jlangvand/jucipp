@@ -350,6 +350,7 @@ void Window::set_menu_actions() {
       }
       auto c_main_path = project_path / "main.c";
       auto clang_format_path = project_path / ".clang-format";
+      auto gitignore_path = project_path / ".gitignore";
       boost::system::error_code ec;
       if(boost::filesystem::exists(build_config_path, ec)) {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(build_config_path).string() + " already exists\n", true);
@@ -363,9 +364,13 @@ void Window::set_menu_actions() {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(clang_format_path).string() + " already exists\n", true);
         return;
       }
-      std::string c_main = "#include <stdio.h>\n\nint main() {\n  printf(\"Hello World!\\n\");\n}\n";
-      std::string clang_format = "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\n";
-      if(filesystem::write(build_config_path, build_config) && filesystem::write(c_main_path, c_main) && filesystem::write(clang_format_path, clang_format)) {
+      if(boost::filesystem::exists(gitignore_path, ec)) {
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(gitignore_path).string() + " already exists\n", true);
+        return;
+      }
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(c_main_path, "#include <stdio.h>\n\nint main() {\n  printf(\"Hello World!\\n\");\n}\n")) {
+        filesystem::write(clang_format_path, "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\n");
+        filesystem::write(gitignore_path, "/build\n");
         Directories::get().open(project_path);
         Notebook::get().open(c_main_path);
         Directories::get().update();
@@ -402,6 +407,7 @@ void Window::set_menu_actions() {
       }
       auto cpp_main_path = project_path / "main.cpp";
       auto clang_format_path = project_path / ".clang-format";
+      auto gitignore_path = project_path / ".gitignore";
       boost::system::error_code ec;
       if(boost::filesystem::exists(build_config_path, ec)) {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(build_config_path).string() + " already exists\n", true);
@@ -415,9 +421,13 @@ void Window::set_menu_actions() {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(clang_format_path).string() + " already exists\n", true);
         return;
       }
-      std::string cpp_main = "#include <iostream>\n\nint main() {\n  std::cout << \"Hello World!\\n\";\n}\n";
-      std::string clang_format = "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\nNamespaceIndentation: All\n";
-      if(filesystem::write(build_config_path, build_config) && filesystem::write(cpp_main_path, cpp_main) && filesystem::write(clang_format_path, clang_format)) {
+      if(boost::filesystem::exists(gitignore_path, ec)) {
+        Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(gitignore_path).string() + " already exists\n", true);
+        return;
+      }
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(cpp_main_path, "#include <iostream>\n\nint main() {\n  std::cout << \"Hello World!\\n\";\n}\n")) {
+        filesystem::write(clang_format_path, "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\nNamespaceIndentation: All\n");
+        filesystem::write(gitignore_path, "/build\n");
         Directories::get().open(project_path);
         Notebook::get().open(cpp_main_path);
         Directories::get().update();
@@ -444,6 +454,7 @@ void Window::set_menu_actions() {
           chr = '_';
       }
       if(Terminal::get().process("cargo init " + filesystem::escape_argument(project_path.string()) + " --bin --vcs none --name " + project_name) == 0) {
+        filesystem::write(project_path / ".gitignore", "/target\n");
         filesystem::write(project_path / ".rustfmt.toml", "");
         Directories::get().open(project_path);
         Notebook::get().open(project_path / "src" / "main.rs");
