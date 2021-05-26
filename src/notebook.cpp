@@ -204,8 +204,11 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
           shown.emplace(language_id);
         }
         else if(language_id == "rust") {
-          Terminal::get().print("\e[33mWarning\e[m: could not find Rust language server.\n");
+          auto rust_installed = !filesystem::get_rust_sysroot_path().empty();
+          Terminal::get().print(std::string("\e[33mWarning\e[m: could not find Rust ") + (rust_installed ? "language server" : "installation") + ".\n");
           Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
+          if(!rust_installed)
+            Terminal::get().print("You will need to restart juCi++ after installing Rust.\n");
           shown.emplace(language_id);
         }
       }

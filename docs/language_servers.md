@@ -69,7 +69,7 @@ ln -s `which pyls` /usr/local/bin/python-language-server
 ## Rust
 
 - Prerequisites:
-  - Rust
+  - [Rust](https://www.rust-lang.org/tools/install)
 
 Install language server, and create symbolic link to enable server in juCi++:
 

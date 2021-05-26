@@ -442,8 +442,9 @@ void Window::set_menu_actions() {
   menu.add_action("file_new_project_rust", []() {
     auto sysroot = filesystem::get_rust_sysroot_path();
     if(sysroot.empty()) {
-      Terminal::get().print("\e[33mWarning\e[m: could not find Rust.\n");
+      Terminal::get().print("\e[33mWarning\e[m: could not find Rust installation.\n");
       Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
+      Terminal::get().print("You will need to restart juCi++ after installing Rust.\n");
       return;
     }
     boost::filesystem::path project_path = Dialog::new_folder(Project::get_preferably_directory_folder());
