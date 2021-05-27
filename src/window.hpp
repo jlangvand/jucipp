@@ -9,8 +9,8 @@ class Window : public Gtk::ApplicationWindow {
 
 public:
   static Window &get() {
-    static Window singleton;
-    return singleton;
+    static Window instance;
+    return instance;
   }
   void add_widgets();
   void save_session();

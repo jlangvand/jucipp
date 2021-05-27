@@ -27,8 +27,8 @@ class Notebook : public Gtk::Paned {
 
 public:
   static Notebook &get() {
-    static Notebook singleton;
-    return singleton;
+    static Notebook instance;
+    return instance;
   }
 
   std::vector<Gtk::Notebook> notebooks;

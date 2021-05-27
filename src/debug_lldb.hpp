@@ -38,8 +38,8 @@ namespace Debug {
 
   public:
     static LLDB &get() {
-      static LLDB singleton;
-      return singleton;
+      static LLDB instance;
+      return instance;
     }
 
     /// Must be called before application terminates (cannot be placed in destructor sadly)

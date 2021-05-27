@@ -9,8 +9,8 @@ class Menu {
 
 public:
   static Menu &get() {
-    static Menu singleton;
-    return singleton;
+    static Menu instance;
+    return instance;
   }
 
   void add_action(const std::string &name, const std::function<void()> &action);

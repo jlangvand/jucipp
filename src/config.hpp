@@ -119,8 +119,8 @@ private:
 
 public:
   static Config &get() {
-    static Config singleton;
-    return singleton;
+    static Config instance;
+    return instance;
   }
 
   void load();

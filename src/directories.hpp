@@ -55,8 +55,8 @@ class Directories : public Gtk::ListViewText {
 
 public:
   static Directories &get() {
-    static Directories singleton;
-    return singleton;
+    static Directories instance;
+    return instance;
   }
   ~Directories() override;
 

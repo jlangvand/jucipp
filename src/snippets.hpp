@@ -17,8 +17,8 @@ public:
   };
 
   static Snippets &get() {
-    static Snippets singleton;
-    return singleton;
+    static Snippets instance;
+    return instance;
   }
 
   std::vector<std::pair<std::regex, std::vector<Snippet>>> snippets;

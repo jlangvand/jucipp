@@ -15,8 +15,8 @@ class Terminal : public Source::SearchView {
 
 public:
   static Terminal &get() {
-    static Terminal singleton;
-    return singleton;
+    static Terminal instance;
+    return instance;
   }
 
   int process(const std::string &command, const boost::filesystem::path &path = "", bool use_pipes = true);

@@ -39,8 +39,8 @@ private:
 
 public:
   static EntryBox &get() {
-    static EntryBox singleton;
-    return singleton;
+    static EntryBox instance;
+    return instance;
   }
 
   Gtk::Box upper_box;
