@@ -129,6 +129,7 @@ void Debug::LLDB::start(const std::string &command, const boost::filesystem::pat
     argv.emplace_back(argument.c_str());
   argv.emplace_back(nullptr);
 
+  executable = filesystem::get_absolute_path(executable, path).string();
   auto target = debugger->CreateTarget(executable.c_str());
   if(!target.IsValid()) {
     Terminal::get().async_print("\e[31mError (debug)\e[m: Could not create debug target to: " + executable + '\n', true);

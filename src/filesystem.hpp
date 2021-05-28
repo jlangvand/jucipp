@@ -35,6 +35,8 @@ public:
 
   static boost::filesystem::path get_relative_path(const boost::filesystem::path &path, const boost::filesystem::path &base) noexcept;
 
+  static boost::filesystem::path get_absolute_path(const boost::filesystem::path &path, const boost::filesystem::path &base) noexcept;
+
   /// Return executable with latest version in filename on systems that is lacking executable_name symbolic link
   static boost::filesystem::path get_executable(const boost::filesystem::path &executable_name) noexcept;
 

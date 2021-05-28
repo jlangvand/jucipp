@@ -1,4 +1,5 @@
 #include "project.hpp"
+#include "commands.hpp"
 #include "config.hpp"
 #include "directories.hpp"
 #include "filesystem.hpp"
@@ -71,6 +72,9 @@ void Project::on_save(size_t index) {
     for(auto view : Notebook::get().get_views())
       view->set_snippets();
   }
+
+  if(view->file_path == Config::get().home_juci_path / "commands.json")
+    Commands::get().load();
 
   boost::filesystem::path build_path;
   if(view->language && view->language->get_id() == "cmake") {
@@ -259,8 +263,13 @@ std::pair<std::string, std::string> Project::Base::debug_get_run_arguments() {
   return {"", ""};
 }
 
-void Project::Base::debug_start() {
+void Project::Base::debug_compile_and_start() {
   Info::get().print("Could not find a supported project");
+}
+
+void Project::Base::debug_start(const std::string &command, const boost::filesystem::path &path, const std::string &remote_host) {
+  Info::get().print("Could not find a supported project");
+  Project::debugging = false;
 }
 
 #ifdef JUCI_ENABLE_DEBUG
@@ -336,7 +345,7 @@ Project::DebugOptions *Project::LLDB::debug_get_options() {
   return debug_options.get();
 }
 
-void Project::LLDB::debug_start() {
+void Project::LLDB::debug_compile_and_start() {
   auto default_build_path = build->get_default_path();
   if(default_build_path.empty() || !build->update_default())
     return;
@@ -344,17 +353,19 @@ void Project::LLDB::debug_start() {
   if(debug_build_path.empty() || !build->update_debug())
     return;
 
-  auto project_path = std::make_shared<boost::filesystem::path>(build->project_path);
+  auto run_arguments_it = debug_run_arguments.find(build->project_path.string());
+  std::string run_arguments;
+  std::string remote_host;
+  if(run_arguments_it != debug_run_arguments.end()) {
+    run_arguments = run_arguments_it->second.arguments;
+    if(run_arguments_it->second.remote_enabled)
+      remote_host = run_arguments_it->second.remote_host_port;
+  }
 
-  auto run_arguments_it = debug_run_arguments.find(project_path->string());
-  auto run_arguments = std::make_shared<std::string>();
-  if(run_arguments_it != debug_run_arguments.end())
-    *run_arguments = run_arguments_it->second.arguments;
-
-  if(run_arguments->empty()) {
+  if(run_arguments.empty()) {
     auto view = Notebook::get().get_current_view();
-    *run_arguments = build->get_executable(view ? view->file_path : Directories::get().path).string();
-    if(run_arguments->empty()) {
+    run_arguments = build->get_executable(view ? view->file_path : Directories::get().path).string();
+    if(run_arguments.empty()) {
       if(!build->is_valid())
         Terminal::get().print("\e[31mError\e[m: build folder no longer valid, please rebuild project.\n", true);
       else {
@@ -363,10 +374,10 @@ void Project::LLDB::debug_start() {
       }
       return;
     }
-    size_t pos = run_arguments->find(default_build_path.string());
+    size_t pos = run_arguments.find(default_build_path.string());
     if(pos != std::string::npos)
-      run_arguments->replace(pos, default_build_path.string().size(), debug_build_path.string());
-    *run_arguments = filesystem::escape_argument(filesystem::get_short_path(*run_arguments).string());
+      run_arguments.replace(pos, default_build_path.string().size(), debug_build_path.string());
+    run_arguments = filesystem::escape_argument(filesystem::get_short_path(run_arguments).string());
   }
 
   debugging = true;
@@ -374,115 +385,114 @@ void Project::LLDB::debug_start() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mCompiling and debugging " + *run_arguments + "\e[m\n");
-  Terminal::get().async_process(build->get_compile_command(), debug_build_path, [self = this->shared_from_this(), run_arguments, project_path](int exit_status) {
+  Terminal::get().print("\e[2mCompiling and debugging: " + run_arguments + "\e[m\n");
+  Terminal::get().async_process(build->get_compile_command(), debug_build_path, [self = this->shared_from_this(), run_arguments, project_path = build->project_path, remote_host](int exit_status) {
     if(exit_status != EXIT_SUCCESS)
       debugging = false;
     else {
-      std::vector<std::pair<boost::filesystem::path, int>> breakpoints;
-      for(size_t c = 0; c < Notebook::get().size(); c++) {
-        auto view = Notebook::get().get_view(c);
-        if(filesystem::file_in_path(view->file_path, *project_path)) {
-          auto iter = view->get_buffer()->begin();
-          if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size() > 0)
-            breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
-          while(view->get_source_buffer()->forward_iter_to_source_mark(iter, "debug_breakpoint"))
-            breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
-        }
-      }
-
-      std::string remote_host;
-      auto debug_run_arguments_it = debug_run_arguments.find(project_path->string());
-      if(debug_run_arguments_it != debug_run_arguments.end() && debug_run_arguments_it->second.remote_enabled)
-        remote_host = debug_run_arguments_it->second.remote_host_port;
-
-      static auto on_exit_it = Debug::LLDB::get().on_exit.end();
-      if(on_exit_it != Debug::LLDB::get().on_exit.end())
-        Debug::LLDB::get().on_exit.erase(on_exit_it);
-      Debug::LLDB::get().on_exit.emplace_back([self, run_arguments](int exit_status) {
-        debugging = false;
-        Terminal::get().async_print("\e[2m" + *run_arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
-        self->dispatcher.post([] {
-          debug_update_status("");
-        });
-      });
-      on_exit_it = std::prev(Debug::LLDB::get().on_exit.end());
-
-      static auto on_event_it = Debug::LLDB::get().on_event.end();
-      if(on_event_it != Debug::LLDB::get().on_event.end())
-        Debug::LLDB::get().on_event.erase(on_event_it);
-      Debug::LLDB::get().on_event.emplace_back([self](const lldb::SBEvent &event) {
-        std::string status;
-        boost::filesystem::path stop_path;
-        unsigned stop_line = 0, stop_column = 0;
-
-        LockGuard lock(Debug::LLDB::get().mutex);
-        auto process = lldb::SBProcess::GetProcessFromEvent(event);
-        auto state = lldb::SBProcess::GetStateFromEvent(event);
-        lldb::SBStream stream;
-        event.GetDescription(stream);
-        std::string event_desc = stream.GetData();
-        event_desc.pop_back();
-        auto pos = event_desc.rfind(" = ");
-        if(pos != std::string::npos && pos + 3 < event_desc.size())
-          status = event_desc.substr(pos + 3);
-        if(state == lldb::StateType::eStateStopped) {
-          char buffer[100];
-          auto thread = process.GetSelectedThread();
-          auto n = thread.GetStopDescription(buffer, 100); // Returns number of bytes read. Might include null termination... Although maybe on newer versions only.
-          if(n > 0)
-            status += " (" + std::string(buffer, n <= 100 ? (buffer[n - 1] == '\0' ? n - 1 : n) : 100) + ")";
-          auto line_entry = thread.GetSelectedFrame().GetLineEntry();
-          if(line_entry.IsValid()) {
-            lldb::SBStream stream;
-            line_entry.GetFileSpec().GetDescription(stream);
-            auto line = line_entry.GetLine();
-            status += " " + boost::filesystem::path(stream.GetData()).filename().string() + ":" + std::to_string(line);
-            auto column = line_entry.GetColumn();
-            if(column == 0)
-              column = 1;
-            stop_path = filesystem::get_normal_path(stream.GetData());
-            stop_line = line - 1;
-            stop_column = column - 1;
-          }
-        }
-
-        self->dispatcher.post([status = std::move(status), stop_path = std::move(stop_path), stop_line, stop_column] {
-          debug_update_status(status);
-          Project::debug_stop.first = stop_path;
-          Project::debug_stop.second.first = stop_line;
-          Project::debug_stop.second.second = stop_column;
-          debug_update_stop();
-
-          if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
-            if(Notebook::get().open(stop_path)) {
-              auto view = Notebook::get().get_current_view();
-              view->place_cursor_at_line_index(stop_line, stop_column);
-              view->scroll_to_cursor_delayed(true, false);
-            }
-          }
-          else if(auto view = Notebook::get().get_current_view())
-            view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
-        });
-      });
-      on_event_it = std::prev(Debug::LLDB::get().on_event.end());
-
-      std::vector<std::string> startup_commands;
-      if(dynamic_cast<CargoBuild *>(self->build.get())) {
-        auto sysroot = filesystem::get_rust_sysroot_path().string();
-        if(!sysroot.empty()) {
-          std::string line;
-          std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ofstream::binary);
-          if(input) {
-            startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_lookup.py\"");
-            while(std::getline(input, line))
-              startup_commands.emplace_back(line);
-          }
-        }
-      }
-      Debug::LLDB::get().start(*run_arguments, *project_path, breakpoints, startup_commands, remote_host);
+      self->debug_start(run_arguments, project_path, remote_host);
     }
   });
+}
+
+void Project::LLDB::debug_start(const std::string &command, const boost::filesystem::path &path, const std::string &remote_host) {
+  std::vector<std::pair<boost::filesystem::path, int>> breakpoints;
+  for(size_t c = 0; c < Notebook::get().size(); c++) {
+    auto view = Notebook::get().get_view(c);
+    if(filesystem::file_in_path(view->file_path, path)) {
+      auto iter = view->get_buffer()->begin();
+      if(view->get_source_buffer()->get_source_marks_at_iter(iter, "debug_breakpoint").size() > 0)
+        breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
+      while(view->get_source_buffer()->forward_iter_to_source_mark(iter, "debug_breakpoint"))
+        breakpoints.emplace_back(view->file_path, iter.get_line() + 1);
+    }
+  }
+
+  static auto on_exit_it = Debug::LLDB::get().on_exit.end();
+  if(on_exit_it != Debug::LLDB::get().on_exit.end())
+    Debug::LLDB::get().on_exit.erase(on_exit_it);
+  Debug::LLDB::get().on_exit.emplace_back([self = shared_from_this(), command](int exit_status) {
+    debugging = false;
+    Terminal::get().async_print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    self->dispatcher.post([] {
+      debug_update_status("");
+    });
+  });
+  on_exit_it = std::prev(Debug::LLDB::get().on_exit.end());
+
+  static auto on_event_it = Debug::LLDB::get().on_event.end();
+  if(on_event_it != Debug::LLDB::get().on_event.end())
+    Debug::LLDB::get().on_event.erase(on_event_it);
+  Debug::LLDB::get().on_event.emplace_back([self = shared_from_this()](const lldb::SBEvent &event) {
+    std::string status;
+    boost::filesystem::path stop_path;
+    unsigned stop_line = 0, stop_column = 0;
+
+    LockGuard lock(Debug::LLDB::get().mutex);
+    auto process = lldb::SBProcess::GetProcessFromEvent(event);
+    auto state = lldb::SBProcess::GetStateFromEvent(event);
+    lldb::SBStream stream;
+    event.GetDescription(stream);
+    std::string event_desc = stream.GetData();
+    event_desc.pop_back();
+    auto pos = event_desc.rfind(" = ");
+    if(pos != std::string::npos && pos + 3 < event_desc.size())
+      status = event_desc.substr(pos + 3);
+    if(state == lldb::StateType::eStateStopped) {
+      char buffer[100];
+      auto thread = process.GetSelectedThread();
+      auto n = thread.GetStopDescription(buffer, 100); // Returns number of bytes read. Might include null termination... Although maybe on newer versions only.
+      if(n > 0)
+        status += " (" + std::string(buffer, n <= 100 ? (buffer[n - 1] == '\0' ? n - 1 : n) : 100) + ")";
+      auto line_entry = thread.GetSelectedFrame().GetLineEntry();
+      if(line_entry.IsValid()) {
+        lldb::SBStream stream;
+        line_entry.GetFileSpec().GetDescription(stream);
+        auto line = line_entry.GetLine();
+        status += " " + boost::filesystem::path(stream.GetData()).filename().string() + ":" + std::to_string(line);
+        auto column = line_entry.GetColumn();
+        if(column == 0)
+          column = 1;
+        stop_path = filesystem::get_normal_path(stream.GetData());
+        stop_line = line - 1;
+        stop_column = column - 1;
+      }
+    }
+
+    self->dispatcher.post([status = std::move(status), stop_path = std::move(stop_path), stop_line, stop_column] {
+      debug_update_status(status);
+      Project::debug_stop.first = stop_path;
+      Project::debug_stop.second.first = stop_line;
+      Project::debug_stop.second.second = stop_column;
+      debug_update_stop();
+
+      if(Config::get().source.debug_place_cursor_at_stop && !stop_path.empty()) {
+        if(Notebook::get().open(stop_path)) {
+          auto view = Notebook::get().get_current_view();
+          view->place_cursor_at_line_index(stop_line, stop_column);
+          view->scroll_to_cursor_delayed(true, false);
+        }
+      }
+      else if(auto view = Notebook::get().get_current_view())
+        view->get_buffer()->place_cursor(view->get_buffer()->get_insert()->get_iter());
+    });
+  });
+  on_event_it = std::prev(Debug::LLDB::get().on_event.end());
+
+  std::vector<std::string> startup_commands;
+  if(dynamic_cast<CargoBuild *>(build.get())) {
+    auto sysroot = filesystem::get_rust_sysroot_path().string();
+    if(!sysroot.empty()) {
+      std::string line;
+      std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ofstream::binary);
+      if(input) {
+        startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_lookup.py\"");
+        while(std::getline(input, line))
+          startup_commands.emplace_back(line);
+      }
+    }
+  }
+  Debug::LLDB::get().start(command, path, breakpoints, startup_commands, remote_host);
 }
 
 void Project::LLDB::debug_continue() {
@@ -703,7 +713,7 @@ void Project::Clang::compile() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mCompiling project " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
+  Terminal::get().print("\e[2mCompiling project: " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
   Terminal::get().async_process(build->get_compile_command(), default_build_path, [](int exit_status) {
     compiling = false;
   });
@@ -741,7 +751,7 @@ void Project::Clang::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mCompiling and running " + arguments + "\e[m\n");
+  Terminal::get().print("\e[2mCompiling and running: " + arguments + "\e[m\n");
   Terminal::get().async_process(build->get_compile_command(), default_build_path, [arguments, project_path](int exit_status) {
     compiling = false;
     if(exit_status == 0) {
@@ -852,7 +862,7 @@ void Project::Python::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
+  Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
     Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
@@ -878,7 +888,7 @@ void Project::JavaScript::compile_and_run() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
+  Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
   Terminal::get().async_process(command, path, [command](int exit_status) {
     Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
@@ -891,7 +901,7 @@ void Project::HTML::compile_and_run() {
     if(Config::get().terminal.clear_on_compile)
       Terminal::get().clear();
 
-    Terminal::get().print("\e[2mRunning " + command + "\e[m\n");
+    Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
     Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
       Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
     });
@@ -919,7 +929,7 @@ void Project::Rust::compile() {
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
-  Terminal::get().print("\e[2mCompiling project " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
+  Terminal::get().print("\e[2mCompiling project: " + filesystem::get_short_path(build->project_path).string() + "\e[m\n");
 
   Terminal::get().async_process(build->get_compile_command(), build->project_path, [](int exit_status) {
     compiling = false;
@@ -933,7 +943,7 @@ void Project::Rust::compile_and_run() {
     Terminal::get().clear();
 
   auto arguments = get_run_arguments().second;
-  Terminal::get().print("\e[2mCompiling and running " + arguments + "\e[m\n");
+  Terminal::get().print("\e[2mCompiling and running: " + arguments + "\e[m\n");
 
   auto self = this->shared_from_this();
   Terminal::get().async_process(build->get_compile_command(), build->project_path, [self, arguments = std::move(arguments)](int exit_status) {

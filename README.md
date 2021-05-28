@@ -11,6 +11,10 @@ IDE is instead integrated directly into juCi++.
 For effective development, juCi++ is primarily written for Unix/Linux systems. However, Windows
 users can use juCi++ through POSIX compatibility layers such as MSYS2.
 
+## Installation
+
+See [installation guide](docs/install.md).
+
 ## Features
 
 - Platform independent
@@ -75,10 +79,6 @@ for planned features.
 <td><img src="docs/images/screenshot4b.png" width="380"/></td>
 </tr>
 </table>
-
-## Installation
-
-See [installation guide](docs/install.md).
 
 ## Custom styling
 

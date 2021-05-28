@@ -126,6 +126,7 @@ const std::string default_config_file =
     "keybindings": {
         "preferences": "<primary>comma",
         "snippets": "",
+        "commands": "",
         "quit": "<primary>q",
         "file_new_file": "<primary>n",
         "file_new_folder": "<primary><shift>n",

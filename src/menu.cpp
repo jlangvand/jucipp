@@ -104,6 +104,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
         <attribute name='label' translatable='yes'>_Snippets</attribute>
         <attribute name='action'>app.snippets</attribute>
       </item>
+      <item>
+        <attribute name='label' translatable='yes'>_Commands</attribute>
+        <attribute name='action'>app.commands</attribute>
+      </item>
     </section>
     <section>
       <item>

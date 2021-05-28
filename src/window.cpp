@@ -3,6 +3,7 @@
 #ifdef JUCI_ENABLE_DEBUG
 #include "debug_lldb.hpp"
 #endif
+#include "commands.hpp"
 #include "compile_commands.hpp"
 #include "dialog.hpp"
 #include "directories.hpp"
@@ -15,6 +16,7 @@
 #include "project.hpp"
 #include "selection_dialog.hpp"
 #include "terminal.hpp"
+#include <boost/algorithm/string.hpp>
 
 Window::Window() {
   Gsv::init();
@@ -166,6 +168,7 @@ Window::Window() {
 void Window::configure() {
   Config::get().load();
   Snippets::get().load();
+  Commands::get().load();
   auto screen = get_screen();
 
   static Glib::RefPtr<Gtk::CssProvider> css_provider_theme;
@@ -283,6 +286,9 @@ void Window::set_menu_actions() {
   });
   menu.add_action("snippets", []() {
     Notebook::get().open(Config::get().home_juci_path / "snippets.json");
+  });
+  menu.add_action("commands", []() {
+    Notebook::get().open(Config::get().home_juci_path / "commands.json");
   });
   menu.add_action("quit", [this]() {
     close();
@@ -1386,7 +1392,7 @@ void Window::set_menu_actions() {
     Project::current = Project::create();
 
     if(Config::get().project.save_on_compile_or_run)
-      Project::save_files(Project::current->build->project_path);
+      Project::save_files(!Project::current->build->project_path.empty() ? Project::current->build->project_path : Project::get_preferably_view_folder());
 
     Project::current->compile_and_run();
   });
@@ -1399,7 +1405,7 @@ void Window::set_menu_actions() {
     Project::current = Project::create();
 
     if(Config::get().project.save_on_compile_or_run)
-      Project::save_files(Project::current->build->project_path);
+      Project::save_files(!Project::current->build->project_path.empty() ? Project::current->build->project_path : Project::get_preferably_view_folder());
 
     Project::current->compile();
   });
@@ -1507,9 +1513,9 @@ void Window::set_menu_actions() {
     Project::current = Project::create();
 
     if(Config::get().project.save_on_compile_or_run)
-      Project::save_files(Project::current->build->project_path);
+      Project::save_files(!Project::current->build->project_path.empty() ? Project::current->build->project_path : Project::get_preferably_view_folder());
 
-    Project::current->debug_start();
+    Project::current->debug_compile_and_start();
   });
   menu.add_action("debug_stop", []() {
     if(Project::current)
@@ -1893,6 +1899,89 @@ void Window::add_widgets() {
 }
 
 bool Window::on_key_press_event(GdkEventKey *event) {
+  guint keyval_without_state;
+  gdk_keymap_translate_keyboard_state(gdk_keymap_get_default(), event->hardware_keycode, (GdkModifierType)0, 0, &keyval_without_state, nullptr, nullptr, nullptr);
+  for(auto &command : Commands::get().commands) {
+    if((command.key == event->keyval || command.key == keyval_without_state) && (event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == command.modifier) {
+      auto view = Notebook::get().get_current_view();
+      auto view_folder = Project::get_preferably_view_folder();
+      auto path = view ? view->file_path : view_folder;
+      if(command.path) {
+        std::smatch sm;
+        if(!std::regex_match(path.string(), sm, *command.path) && !std::regex_match(filesystem::get_short_path(path).string(), sm, *command.path))
+          continue;
+      }
+
+      auto project = Project::create();
+      auto run_path = !project->build->project_path.empty() ? project->build->project_path : view_folder;
+
+      auto compile = command.compile;
+      boost::replace_all(compile, "<path_match>", filesystem::escape_argument(path.string()));
+      boost::replace_all(compile, "<working_directory>", filesystem::escape_argument(run_path.string()));
+      auto run = command.run;
+      boost::replace_all(run, "<path_match>", filesystem::escape_argument(path.string()));
+      boost::replace_all(run, "<working_directory>", filesystem::escape_argument(run_path.string()));
+
+      if(!compile.empty() || command.debug) {
+        if(Project::debugging && command.debug) // Possibly continue current debugging
+          break;
+        if(Project::compiling || Project::debugging) {
+          Info::get().print("Compile or debug in progress");
+          break;
+        }
+        Project::current = project;
+      }
+
+      if(Config::get().project.save_on_compile_or_run)
+        Project::save_files(run_path);
+
+      if(Config::get().terminal.clear_on_run_command || (!compile.empty() && Config::get().terminal.clear_on_compile))
+        Terminal::get().clear();
+
+      if(!compile.empty()) {
+        if(!project->build->get_default_path().empty())
+          project->build->update_default();
+        if(command.debug && !project->build->get_debug_path().empty())
+          project->build->update_debug();
+
+        if(!command.debug) {
+          Project::compiling = true;
+          Terminal::get().print("\e[2mCompiling and running: " + run + "\e[m\n");
+          Terminal::get().async_process(compile, run_path, [run, run_path](int exit_status) {
+            Project::compiling = false;
+            if(exit_status == 0) {
+              Terminal::get().async_process(run, run_path, [run](int exit_status) {
+                Terminal::get().print("\e[2m" + run + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+              });
+            }
+          });
+        }
+        else { // Debug
+          Project::debugging = true;
+          Terminal::get().print("\e[2mCompiling and debugging: " + run + "\e[m\n");
+          Terminal::get().async_process(compile, run_path, [project = project->shared_from_this(), run, run_path, debug_remote_host = command.debug_remote_host](int exit_status) {
+            if(exit_status != EXIT_SUCCESS)
+              Project::debugging = false;
+            else
+              project->debug_start(run, run_path, debug_remote_host);
+          });
+        }
+      }
+      else if(!command.debug) {
+        Terminal::get().async_print("\e[2mRunning: " + run + "\e[m\n");
+        Terminal::get().async_process(run, run_path, [run](int exit_status) {
+          Terminal::get().print("\e[2m" + run + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+        });
+      }
+      else { // Debug
+        Project::debugging = true;
+        Terminal::get().async_print("\e[2mDebugging: " + run + "\e[m\n");
+        project->debug_start(run, run_path, command.debug_remote_host);
+      }
+      return true;
+    }
+  }
+
   if(event->keyval == GDK_KEY_Escape) {
     EntryBox::get().hide();
   }

@@ -18,4 +18,6 @@ std::pair<std::string, std::string> Project::Base::debug_get_run_arguments() {
   return std::make_pair<std::string, std::string>("", "");
 }
 
-void Project::Base::debug_start() {}
+void Project::Base::debug_compile_and_start() {}
+
+void Project::Base::debug_start(const std::string &command, const boost::filesystem::path &path, const std::string &remote_host) {}

@@ -1,6 +1,7 @@
 #include "compile_commands.hpp"
 #include "clangmm.hpp"
 #include "config.hpp"
+#include "filesystem.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <algorithm>
@@ -107,7 +108,7 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
       if(parameter_start_pos != std::string::npos)
         add_parameter();
 
-      commands.emplace_back(Command{directory, parameters, boost::filesystem::absolute(file, build_path)});
+      commands.emplace_back(Command{directory, parameters, filesystem::get_absolute_path(file, build_path)});
     }
   }
   catch(...) {

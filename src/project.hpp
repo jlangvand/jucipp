@@ -64,7 +64,8 @@ namespace Project {
     virtual std::pair<std::string, std::string> debug_get_run_arguments();
     virtual Project::DebugOptions *debug_get_options() { return nullptr; }
     Tooltips debug_variable_tooltips;
-    virtual void debug_start();
+    virtual void debug_compile_and_start();
+    virtual void debug_start(const std::string &command, const boost::filesystem::path &path, const std::string &remote_host);
     virtual void debug_continue() {}
     virtual void debug_stop() {}
     virtual void debug_kill() {}
@@ -85,7 +86,8 @@ namespace Project {
 #ifdef JUCI_ENABLE_DEBUG
     std::pair<std::string, std::string> debug_get_run_arguments() override;
     Project::DebugOptions *debug_get_options() override;
-    void debug_start() override;
+    void debug_compile_and_start() override;
+    void debug_start(const std::string &command, const boost::filesystem::path &path, const std::string &remote_host) override;
     void debug_continue() override;
     void debug_stop() override;
     void debug_kill() override;

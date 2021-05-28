@@ -438,7 +438,7 @@ Directories::Directories() : Gtk::ListViewText(1) {
       return;
     Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Delete!", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
     dialog.set_default_response(Gtk::RESPONSE_NO);
-    dialog.set_secondary_text("Are you sure you want to delete " + menu_popup_row_path.string() + "?");
+    dialog.set_secondary_text("Are you sure you want to delete " + filesystem::get_short_path(menu_popup_row_path).string() + "?");
     int result = dialog.run();
     if(result == Gtk::RESPONSE_YES) {
       boost::system::error_code ec;

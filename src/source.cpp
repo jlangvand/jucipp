@@ -2104,8 +2104,10 @@ bool Source::View::on_key_press_event(GdkEventKey *event) {
   {
     LockGuard lock(snippets_mutex);
     if(snippets) {
+      guint keyval_without_state;
+      gdk_keymap_translate_keyboard_state(gdk_keymap_get_default(), event->hardware_keycode, (GdkModifierType)0, 0, &keyval_without_state, nullptr, nullptr, nullptr);
       for(auto &snippet : *snippets) {
-        if(snippet.key == event->keyval && (snippet.modifier & event->state) == snippet.modifier) {
+        if((snippet.key == event->keyval || snippet.key == keyval_without_state) && (event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == snippet.modifier) {
           insert_snippet(get_buffer()->get_insert()->get_iter(), snippet.body);
           return true;
         }

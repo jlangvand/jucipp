@@ -106,6 +106,14 @@ int main() {
   }
 
   {
+    g_assert(filesystem::get_absolute_path("./test1/test2", "/home") == boost::filesystem::path("/") / "home" / "." / "test1" / "test2");
+    g_assert(filesystem::get_absolute_path("../test1/test2", "/home") == boost::filesystem::path("/") / "home" / ".." / "test1" / "test2");
+    g_assert(filesystem::get_absolute_path("test1/test2", "/home") == boost::filesystem::path("/") / "home" / "test1" / "test2");
+    g_assert(filesystem::get_absolute_path("/test1/test2", "/home") == boost::filesystem::path("/") / "test1" / "test2");
+    g_assert(filesystem::get_absolute_path("~/test1/test2", "/home") == boost::filesystem::path("~") / "test1" / "test2");
+  }
+
+  {
     boost::filesystem::path path = "/ro ot/te stæøå.txt";
     auto uri = filesystem::get_uri_from_path(path);
     g_assert(uri == "file:///ro%20ot/te%20st%C3%A6%C3%B8%C3%A5.txt");

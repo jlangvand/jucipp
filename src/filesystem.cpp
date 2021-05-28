@@ -233,6 +233,16 @@ boost::filesystem::path filesystem::get_relative_path(const boost::filesystem::p
   return relative_path;
 }
 
+boost::filesystem::path filesystem::get_absolute_path(const boost::filesystem::path &path, const boost::filesystem::path &base) noexcept {
+  boost::filesystem::path absolute_path;
+  for(auto path_it = path.begin(); path_it != path.end(); ++path_it) {
+    if(path_it == path.begin() && (!path.has_root_path() && *path_it != "~"))
+      absolute_path /= base;
+    absolute_path /= *path_it;
+  }
+  return absolute_path;
+}
+
 boost::filesystem::path filesystem::get_executable(const boost::filesystem::path &executable_name) noexcept {
 #if defined(__APPLE__) || defined(_WIN32)
   return executable_name;
