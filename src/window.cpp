@@ -1908,7 +1908,9 @@ bool Window::on_key_press_event(GdkEventKey *event) {
       auto path = view ? view->file_path : view_folder;
       if(command.path) {
         std::smatch sm;
-        if(!std::regex_match(path.string(), sm, *command.path) && !std::regex_match(filesystem::get_short_path(path).string(), sm, *command.path))
+        std::string path_str = path.string();                                   // Workaround for MSYS2 (g++ 9.1.0)
+        std::string short_path_str = filesystem::get_short_path(path).string(); // Workaround for MSYS2 (g++ 9.1.0)
+        if(!std::regex_match(path_str, sm, *command.path) && !std::regex_match(short_path_str, sm, *command.path))
           continue;
       }
 
