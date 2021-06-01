@@ -632,15 +632,8 @@ void Window::set_menu_actions() {
       else
         entry->cut_clipboard();
     }
-    else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
-      if(!view->get_editable())
-        return;
-      if(auto source_view = dynamic_cast<Source::View *>(view)) {
-        source_view->disable_spellcheck = true;
-        source_view->cut();
-        source_view->disable_spellcheck = false;
-      }
-    }
+    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+      view->cut();
   });
   menu.add_action("edit_cut_lines", [this]() {
     // Return if a shown tooltip has selected text
@@ -655,15 +648,8 @@ void Window::set_menu_actions() {
       Gtk::Clipboard::get()->set_text(entry->get_text());
       entry->set_text("");
     }
-    else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
-      if(!view->get_editable())
-        return;
-      if(auto source_view = dynamic_cast<Source::View *>(view)) {
-        source_view->disable_spellcheck = true;
-        source_view->cut_line();
-        source_view->disable_spellcheck = false;
-      }
-    }
+    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+      view->cut_lines();
   });
   menu.add_action("edit_copy", [this]() {
     // Copy from a tooltip if it has selected text
@@ -683,18 +669,8 @@ void Window::set_menu_actions() {
       else
         entry->copy_clipboard();
     }
-    else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
-      if(!view->get_buffer()->get_has_selection()) {
-        auto start = view->get_buffer()->get_iter_at_line(view->get_buffer()->get_insert()->get_iter().get_line());
-        auto end = start;
-        if(!end.ends_line())
-          end.forward_to_line_end();
-        end.forward_char();
-        Gtk::Clipboard::get()->set_text(view->get_buffer()->get_text(start, end));
-      }
-      else
-        view->get_buffer()->copy_clipboard(Gtk::Clipboard::get());
-    }
+    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+      view->copy();
   });
   menu.add_action("edit_copy_lines", [this]() {
     // Copy from a tooltip if it has selected text
@@ -715,15 +691,8 @@ void Window::set_menu_actions() {
     auto widget = get_focus();
     if(auto entry = dynamic_cast<Gtk::Entry *>(widget))
       Gtk::Clipboard::get()->set_text(entry->get_text());
-    else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
-      Gtk::TextIter start, end;
-      view->get_buffer()->get_selection_bounds(start, end);
-      start = view->get_buffer()->get_iter_at_line(start.get_line());
-      if(!end.ends_line())
-        end.forward_to_line_end();
-      end.forward_char();
-      Gtk::Clipboard::get()->set_text(view->get_buffer()->get_text(start, end));
-    }
+    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+      view->copy_lines();
   });
   menu.add_action("edit_paste", [this]() {
     auto widget = get_focus();
@@ -731,9 +700,7 @@ void Window::set_menu_actions() {
       entry->paste_clipboard();
     else if(auto view = dynamic_cast<Gtk::TextView *>(widget)) {
       if(auto source_view = dynamic_cast<Source::View *>(view)) {
-        source_view->disable_spellcheck = true;
         source_view->paste();
-        source_view->disable_spellcheck = false;
         source_view->hide_tooltips();
       }
       else if(auto terminal = dynamic_cast<Terminal *>(view)) {

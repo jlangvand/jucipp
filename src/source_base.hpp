@@ -29,7 +29,7 @@ namespace Source {
 
   class SearchView : public Gsv::View {
   public:
-    SearchView();
+    SearchView(const Glib::RefPtr<Gsv::Language> &language = {});
     ~SearchView() override;
     void search_highlight(const std::string &text, bool case_sensitive, bool regex);
     void search_forward();
@@ -37,6 +37,18 @@ namespace Source {
     void replace_forward(const std::string &replacement);
     void replace_backward(const std::string &replacement);
     void replace_all(const std::string &replacement);
+
+    Glib::RefPtr<Gsv::Language> language;
+
+  protected:
+    bool keep_clipboard = false;
+
+  public:
+    void cut();
+    void cut_lines();
+    void copy();
+    void copy_lines();
+    bool disable_spellcheck = false;
 
     std::function<void(int number)> update_search_occurrences;
 
@@ -54,8 +66,6 @@ namespace Source {
     BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
     ~BaseView() override;
     boost::filesystem::path file_path;
-
-    Glib::RefPtr<Gsv::Language> language;
 
     bool load(bool not_undoable_action = false);
     /// Set new text more optimally and without unnecessary scrolling
@@ -102,18 +112,11 @@ namespace Source {
     std::function<void(BaseView *view)> update_status_branch;
     std::string status_branch;
 
-    void cut();
-    void cut_line();
     void paste();
 
     std::string get_selected_text();
 
-    bool disable_spellcheck = false;
-
     void set_snippets();
-
-  private:
-    bool keep_clipboard = false;
 
   protected:
     boost::optional<std::time_t> last_write_time;

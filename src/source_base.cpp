@@ -10,7 +10,7 @@
 #include <gtksourceview/gtksource.h>
 #include <regex>
 
-Source::SearchView::SearchView() : Gsv::View() {
+Source::SearchView::SearchView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), language(language) {
   search_settings = gtk_source_search_settings_new();
   gtk_source_search_settings_set_wrap_around(search_settings, true);
   search_context = gtk_source_search_context_new(get_source_buffer()->gobj(), search_settings);
@@ -136,7 +136,130 @@ bool Source::SearchView::on_key_press_event(GdkEventKey *event) {
   return Gsv::View::on_key_press_event(event);
 }
 
-Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : SearchView(), file_path(file_path), language(language), status_diagnostics(0, 0, 0) {
+void Source::SearchView::cut() {
+  if(!get_editable())
+    return copy();
+
+  disable_spellcheck = true;
+  ScopeGuard guard{[this] {
+    disable_spellcheck = false;
+  }};
+
+  if(!get_buffer()->get_has_selection())
+    cut_lines();
+  else if(language && language->get_id() == "diff") {
+    Gtk::TextIter start, end;
+    get_buffer()->get_selection_bounds(start, end);
+    Glib::ustring selection;
+    selection.reserve(end.get_offset() - start.get_offset());
+    for(auto iter = start; iter < end; ++iter) {
+      if(iter.starts_line() && *iter == '@') {
+        selection = get_buffer()->get_text(start, end);
+        break;
+      }
+      if(!(iter.starts_line() && (*iter == '-' || *iter == '+')))
+        selection += *iter;
+    }
+    Gtk::Clipboard::get()->set_text(selection);
+    get_buffer()->erase(start, end);
+  }
+  else
+    get_buffer()->cut_clipboard(Gtk::Clipboard::get());
+  keep_clipboard = true;
+}
+
+void Source::SearchView::cut_lines() {
+  if(!get_editable())
+    return copy_lines();
+
+  disable_spellcheck = true;
+  ScopeGuard guard{[this] {
+    disable_spellcheck = false;
+  }};
+
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  start = get_buffer()->get_iter_at_line(start.get_line());
+
+  if(!end.ends_line())
+    end.forward_to_line_end();
+  end.forward_char();
+
+  if(language && language->get_id() == "diff") {
+    Glib::ustring selection;
+    selection.reserve(end.get_offset() - start.get_offset());
+    for(auto iter = start; iter < end; ++iter) {
+      if(iter.starts_line() && *iter == '@') {
+        selection = get_buffer()->get_text(start, end);
+        break;
+      }
+      if(!(iter.starts_line() && (*iter == '-' || *iter == '+')))
+        selection += *iter;
+    }
+    if(keep_clipboard)
+      Gtk::Clipboard::get()->set_text(Gtk::Clipboard::get()->wait_for_text() + selection);
+    else
+      Gtk::Clipboard::get()->set_text(selection);
+  }
+  else {
+    if(keep_clipboard)
+      Gtk::Clipboard::get()->set_text(Gtk::Clipboard::get()->wait_for_text() + get_buffer()->get_text(start, end));
+    else
+      Gtk::Clipboard::get()->set_text(get_buffer()->get_text(start, end));
+  }
+  get_buffer()->erase(start, end);
+  keep_clipboard = true;
+}
+
+void Source::SearchView::copy() {
+  if(!get_buffer()->get_has_selection())
+    copy_lines();
+  else if(language && language->get_id() == "diff") {
+    Gtk::TextIter start, end;
+    get_buffer()->get_selection_bounds(start, end);
+    Glib::ustring selection;
+    selection.reserve(end.get_offset() - start.get_offset());
+    for(auto iter = start; iter < end; ++iter) {
+      if(iter.starts_line() && *iter == '@') {
+        selection = get_buffer()->get_text(start, end);
+        break;
+      }
+      if(!(iter.starts_line() && (*iter == '-' || *iter == '+')))
+        selection += *iter;
+    }
+    Gtk::Clipboard::get()->set_text(selection);
+  }
+  else
+    get_buffer()->copy_clipboard(Gtk::Clipboard::get());
+}
+
+void Source::SearchView::copy_lines() {
+  Gtk::TextIter start, end;
+  get_buffer()->get_selection_bounds(start, end);
+  start = get_buffer()->get_iter_at_line(start.get_line());
+
+  if(!end.ends_line())
+    end.forward_to_line_end();
+  end.forward_char();
+
+  if(language && language->get_id() == "diff") {
+    Glib::ustring selection;
+    selection.reserve(end.get_offset() - start.get_offset());
+    for(auto iter = start; iter < end; ++iter) {
+      if(iter.starts_line() && *iter == '@') {
+        selection = get_buffer()->get_text(start, end);
+        break;
+      }
+      if(!(iter.starts_line() && (*iter == '-' || *iter == '+')))
+        selection += *iter;
+    }
+    Gtk::Clipboard::get()->set_text(selection);
+  }
+  else
+    Gtk::Clipboard::get()->set_text(get_buffer()->get_text(start, end));
+}
+
+Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : SearchView(language), file_path(file_path), status_diagnostics(0, 0, 0) {
   get_style_context()->add_class("juci_source_view");
 
   load(true);
@@ -766,35 +889,17 @@ void Source::BaseView::cleanup_whitespace_characters(const Gtk::TextIter &iter) 
     get_buffer()->erase(start_blank_iter, end_blank_iter);
 }
 
-void Source::BaseView::cut() {
-  if(!get_buffer()->get_has_selection())
-    cut_line();
-  else
-    get_buffer()->cut_clipboard(Gtk::Clipboard::get());
-  keep_clipboard = true;
-}
-
-void Source::BaseView::cut_line() {
-  Gtk::TextIter start, end;
-  get_buffer()->get_selection_bounds(start, end);
-  start = get_buffer()->get_iter_at_line(start.get_line());
-  if(!end.ends_line())
-    end.forward_to_line_end();
-  end.forward_char();
-  if(keep_clipboard)
-    Gtk::Clipboard::get()->set_text(Gtk::Clipboard::get()->wait_for_text() + get_buffer()->get_text(start, end));
-  else
-    Gtk::Clipboard::get()->set_text(get_buffer()->get_text(start, end));
-  get_buffer()->erase(start, end);
-  keep_clipboard = true;
-}
-
 void Source::BaseView::paste() {
+  disable_spellcheck = true;
+  ScopeGuard spellcheck_guard{[this] {
+    disable_spellcheck = false;
+  }};
+
   if(CompletionDialog::get())
     CompletionDialog::get()->hide();
 
   enable_multiple_cursors = true;
-  ScopeGuard guard{[this] {
+  ScopeGuard multiple_cursors_guard{[this] {
     enable_multiple_cursors = false;
   }};
 
