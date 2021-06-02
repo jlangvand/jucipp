@@ -176,6 +176,8 @@ namespace Source {
 
     bool is_c = false;
     bool is_cpp = false;
+    /// Set to true if language is html or js (including typescript)
+    bool is_js = false;
 
   private:
     void setup_signals();

@@ -176,6 +176,8 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
       is_c = true;
     else if(language_id == "cpphdr" || language_id == "cpp")
       is_cpp = true;
+    else if(language_id == "js" || language_id == "html")
+      is_js = true;
 
     if(is_c || is_cpp) {
       use_fixed_continuation_indenting = false;
@@ -1254,7 +1256,8 @@ void Source::View::extend_selection() {
        (*before_start == '<' && *end == '>') ||
        (*before_start == '{' && *end == '}')) {
       // Select expression from selected brackets
-      if(extend_expression(start, end)) {
+      if(!(*before_start == '<' && *end == '>' && is_js) &&
+         extend_expression(start, end)) {
         get_buffer()->select_range(start, end);
         return;
       }
@@ -1282,9 +1285,11 @@ void Source::View::extend_selection() {
 
   int para_count = 0;
   int square_count = 0;
+  int angle_count = 0;
   int curly_count = 0;
   auto start_comma_iter = get_buffer()->end();
   auto start_angle_iter = get_buffer()->end();
+  auto start_angle_reversed_iter = get_buffer()->end();
   while(start.backward_char()) {
     if(*start == '(' && is_code_iter(start))
       para_count++;
@@ -1294,6 +1299,19 @@ void Source::View::extend_selection() {
       square_count++;
     else if(*start == ']' && is_code_iter(start))
       square_count--;
+    else if(*start == '<' && is_code_iter(start)) {
+      if(!start_angle_iter && para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0)
+        start_angle_iter = start;
+      angle_count++;
+    }
+    else if(*start == '>' && is_code_iter(start)) {
+      auto prev = start;
+      if(!(prev.backward_char() && (*prev == '=' || *prev == '-'))) {
+        if(!start_angle_reversed_iter && para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0)
+          start_angle_reversed_iter = start;
+        angle_count--;
+      }
+    }
     else if(*start == '{' && is_code_iter(start)) {
       if(!start_sentence_iter &&
          para_count == 0 && square_count == 0 && curly_count == 0) {
@@ -1318,10 +1336,6 @@ void Source::View::extend_selection() {
             para_count == 0 && square_count == 0 && curly_count == 0 &&
             *start == ';' && is_code_iter(start))
       start_sentence_iter = start;
-    else if(!start_angle_iter &&
-            para_count == 0 && square_count == 0 && curly_count == 0 &&
-            *start == '<' && is_code_iter(start))
-      start_angle_iter = start;
     if(*start == ';' && is_code_iter(start)) {
       ignore_comma = true;
       start_comma_iter = get_buffer()->end();
@@ -1332,9 +1346,11 @@ void Source::View::extend_selection() {
 
   para_count = 0;
   square_count = 0;
+  angle_count = 0;
   curly_count = 0;
   auto end_comma_iter = get_buffer()->end();
   auto end_angle_iter = get_buffer()->end();
+  auto end_angle_reversed_iter = get_buffer()->end();
   do {
     if(*end == '(' && is_code_iter(end))
       para_count++;
@@ -1344,6 +1360,19 @@ void Source::View::extend_selection() {
       square_count++;
     else if(*end == ']' && is_code_iter(end))
       square_count--;
+    else if(*end == '<' && is_code_iter(end)) {
+      if(!end_angle_reversed_iter && para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0)
+        end_angle_reversed_iter = end;
+      angle_count++;
+    }
+    else if(*end == '>' && is_code_iter(end)) {
+      auto prev = end;
+      if(!(prev.backward_char() && (*prev == '=' || *prev == '-'))) {
+        if(!end_angle_iter && para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0)
+          end_angle_iter = end;
+        angle_count--;
+      }
+    }
     else if(*end == '{' && is_code_iter(end))
       curly_count++;
     else if(*end == '}' && is_code_iter(end)) {
@@ -1353,6 +1382,8 @@ void Source::View::extend_selection() {
         auto next = end_sentence_iter = end;
         if(next.forward_char() && forward_to_code(next) && *next == ';')
           end_sentence_iter = next;
+        else if(is_js && *next == '>')
+          end_sentence_iter = get_buffer()->end();
       }
     }
     else if(!ignore_comma && !end_comma_iter &&
@@ -1363,10 +1394,6 @@ void Source::View::extend_selection() {
             para_count == 0 && square_count == 0 && curly_count == 0 &&
             *end == ';' && is_code_iter(end))
       end_sentence_iter = end;
-    else if(!end_angle_iter &&
-            para_count == 0 && square_count == 0 && curly_count == 0 &&
-            *end == '>' && is_code_iter(end))
-      end_angle_iter = end;
     if(*end == ';' && is_code_iter(end)) {
       ignore_comma = true;
       start_comma_iter = get_buffer()->end();
@@ -1376,10 +1403,156 @@ void Source::View::extend_selection() {
       break;
   } while(end.forward_char());
 
+  // Extend HTML/JSX
+  if(is_js) {
+    static std::vector<std::string> void_elements = {"area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"};
+    auto get_element = [this](Gtk::TextIter iter) {
+      auto start = iter;
+      auto end = iter;
+      while(iter.backward_char() && (is_token_char(*iter) || *iter == '.'))
+        start = iter;
+      while((is_token_char(*end) || *end == '.') && end.forward_char()) {
+      }
+      return get_buffer()->get_text(start, end);
+    };
+
+    Gtk::TextIter start = get_buffer()->end(), end = get_buffer()->end();
+    auto start_stored_prev = start_stored;
+    if(start_angle_iter && end_angle_iter) { // If inside angle brackets in for instance <selection here>
+      auto next = start_angle_iter;
+      next.forward_char();
+      auto prev = end_angle_iter;
+      prev.backward_char();
+      auto element = get_element(next);
+      if(*next == '/') {
+        start = end = start_angle_iter;
+        start.backward_char();
+      }
+      else if(*prev == '/' || std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
+        end_angle_iter.forward_char();
+        get_buffer()->select_range(start_angle_iter, end_angle_iter);
+        return;
+      }
+      else {
+        start = end = end_angle_iter;
+        end.forward_char();
+      }
+    }
+    else if(start_stored_prev.backward_char() && *start_stored_prev == '<' && *end_stored == '>') { // Matches for instance <div>, where div is selected
+      auto element = get_element(start_stored);
+      if(std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
+        auto next = end_stored;
+        next.forward_char();
+        get_buffer()->select_range(start_stored_prev, next);
+        return;
+      }
+      start = end = end_stored;
+      end.forward_char();
+    }
+    else if(start_angle_reversed_iter && end_angle_reversed_iter) { // If not inside angle brackets, for instance <>selection here</>
+      start = start_angle_reversed_iter;
+      end = end_angle_reversed_iter;
+    }
+
+    if(start && end) {
+      Gtk::TextIter start_children, end_children;
+      auto iter = start;
+      int depth = 0;
+      // Search backward for opening element
+      while(find_open_symbol_backward(iter, iter, '>', '<') && iter.backward_char()) { // Backward to > (end of opening element)
+        start_children = iter;
+        start_children.forward_chars(2);
+        auto prev = iter;
+        prev.backward_char();
+        bool no_child_element = *iter == '/' && *prev != '<'; // Excludes </> as it is always closing element of <>
+        if(find_open_symbol_backward(iter, iter, '<', '>')) { // Backward to <
+          if(!no_child_element) {
+            iter.forward_char();
+            if(*iter == '/') {
+              --depth;
+              if(!iter.backward_chars(2))
+                break;
+              continue;
+            }
+            auto element = get_element(iter);
+            if(std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
+              if(!iter.backward_chars(2))
+                break;
+              continue;
+            }
+            else if(depth == 0) {
+              iter.backward_char();
+              auto start = iter;
+              iter = end;
+              // Search forward for closing element
+              int depth = 0;
+              while(find_close_symbol_forward(iter, iter, '>', '<') && iter.forward_char()) { // Forward to < (start of closing element)
+                end_children = iter;
+                end_children.backward_char();
+                if(*iter == '/') {
+                  if(iter.forward_char() && find_close_symbol_forward(iter, iter, '<', '>') && iter.forward_char()) { // Forward to >
+                    if(depth == 0) {
+                      if(start_children <= start_stored && end_children >= end_stored && (start_children != start_stored || end_children != end_stored)) // Select children
+                        get_buffer()->select_range(start_children, end_children);
+                      else
+                        get_buffer()->select_range(start, iter);
+                      return;
+                    }
+                    else {
+                      --depth;
+                      continue;
+                    }
+                  }
+                  else
+                    break;
+                }
+                else {
+                  auto element = get_element(iter);
+                  if(std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
+                    if(!(find_close_symbol_forward(iter, iter, '<', '>') && iter.forward_char())) // Forward to >
+                      break;
+                    continue;
+                  }
+                  else if(find_close_symbol_forward(iter, iter, '<', '>') && iter.backward_char()) { // Forward to >
+                    if(*iter == '/') {
+                      iter.forward_chars(2);
+                      continue;
+                    }
+                    else {
+                      ++depth;
+                      iter.forward_chars(2);
+                      continue;
+                    }
+                  }
+                  else
+                    break;
+                }
+              }
+              break;
+            }
+            else {
+              ++depth;
+              if(!iter.backward_chars(2))
+                break;
+              continue;
+            }
+          }
+          else {
+            if(!iter.backward_char())
+              break;
+          }
+        }
+        else
+          break;
+      }
+    }
+  }
+
   // Test for <> used for template arguments
   if(start_angle_iter && end_angle_iter && is_template_arguments(start_angle_iter, end_angle_iter)) {
-    start = start_angle_iter;
-    end = end_angle_iter;
+    start_angle_iter.forward_char();
+    get_buffer()->select_range(start_angle_iter, end_angle_iter);
+    return;
   }
 
   // Test for matching brackets and try select regions within brackets separated by ','
@@ -1564,8 +1737,9 @@ void Source::View::extend_selection() {
 
   if(start == start_stored && end == end_stored) { // In case of no change due to inbalanced brackets
     previous_extended_selections.pop_back();
-    if(!start.backward_char() && !end.forward_char())
+    if(!start.backward_char() && !end.forward_char()) {
       return;
+    }
     get_buffer()->select_range(start, end);
     extend_selection();
     return;
@@ -1865,9 +2039,30 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
   else {
     long curly_count = 0;
     do {
-      if(curly_count == 0 && *iter == positive_char && is_code_iter(iter))
+      if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
+        if((is_c || is_cpp) && positive_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '-')
+            continue;
+        }
+        else if(is_js && positive_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '=')
+            continue;
+        }
         count++;
+      }
       else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
+        if((is_c || is_cpp) && negative_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '-')
+            continue;
+        }
+        else if(is_js && negative_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '=')
+            continue;
+        }
         if(count == 0) {
           found_iter = iter;
           return true;
@@ -1906,14 +2101,35 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
     long curly_count = 0;
     do {
       if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
+        if((is_c || is_cpp) && positive_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '-')
+            continue;
+        }
+        else if(is_js && positive_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '=')
+            continue;
+        }
         if(count == 0) {
           found_iter = iter;
           return true;
         }
         count++;
       }
-      else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter))
+      else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
+        if((is_c || is_cpp) && negative_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '-')
+            continue;
+        }
+        else if(is_js && negative_char == '>') {
+          auto prev = iter;
+          if(prev.backward_char() && *prev == '=')
+            continue;
+        }
         count--;
+      }
       else if(*iter == '{' && is_code_iter(iter)) {
         if(curly_count == 0)
           return false;
@@ -2435,7 +2651,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
     // to
     // <div>
     //   CURSORtest
-    if(*condition_iter == '>' && language && (language->get_id() == "js" || language->get_id() == "html")) {
+    if(*condition_iter == '>' && is_js) {
       auto prev = condition_iter;
       Gtk::TextIter open_element_iter;
       if(prev.backward_char() && backward_to_code(prev) && *prev != '/' &&
@@ -2451,7 +2667,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
           return get_buffer()->get_text(start, end);
         };
         auto open_element_token = get_element(open_element_iter);
-        std::vector<std::string> void_elements = {"area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"};
+        static std::vector<std::string> void_elements = {"area", "base", "br", "col", "command", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"};
         if(std::none_of(void_elements.begin(), void_elements.end(), [&open_element_token](const std::string &e) { return e == open_element_token; })) {
           auto close_element_iter = iter;
           // If cursor is placed between open and close tag

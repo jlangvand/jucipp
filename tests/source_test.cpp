@@ -360,6 +360,134 @@ int main() {
       view.shrink_selection();
       g_assert(view.get_selected_text() == "{\n    test;\n  }");
     }
+
+    {
+      auto buffer = view.get_buffer();
+      view.is_js = true;
+      Gtk::TextIter start, end;
+
+      buffer->set_text(R"(render(
+  <div></div>
+);)");
+      view.place_cursor_at_line_offset(1, 7);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 1 && end.get_line_offset() == 13);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 0 && start.get_line_offset() == 7 && end.get_line() == 2 && end.get_line_offset() == 0);
+
+      view.place_cursor_at_line_offset(1, 4);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 3 && end.get_line() == 1 && end.get_line_offset() == 6);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 1 && end.get_line_offset() == 13);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 0 && start.get_line_offset() == 7 && end.get_line() == 2 && end.get_line_offset() == 0);
+
+      buffer->set_text(R"(render(
+  <div id="test">test test</div>
+);)");
+      view.place_cursor_at_line_offset(1, 18);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 17 && end.get_line() == 1 && end.get_line_offset() == 21);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 17 && end.get_line() == 1 && end.get_line_offset() == 26);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 1 && end.get_line_offset() == 32);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 0 && start.get_line_offset() == 7 && end.get_line() == 2 && end.get_line_offset() == 0);
+
+      view.place_cursor_at_line_offset(1, 4);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 3 && end.get_line() == 1 && end.get_line_offset() == 6);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 1 && end.get_line_offset() == 32);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 0 && start.get_line_offset() == 7 && end.get_line() == 2 && end.get_line_offset() == 0);
+
+      buffer->set_text(R"(render(
+  <div onClick={() => {}}></div>
+);)");
+      view.place_cursor_at_line_offset(1, 6);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 1 && end.get_line_offset() == 32);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 0 && start.get_line_offset() == 7 && end.get_line() == 2 && end.get_line_offset() == 0);
+
+      buffer->set_text(R"(render(
+  <div>
+    <div></div>
+    <div></div>
+  </div>
+);)");
+      view.place_cursor_at_line_offset(2, 8);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 2 && start.get_line_offset() == 4 && end.get_line() == 2 && end.get_line_offset() == 15);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 7 && end.get_line() == 4 && end.get_line_offset() == 2);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 4 && end.get_line_offset() == 8);
+
+      view.place_cursor_at_line_offset(3, 8);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 3 && start.get_line_offset() == 4 && end.get_line() == 3 && end.get_line_offset() == 15);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 7 && end.get_line() == 4 && end.get_line_offset() == 2);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 4 && end.get_line_offset() == 8);
+
+      buffer->set_text(R"(render(
+  <div>
+    <div></div>
+    <img src="test">
+    <Test/>
+    <br>
+    <div></div>
+  </div>
+);)");
+      view.place_cursor_at_line_offset(2, 8);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 2 && start.get_line_offset() == 4 && end.get_line() == 2 && end.get_line_offset() == 15);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 7 && end.get_line() == 7 && end.get_line_offset() == 2);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 7 && end.get_line_offset() == 8);
+
+      view.place_cursor_at_line_offset(6, 8);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 6 && start.get_line_offset() == 4 && end.get_line() == 6 && end.get_line_offset() == 15);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 7 && end.get_line() == 7 && end.get_line_offset() == 2);
+      view.extend_selection();
+      buffer->get_selection_bounds(start, end);
+      g_assert(start.get_line() == 1 && start.get_line_offset() == 2 && end.get_line() == 7 && end.get_line_offset() == 8);
+
+      view.is_js = false;
+    }
   }
 
   // Snippet tests
