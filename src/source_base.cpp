@@ -10,7 +10,7 @@
 #include <gtksourceview/gtksource.h>
 #include <regex>
 
-Source::SearchView::SearchView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), language(language) {
+Source::CommonView::CommonView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), language(language) {
   search_settings = gtk_source_search_settings_new();
   gtk_source_search_settings_set_wrap_around(search_settings, true);
   search_context = gtk_source_search_context_new(get_source_buffer()->gobj(), search_settings);
@@ -18,19 +18,19 @@ Source::SearchView::SearchView(const Glib::RefPtr<Gsv::Language> &language) : Gs
   g_signal_connect(search_context, "notify::occurrences-count", G_CALLBACK(search_occurrences_updated), this);
 }
 
-Source::SearchView::~SearchView() {
+Source::CommonView::~CommonView() {
   g_clear_object(&search_context);
   g_clear_object(&search_settings);
 }
 
-void Source::SearchView::search_highlight(const std::string &text, bool case_sensitive, bool regex) {
+void Source::CommonView::search_highlight(const std::string &text, bool case_sensitive, bool regex) {
   gtk_source_search_settings_set_case_sensitive(search_settings, case_sensitive);
   gtk_source_search_settings_set_regex_enabled(search_settings, regex);
   gtk_source_search_settings_set_search_text(search_settings, text.c_str());
   search_occurrences_updated(nullptr, nullptr, this);
 }
 
-void Source::SearchView::search_forward() {
+void Source::CommonView::search_forward() {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
@@ -48,7 +48,7 @@ void Source::SearchView::search_forward() {
 #endif
 }
 
-void Source::SearchView::search_backward() {
+void Source::CommonView::search_backward() {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
@@ -66,7 +66,7 @@ void Source::SearchView::search_backward() {
 #endif
 }
 
-void Source::SearchView::replace_forward(const std::string &replacement) {
+void Source::CommonView::replace_forward(const std::string &replacement) {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
@@ -90,7 +90,7 @@ void Source::SearchView::replace_forward(const std::string &replacement) {
 #endif
 }
 
-void Source::SearchView::replace_backward(const std::string &replacement) {
+void Source::CommonView::replace_backward(const std::string &replacement) {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
   Gtk::TextIter match_start, match_end;
@@ -112,17 +112,17 @@ void Source::SearchView::replace_backward(const std::string &replacement) {
 #endif
 }
 
-void Source::SearchView::replace_all(const std::string &replacement) {
+void Source::CommonView::replace_all(const std::string &replacement) {
   gtk_source_search_context_replace_all(search_context, replacement.c_str(), replacement.size(), nullptr);
 }
 
-void Source::SearchView::search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data) {
+void Source::CommonView::search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data) {
   auto view = static_cast<Source::BaseView *>(data);
   if(view->update_search_occurrences)
     view->update_search_occurrences(gtk_source_search_context_get_occurrences_count(view->search_context));
 }
 
-bool Source::SearchView::on_key_press_event(GdkEventKey *event) {
+bool Source::CommonView::on_key_press_event(GdkEventKey *event) {
   if(event->keyval == GDK_KEY_Home && event->state & GDK_CONTROL_MASK) {
     auto iter = get_buffer()->begin();
     scroll_to(iter); // Home key should always scroll to start, even though cursor does not move
@@ -136,7 +136,7 @@ bool Source::SearchView::on_key_press_event(GdkEventKey *event) {
   return Gsv::View::on_key_press_event(event);
 }
 
-void Source::SearchView::cut() {
+void Source::CommonView::cut() {
   if(!get_editable())
     return copy();
 
@@ -168,7 +168,7 @@ void Source::SearchView::cut() {
   keep_clipboard = true;
 }
 
-void Source::SearchView::cut_lines() {
+void Source::CommonView::cut_lines() {
   if(!get_editable())
     return copy_lines();
 
@@ -211,7 +211,7 @@ void Source::SearchView::cut_lines() {
   keep_clipboard = true;
 }
 
-void Source::SearchView::copy() {
+void Source::CommonView::copy() {
   if(!get_buffer()->get_has_selection())
     copy_lines();
   else if(language && language->get_id() == "diff") {
@@ -233,7 +233,7 @@ void Source::SearchView::copy() {
     get_buffer()->copy_clipboard(Gtk::Clipboard::get());
 }
 
-void Source::SearchView::copy_lines() {
+void Source::CommonView::copy_lines() {
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
   start = get_buffer()->get_iter_at_line(start.get_line());
@@ -259,7 +259,7 @@ void Source::SearchView::copy_lines() {
     Gtk::Clipboard::get()->set_text(get_buffer()->get_text(start, end));
 }
 
-Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : SearchView(language), file_path(file_path), status_diagnostics(0, 0, 0) {
+Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : CommonView(language), file_path(file_path), status_diagnostics(0, 0, 0) {
   get_style_context()->add_class("juci_source_view");
 
   load(true);
@@ -1187,7 +1187,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *event) {
     return true;
   }
 
-  return Source::SearchView::on_key_press_event(event);
+  return Source::CommonView::on_key_press_event(event);
 }
 
 bool Source::BaseView::on_key_press_event_extra_cursors(GdkEventKey *event) {

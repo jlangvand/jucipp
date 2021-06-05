@@ -27,10 +27,11 @@ namespace Source {
     }
   };
 
-  class SearchView : public Gsv::View {
+  /// Also used for terminal
+  class CommonView : public Gsv::View {
   public:
-    SearchView(const Glib::RefPtr<Gsv::Language> &language = {});
-    ~SearchView() override;
+    CommonView(const Glib::RefPtr<Gsv::Language> &language = {});
+    ~CommonView() override;
     void search_highlight(const std::string &text, bool case_sensitive, bool regex);
     void search_forward();
     void search_backward();
@@ -61,7 +62,7 @@ namespace Source {
     static void search_occurrences_updated(GtkWidget *widget, GParamSpec *property, gpointer data);
   };
 
-  class BaseView : public SearchView {
+  class BaseView : public CommonView {
   public:
     BaseView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
     ~BaseView() override;

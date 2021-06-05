@@ -40,7 +40,7 @@ private:
   bool regex_search = false;
   bool search_entry_shown = false;
   /// Last source view focused
-  Source::SearchView *focused_view = nullptr;
+  Source::CommonView *focused_view = nullptr;
   bool find_pattern_case_sensitive = true;
   bool find_pattern_extended_regex = false;
 };

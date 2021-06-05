@@ -632,7 +632,7 @@ void Window::set_menu_actions() {
       else
         entry->cut_clipboard();
     }
-    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+    else if(auto view = dynamic_cast<Source::CommonView *>(widget))
       view->cut();
   });
   menu.add_action("edit_cut_lines", [this]() {
@@ -648,7 +648,7 @@ void Window::set_menu_actions() {
       Gtk::Clipboard::get()->set_text(entry->get_text());
       entry->set_text("");
     }
-    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+    else if(auto view = dynamic_cast<Source::CommonView *>(widget))
       view->cut_lines();
   });
   menu.add_action("edit_copy", [this]() {
@@ -669,7 +669,7 @@ void Window::set_menu_actions() {
       else
         entry->copy_clipboard();
     }
-    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+    else if(auto view = dynamic_cast<Source::CommonView *>(widget))
       view->copy();
   });
   menu.add_action("edit_copy_lines", [this]() {
@@ -691,7 +691,7 @@ void Window::set_menu_actions() {
     auto widget = get_focus();
     if(auto entry = dynamic_cast<Gtk::Entry *>(widget))
       Gtk::Clipboard::get()->set_text(entry->get_text());
-    else if(auto view = dynamic_cast<Source::SearchView *>(widget))
+    else if(auto view = dynamic_cast<Source::CommonView *>(widget))
       view->copy_lines();
   });
   menu.add_action("edit_paste", [this]() {

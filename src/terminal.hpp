@@ -10,7 +10,7 @@
 #include <iostream>
 #include <tuple>
 
-class Terminal : public Source::SearchView {
+class Terminal : public Source::CommonView {
   Terminal();
 
 public:

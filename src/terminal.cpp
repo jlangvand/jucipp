@@ -10,7 +10,7 @@
 #include <regex>
 #include <thread>
 
-Terminal::Terminal() : Source::SearchView() {
+Terminal::Terminal() : Source::CommonView() {
   get_style_context()->add_class("juci_terminal");
 
   set_editable(false);
@@ -628,7 +628,7 @@ bool Terminal::on_key_press_event(GdkEventKey *event) {
      event->keyval == GDK_KEY_Page_Up || event->keyval == GDK_KEY_Page_Down ||
      event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_Down ||
      event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_Right)
-    return Source::SearchView::on_key_press_event(event);
+    return Source::CommonView::on_key_press_event(event);
 
   LockGuard lock(processes_mutex);
   bool debug_is_running = false;
