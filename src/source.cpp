@@ -3529,7 +3529,7 @@ bool Source::View::on_motion_notify_event(GdkEventMotion *event) {
     window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, event->x, event->y, x, y);
     Gtk::TextIter iter;
     get_iter_at_location(iter, x, y);
-    get_buffer()->select_range(get_buffer()->get_insert()->get_iter(), iter);
+    get_buffer()->select_range(iter, get_buffer()->get_selection_bound()->get_iter());
     return true;
   }
 #else
