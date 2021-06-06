@@ -1416,7 +1416,7 @@ void Source::View::extend_selection() {
       return get_buffer()->get_text(start, end);
     };
 
-    Gtk::TextIter start = get_buffer()->end(), end = get_buffer()->end();
+    Gtk::TextIter start_backward_search = get_buffer()->end(), start_forward_search = get_buffer()->end();
     auto start_stored_prev = start_stored;
     if(start_angle_iter && end_angle_iter) { // If inside angle brackets in for instance <selection here>
       auto next = start_angle_iter;
@@ -1425,8 +1425,8 @@ void Source::View::extend_selection() {
       prev.backward_char();
       auto element = get_element(next);
       if(*next == '/') {
-        start = end = start_angle_iter;
-        start.backward_char();
+        start_backward_search = start_forward_search = start_angle_iter;
+        start_backward_search.backward_char();
       }
       else if(*prev == '/' || std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
         end_angle_iter.forward_char();
@@ -1434,8 +1434,8 @@ void Source::View::extend_selection() {
         return;
       }
       else {
-        start = end = end_angle_iter;
-        end.forward_char();
+        start_backward_search = start_forward_search = end_angle_iter;
+        start_forward_search.forward_char();
       }
     }
     else if(start_stored_prev.backward_char() && *start_stored_prev == '<' && *end_stored == '>') { // Matches for instance <div>, where div is selected
@@ -1446,17 +1446,17 @@ void Source::View::extend_selection() {
         get_buffer()->select_range(start_stored_prev, next);
         return;
       }
-      start = end = end_stored;
-      end.forward_char();
+      start_backward_search = start_forward_search = end_stored;
+      start_forward_search.forward_char();
     }
     else if(start_angle_reversed_iter && end_angle_reversed_iter) { // If not inside angle brackets, for instance <>selection here</>
-      start = start_angle_reversed_iter;
-      end = end_angle_reversed_iter;
+      start_backward_search = start_angle_reversed_iter;
+      start_forward_search = end_angle_reversed_iter;
     }
 
-    if(start && end) {
+    if(start_backward_search && start_forward_search) {
       Gtk::TextIter start_children, end_children;
-      auto iter = start;
+      auto iter = start_backward_search;
       int depth = 0;
       // Search backward for opening element
       while(find_open_symbol_backward(iter, iter, '>', '<') && iter.backward_char()) { // Backward to > (end of opening element)
@@ -1469,9 +1469,9 @@ void Source::View::extend_selection() {
           if(!no_child_element) {
             iter.forward_char();
             if(*iter == '/') {
-              --depth;
               if(!iter.backward_chars(2))
                 break;
+              --depth;
               continue;
             }
             auto element = get_element(iter);
@@ -1482,8 +1482,8 @@ void Source::View::extend_selection() {
             }
             else if(depth == 0) {
               iter.backward_char();
-              auto start = iter;
-              iter = end;
+              auto start_selection = iter;
+              iter = start_forward_search;
               // Search forward for closing element
               int depth = 0;
               while(find_close_symbol_forward(iter, iter, '>', '<') && iter.forward_char()) { // Forward to < (start of closing element)
@@ -1495,13 +1495,11 @@ void Source::View::extend_selection() {
                       if(start_children <= start_stored && end_children >= end_stored && (start_children != start_stored || end_children != end_stored)) // Select children
                         get_buffer()->select_range(start_children, end_children);
                       else
-                        get_buffer()->select_range(start, iter);
+                        get_buffer()->select_range(start_selection, iter);
                       return;
                     }
-                    else {
+                    else
                       --depth;
-                      continue;
-                    }
                   }
                   else
                     break;
@@ -1511,17 +1509,13 @@ void Source::View::extend_selection() {
                   if(std::any_of(void_elements.begin(), void_elements.end(), [&element](const std::string &e) { return e == element; })) {
                     if(!(find_close_symbol_forward(iter, iter, '<', '>') && iter.forward_char())) // Forward to >
                       break;
-                    continue;
                   }
                   else if(find_close_symbol_forward(iter, iter, '<', '>') && iter.backward_char()) { // Forward to >
-                    if(*iter == '/') {
+                    if(*iter == '/')
                       iter.forward_chars(2);
-                      continue;
-                    }
                     else {
                       ++depth;
                       iter.forward_chars(2);
-                      continue;
                     }
                   }
                   else
@@ -1530,17 +1524,12 @@ void Source::View::extend_selection() {
               }
               break;
             }
-            else {
-              ++depth;
-              if(!iter.backward_chars(2))
-                break;
-              continue;
-            }
-          }
-          else {
-            if(!iter.backward_char())
+            else if(!iter.backward_chars(2))
               break;
+            ++depth;
           }
+          else if(!iter.backward_char())
+            break;
         }
         else
           break;
