@@ -155,19 +155,21 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
             return true;
           }
 
-          const static std::regex regex("^([^:]+):([^:]+):([^:]+)$", std::regex::optimize);
+          const static std::regex regex("^([^:]+):([^:]+)(:[^:]+)?$", std::regex::optimize);
           std::smatch sm;
           if(std::regex_match(link, sm, regex)) {
             auto path = boost::filesystem::path(sm[1].str());
-            if(auto source_view = dynamic_cast<Source::View *>(view))
-              path = filesystem::get_normal_path(source_view->file_path.parent_path() / path);
+            if(path.is_relative()) {
+              if(auto source_view = dynamic_cast<Source::View *>(view))
+                path = filesystem::get_normal_path(source_view->file_path.parent_path() / path);
+            }
 
             boost::system::error_code ec;
             if(boost::filesystem::is_regular_file(path, ec)) {
               if(Notebook::get().open(path)) {
                 try {
                   auto line = std::stoi(sm[2].str()) - 1;
-                  auto offset = std::stoi(sm[3].str()) - 1;
+                  auto offset = sm.length(3) ? std::stoi(sm[3].str().substr(1)) - 1 : 0;
                   auto view = Notebook::get().get_current_view();
                   view->place_cursor_at_line_offset(line, offset);
                   view->scroll_to_cursor_delayed(true, false);

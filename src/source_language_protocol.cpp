@@ -369,7 +369,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
     LockGuard lock(timeout_threads_mutex);
     timeout_threads.emplace_back([this, message_id] {
       for(size_t c = 0; c < 20; ++c) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50000) * (language_id == "julia" ? 100 : 1));
         LockGuard lock(read_write_mutex);
         auto id_it = handlers.find(message_id);
         if(id_it == handlers.end())

@@ -224,7 +224,8 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
     if(language_id == "cmake" || language_id == "makefile" || language_id == "python" ||
        language_id == "python3" || language_id == "sh" || language_id == "perl" ||
        language_id == "ruby" || language_id == "r" || language_id == "asm" ||
-       language_id == "automake" || language_id == "yaml" || language_id == "docker")
+       language_id == "automake" || language_id == "yaml" || language_id == "docker" ||
+       language_id == "julia")
       comment_characters = "#";
     else if(language_id == "latex" || language_id == "matlab" || language_id == "octave" || language_id == "bibtex")
       comment_characters = "%";

@@ -4,6 +4,7 @@
 - [Python3](#python3)
 - [Rust](#rust)
 - [Go](#go)
+- [Julia](#julia)
 - [GLSL](#glsl)
 
 ## JavaScript/TypeScript
@@ -109,6 +110,34 @@ ln -s `which gopls` /usr/local/bin/go-language-server
 
 - Additional setup within a Go project:
   - Add an empty `.go-format` file to enable style format on save
+
+## Julia
+
+- Prerequisites:
+  - [Julia](https://julialang.org/downloads/)
+
+Install language server, and create symbolic link to enable server in juCi++:
+
+```sh
+julia -e 'using Pkg;Pkg.add("LanguageServer");Pkg.add("SymbolServer");Pkg.add("StaticLint");'
+
+# Usually as root:
+echo '#!/bin/sh
+julia --startup-file=no --history-file=no -e '\''
+using LanguageServer;
+using Pkg;
+import StaticLint;
+import SymbolServer;
+env_path = dirname(Pkg.Types.Context().env.project_file);
+server = LanguageServer.LanguageServerInstance(stdin, stdout, env_path, "");
+server.runlinter = true;
+run(server);
+'\''' > /usr/local/bin/julia-language-server
+chmod 755 /usr/local/bin/julia-language-server
+```
+
+- Additional setup within a Julia project:
+  - Add an empty `.julia-format` file to enable style format on save
 
 ## GLSL
 

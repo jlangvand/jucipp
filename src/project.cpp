@@ -184,6 +184,8 @@ std::shared_ptr<Project::Base> Project::create() {
         return std::shared_ptr<Project::Base>(new Project::HTML(std::move(build)));
       if(language_id == "go")
         return std::shared_ptr<Project::Base>(new Project::Go(std::move(build)));
+      if(language_id == "julia")
+        return std::shared_ptr<Project::Base>(new Project::Julia(std::move(build)));
     }
   }
   else
@@ -853,15 +855,12 @@ void Project::Python::compile_and_run() {
     command += filesystem::get_short_path(build->project_path).string();
     path = build->project_path;
   }
-  else {
-    auto view = Notebook::get().get_current_view();
-    if(!view) {
-      Info::get().print("No executable found");
-      return;
-    }
+  else if(auto view = Notebook::get().get_current_view()) {
     command += filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
     path = view->file_path.parent_path();
   }
+  else
+    return;
 
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
@@ -879,15 +878,12 @@ void Project::JavaScript::compile_and_run() {
     command = "npm start";
     path = build->project_path;
   }
-  else {
-    auto view = Notebook::get().get_current_view();
-    if(!view) {
-      Info::get().print("No executable found");
-      return;
-    }
+  else if(auto view = Notebook::get().get_current_view()) {
     command = "node " + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
     path = view->file_path.parent_path();
   }
+  else
+    return;
 
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
@@ -967,21 +963,33 @@ void Project::Go::compile_and_run() {
     command = "go run .";
     path = build->project_path;
   }
-  else {
-    auto view = Notebook::get().get_current_view();
-    if(!view) {
-      Info::get().print("No executable found");
-      return;
-    }
+  else if(auto view = Notebook::get().get_current_view()) {
     command = "go run " + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
     path = view->file_path.parent_path();
   }
+  else
+    return;
 
   if(Config::get().terminal.clear_on_compile)
     Terminal::get().clear();
 
   Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
-  Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
+  Terminal::get().async_process(command, path, [command](int exit_status) {
     Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
+}
+
+void Project::Julia::compile_and_run() {
+  if(auto view = Notebook::get().get_current_view()) {
+    auto command = "julia " + filesystem::escape_argument(filesystem::get_short_path(Notebook::get().get_current_view()->file_path).string());
+    auto path = view->file_path.parent_path();
+
+    if(Config::get().terminal.clear_on_compile)
+      Terminal::get().clear();
+
+    Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
+    Terminal::get().async_process(command, path, [command](int exit_status) {
+      Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
+    });
+  }
 }

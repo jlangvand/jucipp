@@ -291,11 +291,12 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   tab_char = Config::get().source.default_tab_char;
   tab_size = Config::get().source.default_tab_size;
   if(language) {
-    if(language->get_id() == "python" || language->get_id() == "rust") {
+    auto language_id = language->get_id();
+    if(language_id == "python" || language_id == "rust" || language_id == "julia") {
       tab_char = ' ';
       tab_size = 4;
     }
-    else if(language->get_id() == "go") {
+    else if(language_id == "go") {
       tab_char = '\t';
       tab_size = 1;
     }

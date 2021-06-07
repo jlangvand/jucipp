@@ -171,6 +171,15 @@ namespace Project {
     std::string get_language_id() override { return "go"; }
   };
 
+  class Julia : public LanguageProtocol {
+  public:
+    Julia(std::unique_ptr<Build> &&build) : Base(std::move(build)) {}
+
+    void compile_and_run() override;
+
+    std::string get_language_id() override { return "julia"; }
+  };
+
   std::shared_ptr<Base> create();
   extern std::shared_ptr<Base> current;
 }; // namespace Project
