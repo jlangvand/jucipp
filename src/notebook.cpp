@@ -211,6 +211,16 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
             Terminal::get().print("You will need to restart juCi++ after installing Rust.\n");
           shown.emplace(language_id);
         }
+        else if(language_id == "go") {
+          Terminal::get().print("\e[33mWarning\e[m: could not find Go language server.\n");
+          Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#go.\n");
+          shown.emplace(language_id);
+        }
+        else if(language_id == "julia") {
+          Terminal::get().print("\e[33mWarning\e[m: could not find Julia language server.\n");
+          Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#julia.\n");
+          shown.emplace(language_id);
+        }
       }
     }
     source_views.emplace_back(new Source::GenericView(file_path, language));
