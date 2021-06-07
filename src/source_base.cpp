@@ -287,14 +287,18 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
       is_bracket_language = true;
   }
 
-#ifndef __APPLE__
-  set_tab_width(4); //Visual size of a \t hardcoded to be equal to visual size of 4 spaces. Buggy on OS X
-#endif
+  set_tab_width(4); // Visual size of a \t hardcoded to be equal to visual size of 4 spaces
   tab_char = Config::get().source.default_tab_char;
   tab_size = Config::get().source.default_tab_size;
-  if(language && (language->get_id() == "python" || language->get_id() == "rust")) {
-    tab_char = ' ';
-    tab_size = 4;
+  if(language) {
+    if(language->get_id() == "python" || language->get_id() == "rust") {
+      tab_char = ' ';
+      tab_size = 4;
+    }
+    else if(language->get_id() == "go") {
+      tab_char = '\t';
+      tab_size = 1;
+    }
   }
   if(Config::get().source.auto_tab_char_and_size) {
     auto tab_char_and_size = find_tab_char_and_size();

@@ -1,5 +1,11 @@
 # Setup of tested language servers
 
+- [JavaScript/TypeScript](#javascripttypescript)
+- [Python3](#python3)
+- [Rust](#rust)
+- [Go](#go)
+- [GLSL](#glsl)
+
 ## JavaScript/TypeScript
 
 ### JavaScript with Flow static type checker
@@ -86,6 +92,23 @@ ln -s ~/.cargo/bin/rust-analyzer /usr/local/bin/rust-language-server
 
 - Additional setup within a Rust project:
   - Add an empty `.rustfmt.toml` file to enable style format on save
+
+## Go
+
+- Prerequisites:
+  - [Go](https://golang.org/doc/install)
+  - [gopls](https://github.com/golang/tools/blob/master/gopls/README.md#installation) (must be
+    installed)
+
+Create symbolic link to enable language server in juCi++:
+
+```sh
+# Usually as root:
+ln -s `which gopls` /usr/local/bin/go-language-server
+```
+
+- Additional setup within a Go project:
+  - Add an empty `.go-format` file to enable style format on save
 
 ## GLSL
 

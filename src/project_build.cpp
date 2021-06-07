@@ -52,6 +52,12 @@ std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::
       return build;
     }
 
+    if(boost::filesystem::exists(search_path / "go.mod", ec)) {
+      std::unique_ptr<Project::Build> build(new GoBuild());
+      build->project_path = search_path;
+      return build;
+    }
+
     if(search_path == search_path.root_directory())
       break;
     search_path = search_path.parent_path();

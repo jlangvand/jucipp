@@ -72,10 +72,11 @@ namespace Project {
   };
 
   class NpmBuild : public Build {
-  public:
   };
 
   class PythonMain : public Build {
-  public:
+  };
+
+  class GoBuild : public Build {
   };
 } // namespace Project

@@ -182,6 +182,8 @@ std::shared_ptr<Project::Base> Project::create() {
         return std::shared_ptr<Project::Base>(new Project::Python(std::move(build)));
       if(language_id == "html")
         return std::shared_ptr<Project::Base>(new Project::HTML(std::move(build)));
+      if(language_id == "go")
+        return std::shared_ptr<Project::Base>(new Project::Go(std::move(build)));
     }
   }
   else
@@ -195,6 +197,8 @@ std::shared_ptr<Project::Base> Project::create() {
     return std::shared_ptr<Project::Base>(new Project::JavaScript(std::move(build)));
   if(dynamic_cast<PythonMain *>(build.get()))
     return std::shared_ptr<Project::Base>(new Project::Python(std::move(build)));
+  if(dynamic_cast<GoBuild *>(build.get()))
+    return std::shared_ptr<Project::Base>(new Project::Go(std::move(build)));
   return std::shared_ptr<Project::Base>(new Project::Base(std::move(build)));
 }
 
@@ -953,5 +957,31 @@ void Project::Rust::compile_and_run() {
         Terminal::get().print("\e[2m" + arguments + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
       });
     }
+  });
+}
+
+void Project::Go::compile_and_run() {
+  std::string command;
+  boost::filesystem::path path;
+  if(dynamic_cast<GoBuild *>(build.get())) {
+    command = "go run .";
+    path = build->project_path;
+  }
+  else {
+    auto view = Notebook::get().get_current_view();
+    if(!view) {
+      Info::get().print("No executable found");
+      return;
+    }
+    command = "go run " + filesystem::escape_argument(filesystem::get_short_path(view->file_path).string());
+    path = view->file_path.parent_path();
+  }
+
+  if(Config::get().terminal.clear_on_compile)
+    Terminal::get().clear();
+
+  Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
+  Terminal::get().async_process(command, build->project_path, [command](int exit_status) {
+    Terminal::get().print("\e[2m" + command + " returned: " + (exit_status == 0 ? "\e[32m" : "\e[31m") + std::to_string(exit_status) + "\e[m\n");
   });
 }

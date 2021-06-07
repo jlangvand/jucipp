@@ -39,7 +39,7 @@ See [installation guide](docs/install.md).
   `[language identifier]-language-server` executable is found. This executable can be a symbolic
   link to one of your installed language server binaries.
   - For additional instructions, see: [setup of tested language servers](docs/language_servers.md)
-- Non-C/C++ projects are also supported, such as Python, JavaScript, and Rust projects
+- Non-C/C++ projects are also supported, such as JavaScript, Python, Rust, and Go projects
 - Git support through libgit2
 - Find symbol through Ctags ([Universal Ctags](https://github.com/universal-ctags/ctags) is
   recommended)
