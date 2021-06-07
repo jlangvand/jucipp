@@ -116,7 +116,7 @@ ln -s `which gopls` /usr/local/bin/go-language-server
 - Prerequisites:
   - [Julia](https://julialang.org/downloads/)
 
-Install language server, and create symbolic link to enable server in juCi++:
+Install language server, and create executable to enable server in juCi++:
 
 ```sh
 julia -e 'using Pkg;Pkg.add("LanguageServer");Pkg.add("SymbolServer");Pkg.add("StaticLint");'
