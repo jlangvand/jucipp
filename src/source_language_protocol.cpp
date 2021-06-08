@@ -550,7 +550,7 @@ bool Source::LanguageProtocolView::save() {
 }
 
 void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
-  if(capabilities.document_formatting && !(format_style && language && language->get_id() == "js" /* Use Prettier instead */)) {
+  if(capabilities.document_formatting && !(format_style && is_js /* Use Prettier instead */)) {
     format_style = [this](bool continue_without_style_file) {
       if(!continue_without_style_file) {
         bool has_style_file = false;
@@ -1615,20 +1615,20 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     return false;
   };
 
-  std::function<bool(Gtk::TextIter)> is_possible_jsx_property = [](Gtk::TextIter) { return false; };
-  if(language && language->get_id() == "js") {
+  std::function<bool(Gtk::TextIter)> is_possible_xml_attribute = [](Gtk::TextIter) { return false; };
+  if(is_js) {
     autocomplete->is_restart_key = [](guint keyval) {
       if(keyval == '.' || keyval == ' ')
         return true;
       return false;
     };
 
-    is_possible_jsx_property = [this](Gtk::TextIter iter) {
+    is_possible_xml_attribute = [this](Gtk::TextIter iter) {
       return (*iter == ' ' || iter.ends_line() || *iter == '/' || (*iter == '>' && iter.backward_char())) && find_open_symbol_backward(iter, iter, '<', '>');
     };
   }
 
-  autocomplete->run_check = [this, is_possible_jsx_property]() {
+  autocomplete->run_check = [this, is_possible_xml_attribute]() {
     auto prefix_start = get_buffer()->get_insert()->get_iter();
     auto prefix_end = prefix_start;
 
@@ -1687,7 +1687,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       autocomplete->prefix = "";
       return true;
     }
-    if(is_possible_jsx_property(prefix_start)) {
+    if(is_possible_xml_attribute(prefix_start)) {
       LockGuard lock(autocomplete->prefix_mutex);
       autocomplete->prefix = "";
       return true;
