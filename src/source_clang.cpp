@@ -856,25 +856,29 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.run_check = [this]() {
-    auto iter = get_buffer()->get_insert()->get_iter();
-    auto prefix_end = iter;
+    auto prefix_start = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = prefix_start;
+
+    auto prev = prefix_start;
+    prev.backward_char();
+    if(!is_code_iter(prev))
+      return false;
 
     size_t count = 0;
-    while(iter.backward_char() && is_token_char(*iter))
+    while(prefix_start.backward_char() && is_token_char(*prefix_start))
       ++count;
-
-    if(count == 0)
-      return false;
 
     enable_snippets = false;
     show_parameters = false;
 
-    auto prefix_start = iter;
-    if(prefix_start != prefix_end && !is_token_char(*iter))
+    if(prefix_start != prefix_end && !is_token_char(*prefix_start))
       prefix_start.forward_char();
 
-    auto previous = iter;
-    if(*iter == '.') {
+    prev = prefix_start;
+    prev.backward_char();
+    auto prevprev = prev;
+    if(*prev == '.') {
+      auto iter = prev;
       bool starts_with_num = false;
       size_t count = 0;
       while(iter.backward_char() && is_token_char(*iter)) {
@@ -889,8 +893,8 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
         return true;
       }
     }
-    else if((previous.backward_char() && ((*previous == ':' && *iter == ':') || (*previous == '-' && *iter == '>')))) {
-      if(*iter == ':' || (previous.backward_char() && (is_token_char(*previous) || *previous == ')' || *previous == ']'))) {
+    else if((prevprev.backward_char() && ((*prevprev == ':' && *prev == ':') || (*prevprev == '-' && *prev == '>')))) {
+      if(*prev == ':' || (prevprev.backward_char() && (is_token_char(*prevprev) || *prevprev == ')' || *prevprev == ']'))) {
         {
           LockGuard lock(autocomplete.prefix_mutex);
           autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
@@ -913,26 +917,12 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
       return true;
     }
     if(!interactive_completion) {
-      auto end_iter = get_buffer()->get_insert()->get_iter();
-      auto iter = end_iter;
-      while(iter.backward_char() && is_token_char(*iter)) {
-      }
-      if(iter != end_iter)
-        iter.forward_char();
-
       {
         LockGuard lock(autocomplete.prefix_mutex);
-        autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
+        autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
       }
-      auto prev1 = iter;
-      if(prev1.backward_char() && *prev1 != '.') {
-        auto prev2 = prev1;
-        if(!prev2.backward_char())
-          enable_snippets = true;
-        else if(!(*prev2 == ':' && *prev1 == ':') && !(*prev2 == '-' && *prev1 == '>'))
-          enable_snippets = true;
-      }
-
+      auto prevprev = prev;
+      enable_snippets = !(*prev == '.' || (prevprev.backward_char() && ((*prevprev == ':' && *prev == ':') || (*prevprev == '-' && *prev == '>'))));
       return true;
     }
 

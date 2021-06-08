@@ -204,34 +204,27 @@ void Source::GenericView::setup_autocomplete() {
   };
 
   autocomplete.run_check = [this]() {
-    auto start = get_buffer()->get_insert()->get_iter();
-    auto end = start;
+    auto prefix_start = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = prefix_start;
 
     size_t count = 0;
-    while(start.backward_char() && is_token_char(*start))
+    while(prefix_start.backward_char() && is_token_char(*prefix_start))
       ++count;
 
-    if(!is_token_char(*start))
-      start.forward_char();
+    if(prefix_start != prefix_end && !is_token_char(*prefix_start))
+      prefix_start.forward_char();
 
-    if(count >= 3 && !(*start >= '0' && *start <= '9')) {
+    if((count >= 3 && !(*prefix_start >= '0' && *prefix_start <= '9')) || !interactive_completion) {
       LockGuard lock1(autocomplete.prefix_mutex);
       LockGuard lock2(buffer_words_mutex);
-      autocomplete.prefix = get_buffer()->get_text(start, end);
-      show_prefix_buffer_word = buffer_words.find(autocomplete.prefix) != buffer_words.end();
-      return true;
-    }
-    else if(!interactive_completion) {
-      auto end_iter = get_buffer()->get_insert()->get_iter();
-      auto iter = end_iter;
-      while(iter.backward_char() && is_token_char(*iter)) {
+      autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
+
+      if(interactive_completion)
+        show_prefix_buffer_word = buffer_words.find(autocomplete.prefix) != buffer_words.end();
+      else {
+        auto it = buffer_words.find(autocomplete.prefix);
+        show_prefix_buffer_word = !(it == buffer_words.end() || it->second == 1);
       }
-      if(iter != end_iter)
-        iter.forward_char();
-      LockGuard lock1(autocomplete.prefix_mutex);
-      LockGuard lock2(buffer_words_mutex);
-      autocomplete.prefix = get_buffer()->get_text(iter, end_iter);
-      show_prefix_buffer_word = buffer_words.find(autocomplete.prefix) != buffer_words.end();
       return true;
     }
 

@@ -1630,25 +1630,29 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   }
 
   autocomplete->run_check = [this, is_possible_jsx_property]() {
-    auto iter = get_buffer()->get_insert()->get_iter();
-    auto prefix_end = iter;
+    auto prefix_start = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = prefix_start;
+
+    auto prev = prefix_start;
+    prev.backward_char();
+    if(!is_code_iter(prev))
+      return false;
 
     size_t count = 0;
-    while(iter.backward_char() && is_token_char(*iter))
+    while(prefix_start.backward_char() && is_token_char(*prefix_start))
       ++count;
-
-    if(count == 0)
-      return false;
 
     autocomplete_enable_snippets = false;
     autocomplete_show_arguments = false;
 
-    auto prefix_start = iter;
-    if(prefix_start != prefix_end && !is_token_char(*iter))
+    if(prefix_start != prefix_end && !is_token_char(*prefix_start))
       prefix_start.forward_char();
 
-    auto previous = iter;
-    if(*iter == '.') {
+    prev = prefix_start;
+    prev.backward_char();
+    auto prevprev = prev;
+    if(*prev == '.') {
+      auto iter = prev;
       bool starts_with_num = false;
       size_t count = 0;
       while(iter.backward_char() && is_token_char(*iter)) {
@@ -1663,7 +1667,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         return true;
       }
     }
-    else if((previous.backward_char() && *previous == ':' && *iter == ':')) {
+    else if((prevprev.backward_char() && *prevprev == ':' && *prev == ':')) {
       {
         LockGuard lock(autocomplete->prefix_mutex);
         autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
@@ -1678,7 +1682,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       autocomplete_enable_snippets = true;
       return true;
     }
-    if(is_possible_jsx_property(iter)) {
+    if(is_possible_jsx_property(prefix_start)) {
       LockGuard lock(autocomplete->prefix_mutex);
       autocomplete->prefix = "";
       return true;
@@ -1690,26 +1694,12 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       return true;
     }
     if(!interactive_completion) {
-      auto end_iter = get_buffer()->get_insert()->get_iter();
-      auto iter = end_iter;
-      while(iter.backward_char() && is_token_char(*iter)) {
-      }
-      if(iter != end_iter)
-        iter.forward_char();
-
       {
         LockGuard lock(autocomplete->prefix_mutex);
-        autocomplete->prefix = get_buffer()->get_text(iter, end_iter);
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
       }
-      auto prev1 = iter;
-      if(prev1.backward_char() && *prev1 != '.') {
-        auto prev2 = prev1;
-        if(!prev2.backward_char())
-          autocomplete_enable_snippets = true;
-        else if(!(*prev2 == ':' && *prev1 == ':'))
-          autocomplete_enable_snippets = true;
-      }
-
+      auto prevprev = prev;
+      autocomplete_enable_snippets = !(*prev == '.' || (prevprev.backward_char() && *prevprev == ':' && *prev == ':'));
       return true;
     }
 

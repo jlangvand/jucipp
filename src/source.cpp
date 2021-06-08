@@ -928,7 +928,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         try {
           boost::property_tree::ptree pt;
           boost::property_tree::xml_parser::read_xml(stdout_stream, pt);
-          auto replacements_pt = pt.get_child("replacements");
+          auto replacements_pt = pt.get_child("replacements", boost::property_tree::ptree());
           for(auto it = replacements_pt.rbegin(); it != replacements_pt.rend(); ++it) {
             if(it->first == "replacement") {
               auto offset = it->second.get<size_t>("<xmlattr>.offset");
@@ -2030,7 +2030,7 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
     long curly_count = 0;
     do {
       if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
-        if(is_cpp && positive_char == '>') {
+        if((is_c || is_cpp) && positive_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2043,7 +2043,7 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
         count++;
       }
       else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
-        if(is_cpp && negative_char == '>') {
+        if((is_c || is_cpp) && negative_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2091,7 +2091,7 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
     long curly_count = 0;
     do {
       if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
-        if(is_cpp && positive_char == '>') {
+        if((is_c || is_cpp) && positive_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2108,7 +2108,7 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
         count++;
       }
       else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
-        if(is_cpp && negative_char == '>') {
+        if((is_c || is_cpp) && negative_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
