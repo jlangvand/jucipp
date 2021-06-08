@@ -858,19 +858,19 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   autocomplete.run_check = [this]() {
     auto iter = get_buffer()->get_insert()->get_iter();
     auto prefix_end = iter;
-    iter.backward_char();
-    if(!is_code_iter(iter))
+
+    size_t count = 0;
+    while(iter.backward_char() && is_token_char(*iter))
+      ++count;
+
+    if(count == 0)
       return false;
 
     enable_snippets = false;
     show_parameters = false;
 
-    size_t count = 0;
-    while(is_token_char(*iter) && iter.backward_char())
-      ++count;
-
     auto prefix_start = iter;
-    if(prefix_start != prefix_end)
+    if(prefix_start != prefix_end && !is_token_char(*iter))
       prefix_start.forward_char();
 
     auto previous = iter;

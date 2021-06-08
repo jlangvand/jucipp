@@ -206,10 +206,15 @@ void Source::GenericView::setup_autocomplete() {
   autocomplete.run_check = [this]() {
     auto start = get_buffer()->get_insert()->get_iter();
     auto end = start;
+
     size_t count = 0;
     while(start.backward_char() && is_token_char(*start))
       ++count;
-    if((start.is_start() || start.forward_char()) && count >= 3 && !(*start >= '0' && *start <= '9')) {
+
+    if(!is_token_char(*start))
+      start.forward_char();
+
+    if(count >= 3 && !(*start >= '0' && *start <= '9')) {
       LockGuard lock1(autocomplete.prefix_mutex);
       LockGuard lock2(buffer_words_mutex);
       autocomplete.prefix = get_buffer()->get_text(start, end);
