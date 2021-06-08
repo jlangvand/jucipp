@@ -2030,7 +2030,7 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
     long curly_count = 0;
     do {
       if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
-        if((is_c || is_cpp) && positive_char == '>') {
+        if(is_cpp && positive_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2043,7 +2043,7 @@ bool Source::View::find_close_symbol_forward(Gtk::TextIter iter, Gtk::TextIter &
         count++;
       }
       else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
-        if((is_c || is_cpp) && negative_char == '>') {
+        if(is_cpp && negative_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2091,7 +2091,7 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
     long curly_count = 0;
     do {
       if(curly_count == 0 && *iter == positive_char && is_code_iter(iter)) {
-        if((is_c || is_cpp) && positive_char == '>') {
+        if(is_cpp && positive_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2108,7 +2108,7 @@ bool Source::View::find_open_symbol_backward(Gtk::TextIter iter, Gtk::TextIter &
         count++;
       }
       else if(curly_count == 0 && *iter == negative_char && is_code_iter(iter)) {
-        if((is_c || is_cpp) && negative_char == '>') {
+        if(is_cpp && negative_char == '>') {
           auto prev = iter;
           if(prev.backward_char() && *prev == '-')
             continue;
@@ -2804,7 +2804,7 @@ bool Source::View::on_key_press_event_bracket_language(GdkEventKey *event) {
           if(found_tabs_end_iter.get_line_offset() == tabs_end_iter.get_line_offset()) {
             has_right_curly_bracket = true;
             // Special case for functions and classes with no indentation after: namespace {
-            if((is_c || is_cpp) && tabs_end_iter.starts_line()) {
+            if(is_cpp && tabs_end_iter.starts_line()) {
               auto iter = condition_iter;
               Gtk::TextIter open_iter;
               if(iter.backward_char() && find_open_symbol_backward(iter, open_iter, '{', '}')) {
@@ -3350,7 +3350,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
         if(found_tabs_end_iter.get_line_offset() == tabs_end_iter.get_line_offset()) {
           has_right_curly_bracket = true;
           // Special case for functions and classes with no indentation after: namespace {:
-          if((is_c || is_cpp) && tabs_end_iter.starts_line()) {
+          if(is_cpp && tabs_end_iter.starts_line()) {
             Gtk::TextIter open_iter;
             if(find_open_symbol_backward(iter, open_iter, '{', '}')) {
               if(open_iter.starts_line()) // in case of: namespace test\n{
@@ -3517,23 +3517,4 @@ bool Source::View::on_button_press_event(GdkEventButton *event) {
     return true;
   }
   return Gsv::View::on_button_press_event(event);
-}
-
-bool Source::View::on_motion_notify_event(GdkEventMotion *event) {
-  // Workaround for drag-and-drop crash on MacOS
-  // TODO 2018: check if this bug has been fixed
-#ifdef __APPLE__
-  if((event->state & GDK_BUTTON1_MASK) == 0 || (event->state & GDK_SHIFT_MASK) > 0)
-    return Gsv::View::on_motion_notify_event(event);
-  else {
-    int x, y;
-    window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, event->x, event->y, x, y);
-    Gtk::TextIter iter;
-    get_iter_at_location(iter, x, y);
-    get_buffer()->select_range(iter, get_buffer()->get_selection_bound()->get_iter());
-    return true;
-  }
-#else
-  return Gsv::View::on_motion_notify_event(event);
-#endif
 }

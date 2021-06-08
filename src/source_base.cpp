@@ -136,6 +136,22 @@ bool Source::CommonView::on_key_press_event(GdkEventKey *event) {
   return Gsv::View::on_key_press_event(event);
 }
 
+bool Source::CommonView::on_motion_notify_event(GdkEventMotion *event) {
+  // Workaround for drag-and-drop crash on MacOS
+  // TODO 2023: check if this bug has been fixed
+#ifdef __APPLE__
+  if((event->state & GDK_BUTTON1_MASK) > 0 && (event->state & GDK_SHIFT_MASK) == 0) {
+    int x, y;
+    window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, event->x, event->y, x, y);
+    Gtk::TextIter iter;
+    get_iter_at_location(iter, x, y);
+    get_buffer()->select_range(iter, get_buffer()->get_selection_bound()->get_iter());
+    return true;
+  }
+#endif
+  return Gsv::View::on_motion_notify_event(event);
+}
+
 void Source::CommonView::cut() {
   if(!get_editable())
     return copy();

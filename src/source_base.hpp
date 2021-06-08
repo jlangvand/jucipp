@@ -55,6 +55,7 @@ namespace Source {
 
   protected:
     bool on_key_press_event(GdkEventKey *event) override;
+    bool on_motion_notify_event(GdkEventMotion *motion_event) override;
 
   private:
     GtkSourceSearchContext *search_context;
