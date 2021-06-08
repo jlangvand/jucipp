@@ -1624,7 +1624,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     };
 
     is_possible_jsx_property = [this](Gtk::TextIter iter) {
-      return (*iter == ' ' || iter.ends_line() || (*iter == '>' && iter.backward_char())) && find_open_symbol_backward(iter, iter, '<', '>');
+      return (*iter == ' ' || iter.ends_line() || *iter == '/' || (*iter == '>' && iter.backward_char())) && find_open_symbol_backward(iter, iter, '<', '>');
     };
   }
 
