@@ -1624,6 +1624,50 @@ void Source::View::extend_selection() {
       end.forward_char();
 
       if(start != start_stored || end != end_stored) {
+        // Forward to closing symbol if open symbol is found between start and end
+        auto iter = start;
+        para_count = 0;
+        square_count = 0;
+        curly_count = 0;
+        do {
+          if(*iter == '(' && is_code_iter(iter))
+            para_count++;
+          else if(*iter == ')' && is_code_iter(iter))
+            para_count--;
+          else if(*iter == '[' && is_code_iter(iter))
+            square_count++;
+          else if(*iter == ']' && is_code_iter(iter))
+            square_count--;
+          else if(*iter == '{' && is_code_iter(iter))
+            curly_count++;
+          else if(*iter == '}' && is_code_iter(iter))
+            curly_count--;
+          if(para_count < 0 || square_count < 0 || curly_count < 0)
+            break;
+        } while(iter.forward_char() && iter < end);
+        if(iter == end && (para_count > 0 || square_count > 0 || curly_count > 0)) {
+          do {
+            if(*iter == '(' && is_code_iter(iter))
+              para_count++;
+            else if(*iter == ')' && is_code_iter(iter))
+              para_count--;
+            else if(*iter == '[' && is_code_iter(iter))
+              square_count++;
+            else if(*iter == ']' && is_code_iter(iter))
+              square_count--;
+            else if(*iter == '{' && is_code_iter(iter))
+              curly_count++;
+            else if(*iter == '}' && is_code_iter(iter))
+              curly_count--;
+            if(para_count == 0 && square_count == 0 && curly_count == 0)
+              break;
+          } while(iter.forward_char());
+          if(iter) {
+            end = iter;
+            end.forward_char();
+          }
+        }
+
         get_buffer()->select_range(start, end);
         return;
       }
