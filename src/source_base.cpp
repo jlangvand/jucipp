@@ -11,6 +11,8 @@
 #include <regex>
 
 Source::CommonView::CommonView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View() {
+  set_tab_width(4); // Visual size of a \t hardcoded to be equal to visual size of 4 spaces
+
   set_language(language);
   if(is_language({"chdr", "c"}))
     is_c = true;
@@ -318,7 +320,6 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
       is_bracket_language = true;
   }
 
-  set_tab_width(4); // Visual size of a \t hardcoded to be equal to visual size of 4 spaces
   tab_char = Config::get().source.default_tab_char;
   tab_size = Config::get().source.default_tab_size;
   if(language) {
