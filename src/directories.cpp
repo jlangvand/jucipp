@@ -402,14 +402,9 @@ Directories::Directories() : Gtk::ListViewText(1) {
         else if(view->file_path == source_path) {
           view->rename(target_path);
 
-          std::string old_language_id;
-          if(view->language)
-            old_language_id = view->language->get_id();
-          view->language = Source::guess_language(target_path);
-          std::string new_language_id;
-          if(view->language)
-            new_language_id = view->language->get_id();
-          if(new_language_id != old_language_id)
+          auto old_language_id = view->language_id;
+          view->set_language(Source::guess_language(target_path));
+          if(view->language_id != old_language_id)
             Terminal::get().print("\e[33mWarning\e[m: language for " + filesystem::get_short_path(target_path).string() + " has changed.\nPlease reopen the file.\n");
         }
       }

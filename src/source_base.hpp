@@ -32,6 +32,28 @@ namespace Source {
   public:
     CommonView(const Glib::RefPtr<Gsv::Language> &language = {});
     ~CommonView() override;
+
+  protected:
+    Glib::RefPtr<Gsv::Language> language;
+
+  public:
+    std::string language_id;
+    void set_language(const Glib::RefPtr<Gsv::Language> &language);
+    /// Checks if parameter languages contain language_id
+    bool is_language(const std::initializer_list<std::string> &languages);
+
+  protected:
+    bool is_c = false;
+    bool is_cpp = false;
+    /// Set to true if language is html or js (including typescript)
+    bool is_js = false;
+
+    bool keep_clipboard = false;
+
+    bool on_key_press_event(GdkEventKey *event) override;
+    bool on_motion_notify_event(GdkEventMotion *motion_event) override;
+
+  public:
     void search_highlight(const std::string &text, bool case_sensitive, bool regex);
     void search_forward();
     void search_backward();
@@ -39,12 +61,6 @@ namespace Source {
     void replace_backward(const std::string &replacement);
     void replace_all(const std::string &replacement);
 
-    Glib::RefPtr<Gsv::Language> language;
-
-  protected:
-    bool keep_clipboard = false;
-
-  public:
     void cut();
     void cut_lines();
     void copy();
@@ -52,10 +68,6 @@ namespace Source {
     bool disable_spellcheck = false;
 
     std::function<void(int number)> update_search_occurrences;
-
-  protected:
-    bool on_key_press_event(GdkEventKey *event) override;
-    bool on_motion_notify_event(GdkEventMotion *motion_event) override;
 
   private:
     GtkSourceSearchContext *search_context;

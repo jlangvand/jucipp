@@ -30,7 +30,7 @@ Source::ClangViewParse::ClangViewParse(const boost::filesystem::path &file_path,
       syntax_tags.emplace(item.first, tag);
   }
 
-  if(get_buffer()->size() == 0 && (language->get_id() == "chdr" || language->get_id() == "cpphdr")) {
+  if(get_buffer()->size() == 0 && is_language({"chdr", "cpphdr"})) {
     disable_spellcheck = true;
     get_buffer()->insert_at_cursor("#pragma once\n");
     disable_spellcheck = false;
@@ -53,7 +53,7 @@ bool Source::ClangViewParse::save() {
   if(!Source::View::save())
     return false;
 
-  if(language->get_id() == "chdr" || language->get_id() == "cpphdr") {
+  if(is_language({"chdr", "cpphdr"})) {
     for(auto &view : views) {
       if(auto clang_view = dynamic_cast<Source::ClangView *>(view)) {
         if(this != clang_view)
@@ -115,7 +115,7 @@ void Source::ClangViewParse::parse_initialize() {
     }
   }
 
-  if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr"))
+  if(is_language({"chdr", "cpphdr"}))
     clangmm::remove_include_guard(buffer_raw);
 
   auto build = Project::Build::create(file_path);
@@ -161,7 +161,7 @@ void Source::ClangViewParse::parse_initialize() {
       }
       else if(parse_process_state == ParseProcessState::processing && parse_mutex.try_lock()) {
         auto &parse_thread_buffer_raw = const_cast<std::string &>(parse_thread_buffer.raw());
-        if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
+        if(is_language({"chdr", "cpphdr"}))
           clangmm::remove_include_guard(parse_thread_buffer_raw);
         auto status = clang_tu->reparse(parse_thread_buffer_raw);
         if(status == 0) {
@@ -949,7 +949,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
   };
 
   autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
-    if(this->language && (this->language->get_id() == "chdr" || this->language->get_id() == "cpphdr"))
+    if(is_language({"chdr", "cpphdr"}))
       clangmm::remove_include_guard(buffer);
     code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line_number, column));
     if(!code_complete_results->cx_results)
@@ -2141,7 +2141,7 @@ void Source::ClangView::async_delete() {
       if(stream) {
         std::string buffer;
         buffer.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
-        if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr"))
+        if(is_language({"chdr", "cpphdr"}))
           clangmm::remove_include_guard(buffer);
         clang_tu->reparse(buffer);
         clang_tokens = clang_tu->get_tokens();

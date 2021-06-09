@@ -173,11 +173,6 @@ namespace Source {
 
     bool interactive_completion = true;
 
-    bool is_c = false;
-    bool is_cpp = false;
-    /// Set to true if language is html or js (including typescript)
-    bool is_js = false;
-
   private:
     void setup_signals();
     void setup_format_style(bool is_generic_view);

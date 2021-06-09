@@ -89,9 +89,8 @@ Glib::RefPtr<Gsv::Language> Source::guess_language(const boost::filesystem::path
     else
       language = language_manager->get_language("cpp");
   }
-  else if(language->get_id() == "opencl") {
+  else if(language->get_id() == "opencl")
     language = language_manager->get_language("cpp");
-  }
   return language;
 }
 
@@ -170,46 +169,36 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   hide_tag = get_buffer()->create_tag();
   hide_tag->property_scale() = 0.25;
 
-  if(language) {
-    auto language_id = language->get_id();
-    if(language_id == "chdr" || language_id == "c")
-      is_c = true;
-    else if(language_id == "cpphdr" || language_id == "cpp")
-      is_cpp = true;
-    else if(language_id == "js" || language_id == "html")
-      is_js = true;
+  if(is_c || is_cpp) {
+    use_fixed_continuation_indenting = false;
+    // TODO 2019: check if clang-format has improved...
+    // boost::filesystem::path clang_format_file;
+    // auto search_path=file_path.parent_path();
+    // boost::system::error_code ec;
+    // while(true) {
+    //   clang_format_file=search_path/".clang-format";
+    //   if(boost::filesystem::exists(clang_format_file, ec))
+    //     break;
+    //   clang_format_file=search_path/"_clang-format";
+    //   if(boost::filesystem::exists(clang_format_file, ec))
+    //     break;
+    //   clang_format_file.clear();
 
-    if(is_c || is_cpp) {
-      use_fixed_continuation_indenting = false;
-      // TODO 2019: check if clang-format has improved...
-      // boost::filesystem::path clang_format_file;
-      // auto search_path=file_path.parent_path();
-      // boost::system::error_code ec;
-      // while(true) {
-      //   clang_format_file=search_path/".clang-format";
-      //   if(boost::filesystem::exists(clang_format_file, ec))
-      //     break;
-      //   clang_format_file=search_path/"_clang-format";
-      //   if(boost::filesystem::exists(clang_format_file, ec))
-      //     break;
-      //   clang_format_file.clear();
-
-      //   if(search_path==search_path.root_directory())
-      //     break;
-      //   search_path=search_path.parent_path();
-      // }
-      // if(!clang_format_file.empty()) {
-      //   auto lines=filesystem::read_lines(clang_format_file);
-      //   for(auto &line: lines) {
-      //     std::cout << "1" << std::endl;
-      //     if(!line.empty() && line.compare(0, 23, "ContinuationIndentWidth")==0) {
-      //       std::cout << "2" << std::endl;
-      //       use_continuation_indenting=true;
-      //       break;
-      //     }
-      //   }
-      // }
-    }
+    //   if(search_path==search_path.root_directory())
+    //     break;
+    //   search_path=search_path.parent_path();
+    // }
+    // if(!clang_format_file.empty()) {
+    //   auto lines=filesystem::read_lines(clang_format_file);
+    //   for(auto &line: lines) {
+    //     std::cout << "1" << std::endl;
+    //     if(!line.empty() && line.compare(0, 23, "ContinuationIndentWidth")==0) {
+    //       std::cout << "2" << std::endl;
+    //       use_continuation_indenting=true;
+    //       break;
+    //     }
+    //   }
+    // }
   }
 
   setup_signals();
@@ -219,15 +208,10 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
   std::string comment_characters;
   if(is_bracket_language)
     comment_characters = "//";
-  else if(language) {
-    auto language_id = language->get_id();
-    if(language_id == "cmake" || language_id == "makefile" || language_id == "python" ||
-       language_id == "python3" || language_id == "sh" || language_id == "perl" ||
-       language_id == "ruby" || language_id == "r" || language_id == "asm" ||
-       language_id == "automake" || language_id == "yaml" || language_id == "docker" ||
-       language_id == "julia")
+  else {
+    if(is_language({"cmake", "makefile", "python", "python3", "sh", "perl", "ruby", "r", "asm", "automake", "yaml", "docker", "julia"}))
       comment_characters = "#";
-    else if(language_id == "latex" || language_id == "matlab" || language_id == "octave" || language_id == "bibtex")
+    else if(is_language({"latex", "matlab", "octave", "bibtex"}))
       comment_characters = "%";
     else if(language_id == "fortran")
       comment_characters = "!";
@@ -451,11 +435,10 @@ void Source::View::configure() {
 
   set_draw_spaces(parse_show_whitespace_characters(Config::get().source.show_whitespace_characters));
   { // Set Word Wrap
-    auto language_id = language ? language->get_id() : "";
     namespace qi = boost::spirit::qi;
     std::set<std::string> word_wrap_language_ids;
     qi::phrase_parse(Config::get().source.word_wrap.begin(), Config::get().source.word_wrap.end(), (+(~qi::char_(','))) % ',', qi::space, word_wrap_language_ids);
-    if(std::any_of(word_wrap_language_ids.begin(), word_wrap_language_ids.end(), [&language_id](const std::string &word_wrap_language_id) {
+    if(std::any_of(word_wrap_language_ids.begin(), word_wrap_language_ids.end(), [this](const std::string &word_wrap_language_id) {
          return word_wrap_language_id == language_id || word_wrap_language_id == "all";
        }))
       set_wrap_mode(Gtk::WrapMode::WRAP_WORD_CHAR);
@@ -730,8 +713,7 @@ void Source::View::setup_signals() {
 
 void Source::View::setup_format_style(bool is_generic_view) {
   static auto prettier = filesystem::find_executable("prettier");
-  auto prefer_prettier = language && (language->get_id() == "js" || language->get_id() == "json" || language->get_id() == "css" || language->get_id() == "html" ||
-                                      language->get_id() == "markdown" || language->get_id() == "yaml");
+  auto prefer_prettier = is_language({"js", "json", "css", "html", "markdown", "yaml"});
   if(prettier.empty() && prefer_prettier) {
     static bool shown = false;
     if(!shown) {
@@ -1566,7 +1548,7 @@ void Source::View::extend_selection() {
   // Attempt to select a sentence, for instance: int a = 2;
   if(!is_bracket_language) { // If for instance cmake, meson or python
     if(!select_matching_brackets) {
-      bool select_end_block = language->get_id() == "cmake" || language->get_id() == "meson";
+      bool select_end_block = is_language({"cmake", "meson"});
 
       auto get_tabs = [this](Gtk::TextIter iter) -> boost::optional<int> {
         iter = get_buffer()->get_iter_at_line(iter.get_line());
@@ -1665,7 +1647,7 @@ void Source::View::extend_selection() {
       }
 
       // Select no_spellcheck_tag block if markdown
-      if(no_spellcheck_tag && language->get_id() == "markdown" && start_stored.has_tag(no_spellcheck_tag) && end_stored.has_tag(no_spellcheck_tag) &&
+      if(no_spellcheck_tag && language_id == "markdown" && start_stored.has_tag(no_spellcheck_tag) && end_stored.has_tag(no_spellcheck_tag) &&
          (!start.has_tag(no_spellcheck_tag) || !end.has_tag(no_spellcheck_tag))) {
         start = start_stored;
         end = end_stored;
@@ -2372,7 +2354,7 @@ bool Source::View::on_key_press_event_basic(GdkEventKey *event) {
     auto tabs = get_line_before(tabs_end_iter);
 
     // Python indenting after :
-    if(*condition_iter == ':' && language && language->get_id() == "python") {
+    if(*condition_iter == ':' && language_id == "python") {
       get_buffer()->insert_at_cursor('\n' + tabs + tab);
       scroll_to(get_buffer()->get_insert());
       return true;
@@ -3241,7 +3223,7 @@ bool Source::View::on_key_press_event_smart_inserts(GdkEventKey *event) {
       left = "/*";
       right = "*/";
     }
-    else if((language && language->get_id() == "markdown") ||
+    else if(language_id == "markdown" ||
             !is_code_iter(get_buffer()->get_insert()->get_iter()) || !is_code_iter(get_buffer()->get_selection_bound()->get_iter())) {
       // Insert `` around selection
       if(event->keyval == GDK_KEY_dead_grave) {

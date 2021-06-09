@@ -88,7 +88,7 @@ int main() {
 
   // test remove_include_guard
   {
-    clang_view->language = Source::LanguageManager::get_default()->get_language("chdr");
+    clang_view->set_language(Source::LanguageManager::get_default()->get_language("chdr"));
     std::string source = "#ifndef F\n#define F\n#endif  // F";
     clangmm::remove_include_guard(source);
     g_assert_cmpstr(source.c_str(), ==, "         \n         \n            ");

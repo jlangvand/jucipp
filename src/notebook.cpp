@@ -156,22 +156,20 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   auto last_view = get_current_view();
 
   auto language = Source::guess_language(file_path);
+  std::string language_id = language ? language->get_id() : "";
+  std::string language_protocol_language_id = language_id;
 
-  std::string language_protocol_language_id;
-  if(language) {
-    language_protocol_language_id = language->get_id();
-    if(language_protocol_language_id == "js") {
-      if(file_path.extension() == ".ts")
-        language_protocol_language_id = "typescript";
-      else if(file_path.extension() == ".tsx")
-        language_protocol_language_id = "typescriptreact";
-      else
-        language_protocol_language_id = "javascript";
-    }
+  if(language_protocol_language_id == "js") {
+    if(file_path.extension() == ".ts")
+      language_protocol_language_id = "typescript";
+    else if(file_path.extension() == ".tsx")
+      language_protocol_language_id = "typescriptreact";
+    else
+      language_protocol_language_id = "javascript";
   }
 
   size_t source_views_previous_size = source_views.size();
-  if(language && (language->get_id() == "chdr" || language->get_id() == "cpphdr" || language->get_id() == "c" || language->get_id() == "cpp" || language->get_id() == "objc"))
+  if(language_id == "chdr" || language_id == "cpphdr" || language_id == "c" || language_id == "cpp" || language_id == "objc")
     source_views.emplace_back(new Source::ClangView(file_path, language));
   else if(language && !language_protocol_language_id.empty() && !filesystem::find_executable(language_protocol_language_id + "-language-server").empty())
     source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, language_protocol_language_id + "-language-server"));
@@ -189,9 +187,8 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     }
   }
   if(source_views_previous_size == source_views.size()) {
-    if(language) {
+    if(!language_id.empty()) {
       static std::set<std::string> shown;
-      std::string language_id = language->get_id();
       if(shown.find(language_id) == shown.end()) {
         if(language_id == "js") {
           Terminal::get().print("\e[33mWarning\e[m: could not find JavaScript/TypeScript language server.\n");
@@ -451,7 +448,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
   });
 
 #ifdef JUCI_ENABLE_DEBUG
-  if(dynamic_cast<Source::ClangView *>(view) || (view->language && view->language->get_id() == "rust")) {
+  if(dynamic_cast<Source::ClangView *>(view) || view->language_id == "rust") {
     view->toggle_breakpoint = [view](int line_nr) {
       if(view->get_source_buffer()->get_source_marks_at_line(line_nr, "debug_breakpoint").size() > 0) {
         auto start_iter = view->get_buffer()->get_iter_at_line(line_nr);

@@ -77,13 +77,13 @@ void Project::on_save(size_t index) {
     Commands::get().load();
 
   boost::filesystem::path build_path;
-  if(view->language && view->language->get_id() == "cmake") {
+  if(view->language_id == "cmake") {
     if(view->file_path.filename() == "CMakeLists.txt")
       build_path = view->file_path;
     else
       build_path = filesystem::find_file_in_path_parents("CMakeLists.txt", view->file_path.parent_path());
   }
-  else if(view->language && view->language->get_id() == "meson") {
+  else if(view->language_id == "meson") {
     if(view->file_path.filename() == "meson.build")
       build_path = view->file_path;
     else
@@ -172,21 +172,18 @@ std::shared_ptr<Project::Base> Project::create() {
 
   if(auto view = Notebook::get().get_current_view()) {
     build = Build::create(view->file_path);
-    if(view->language) {
-      auto language_id = view->language->get_id();
-      if(language_id == "markdown")
-        return std::shared_ptr<Project::Base>(new Project::Markdown(std::move(build)));
-      if(language_id == "js")
-        return std::shared_ptr<Project::Base>(new Project::JavaScript(std::move(build)));
-      if(language_id == "python")
-        return std::shared_ptr<Project::Base>(new Project::Python(std::move(build)));
-      if(language_id == "html")
-        return std::shared_ptr<Project::Base>(new Project::HTML(std::move(build)));
-      if(language_id == "go")
-        return std::shared_ptr<Project::Base>(new Project::Go(std::move(build)));
-      if(language_id == "julia")
-        return std::shared_ptr<Project::Base>(new Project::Julia(std::move(build)));
-    }
+    if(view->language_id == "markdown")
+      return std::shared_ptr<Project::Base>(new Project::Markdown(std::move(build)));
+    if(view->language_id == "js")
+      return std::shared_ptr<Project::Base>(new Project::JavaScript(std::move(build)));
+    if(view->language_id == "python")
+      return std::shared_ptr<Project::Base>(new Project::Python(std::move(build)));
+    if(view->language_id == "html")
+      return std::shared_ptr<Project::Base>(new Project::HTML(std::move(build)));
+    if(view->language_id == "go")
+      return std::shared_ptr<Project::Base>(new Project::Go(std::move(build)));
+    if(view->language_id == "julia")
+      return std::shared_ptr<Project::Base>(new Project::Julia(std::move(build)));
   }
   else
     build = Build::create(Directories::get().path);

@@ -10,7 +10,15 @@
 #include <gtksourceview/gtksource.h>
 #include <regex>
 
-Source::CommonView::CommonView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View(), language(language) {
+Source::CommonView::CommonView(const Glib::RefPtr<Gsv::Language> &language) : Gsv::View() {
+  set_language(language);
+  if(is_language({"chdr", "c"}))
+    is_c = true;
+  else if(is_language({"cpphdr", "cpp"}))
+    is_cpp = true;
+  else if(is_language({"js", "html"}))
+    is_js = true;
+
   search_settings = gtk_source_search_settings_new();
   gtk_source_search_settings_set_wrap_around(search_settings, true);
   search_context = gtk_source_search_context_new(get_source_buffer()->gobj(), search_settings);
@@ -21,6 +29,49 @@ Source::CommonView::CommonView(const Glib::RefPtr<Gsv::Language> &language) : Gs
 Source::CommonView::~CommonView() {
   g_clear_object(&search_context);
   g_clear_object(&search_settings);
+}
+
+void Source::CommonView::set_language(const Glib::RefPtr<Gsv::Language> &language) {
+  this->language = language;
+  language_id = language ? language->get_id() : "";
+}
+
+bool Source::CommonView::is_language(const std::initializer_list<std::string> &languages) {
+  if(!language)
+    return false;
+  return std::any_of(languages.begin(), languages.end(), [this](const std::string &e) {
+    return e == language_id;
+  });
+}
+
+bool Source::CommonView::on_key_press_event(GdkEventKey *event) {
+  if(event->keyval == GDK_KEY_Home && event->state & GDK_CONTROL_MASK) {
+    auto iter = get_buffer()->begin();
+    scroll_to(iter); // Home key should always scroll to start, even though cursor does not move
+    return Gsv::View::on_key_press_event(event);
+  }
+  else if(event->keyval == GDK_KEY_End && event->state & GDK_CONTROL_MASK) {
+    auto iter = get_buffer()->end();
+    scroll_to(iter); // End key should always scroll to start, even though cursor does not move
+    return Gsv::View::on_key_press_event(event);
+  }
+  return Gsv::View::on_key_press_event(event);
+}
+
+bool Source::CommonView::on_motion_notify_event(GdkEventMotion *event) {
+  // Workaround for drag-and-drop crash on MacOS
+  // TODO 2023: check if this bug has been fixed
+#ifdef __APPLE__
+  if((event->state & GDK_BUTTON1_MASK) > 0 && (event->state & GDK_SHIFT_MASK) == 0) {
+    int x, y;
+    window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, event->x, event->y, x, y);
+    Gtk::TextIter iter;
+    get_iter_at_location(iter, x, y);
+    get_buffer()->select_range(iter, get_buffer()->get_selection_bound()->get_iter());
+    return true;
+  }
+#endif
+  return Gsv::View::on_motion_notify_event(event);
 }
 
 void Source::CommonView::search_highlight(const std::string &text, bool case_sensitive, bool regex) {
@@ -122,36 +173,6 @@ void Source::CommonView::search_occurrences_updated(GtkWidget *widget, GParamSpe
     view->update_search_occurrences(gtk_source_search_context_get_occurrences_count(view->search_context));
 }
 
-bool Source::CommonView::on_key_press_event(GdkEventKey *event) {
-  if(event->keyval == GDK_KEY_Home && event->state & GDK_CONTROL_MASK) {
-    auto iter = get_buffer()->begin();
-    scroll_to(iter); // Home key should always scroll to start, even though cursor does not move
-    return Gsv::View::on_key_press_event(event);
-  }
-  else if(event->keyval == GDK_KEY_End && event->state & GDK_CONTROL_MASK) {
-    auto iter = get_buffer()->end();
-    scroll_to(iter); // End key should always scroll to start, even though cursor does not move
-    return Gsv::View::on_key_press_event(event);
-  }
-  return Gsv::View::on_key_press_event(event);
-}
-
-bool Source::CommonView::on_motion_notify_event(GdkEventMotion *event) {
-  // Workaround for drag-and-drop crash on MacOS
-  // TODO 2023: check if this bug has been fixed
-#ifdef __APPLE__
-  if((event->state & GDK_BUTTON1_MASK) > 0 && (event->state & GDK_SHIFT_MASK) == 0) {
-    int x, y;
-    window_to_buffer_coords(Gtk::TextWindowType::TEXT_WINDOW_TEXT, event->x, event->y, x, y);
-    Gtk::TextIter iter;
-    get_iter_at_location(iter, x, y);
-    get_buffer()->select_range(iter, get_buffer()->get_selection_bound()->get_iter());
-    return true;
-  }
-#endif
-  return Gsv::View::on_motion_notify_event(event);
-}
-
 void Source::CommonView::cut() {
   if(!get_editable())
     return copy();
@@ -163,7 +184,7 @@ void Source::CommonView::cut() {
 
   if(!get_buffer()->get_has_selection())
     cut_lines();
-  else if(language && language->get_id() == "diff") {
+  else if(language_id == "diff") {
     Gtk::TextIter start, end;
     get_buffer()->get_selection_bounds(start, end);
     Glib::ustring selection;
@@ -201,7 +222,7 @@ void Source::CommonView::cut_lines() {
     end.forward_to_line_end();
   end.forward_char();
 
-  if(language && language->get_id() == "diff") {
+  if(language_id == "diff") {
     Glib::ustring selection;
     selection.reserve(end.get_offset() - start.get_offset());
     for(auto iter = start; iter < end; ++iter) {
@@ -230,7 +251,7 @@ void Source::CommonView::cut_lines() {
 void Source::CommonView::copy() {
   if(!get_buffer()->get_has_selection())
     copy_lines();
-  else if(language && language->get_id() == "diff") {
+  else if(language_id == "diff") {
     Gtk::TextIter start, end;
     get_buffer()->get_selection_bounds(start, end);
     Glib::ustring selection;
@@ -258,7 +279,7 @@ void Source::CommonView::copy_lines() {
     end.forward_to_line_end();
   end.forward_char();
 
-  if(language && language->get_id() == "diff") {
+  if(language_id == "diff") {
     Glib::ustring selection;
     selection.reserve(end.get_offset() - start.get_offset());
     for(auto iter = start; iter < end; ++iter) {
@@ -292,14 +313,8 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   if(language) {
     get_source_buffer()->set_language(language);
     get_source_buffer()->set_highlight_syntax(true);
-    auto language_id = language->get_id();
-    if(language_id == "chdr" || language_id == "cpphdr" || language_id == "c" ||
-       language_id == "cpp" || language_id == "objc" || language_id == "java" ||
-       language_id == "js" || language_id == "ts" || language_id == "proto" ||
-       language_id == "c-sharp" || language_id == "html" || language_id == "cuda" ||
-       language_id == "php" || language_id == "rust" || language_id == "swift" ||
-       language_id == "go" || language_id == "scala" || language_id == "opencl" ||
-       language_id == "json" || language_id == "css" || language_id == "glsl")
+    if(is_language({"chdr", "cpphdr", "c", "cpp", "objc", "java", "js", "proto", "c-sharp", "html", "cuda",
+                    "php", "rust", "swift", "go", "scala", "opencl", "json", "css", "glsl"}))
       is_bracket_language = true;
   }
 
@@ -307,8 +322,7 @@ Source::BaseView::BaseView(const boost::filesystem::path &file_path, const Glib:
   tab_char = Config::get().source.default_tab_char;
   tab_size = Config::get().source.default_tab_size;
   if(language) {
-    auto language_id = language->get_id();
-    if(language_id == "python" || language_id == "rust" || language_id == "julia") {
+    if(is_language({"python", "rust", "julia"})) {
       tab_char = ' ';
       tab_size = 4;
     }
@@ -564,7 +578,7 @@ std::pair<char, unsigned> Source::BaseView::find_tab_char_and_size() {
   bool single_quoted = false;
   bool double_quoted = false;
   //For bracket languages, TODO: add more language ids
-  if(is_bracket_language && !(language && language->get_id() == "html")) {
+  if(is_bracket_language && language_id != "html") {
     bool line_comment = false;
     bool comment = false;
     bool bracket_last_line = false;
@@ -993,7 +1007,7 @@ void Source::BaseView::paste() {
           first_paste_line_has_tabs = true;
           paste_line_tabs = tabs;
         }
-        else if(language && language->get_id() == "python") { // Special case for Python code where the first line ends with ':'
+        else if(language_id == "python") { // Special case for Python code where the first line ends with ':'
           char last_char = 0;
           for(auto &chr : line) {
             if(chr != ' ' && chr != '\t')
@@ -1505,10 +1519,10 @@ void Source::BaseView::set_snippets() {
 
   snippets = nullptr;
 
-  if(language) {
+  if(!language_id.empty()) {
     for(auto &pair : Snippets::get().snippets) {
       std::smatch sm;
-      if(std::regex_match(language->get_id().raw(), sm, pair.first)) {
+      if(std::regex_match(language_id, sm, pair.first)) {
         snippets = &pair.second;
         break;
       }

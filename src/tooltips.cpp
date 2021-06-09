@@ -953,7 +953,7 @@ void Tooltip::insert_code(const std::string &code, boost::variant<std::string, G
           language = Source::guess_language('.' + *language_identifier);
         if(!language) {
           if(auto source_view = dynamic_cast<Source::View *>(view))
-            language = source_view->language;
+            language = Source::LanguageManager::get_default()->get_language(source_view->language_id);
         }
       }
     }
@@ -1225,10 +1225,8 @@ void Tooltip::insert_doxygen(const std::string &input_, bool remove_delimiters) 
               auto token = get_token();
               if(token == "endcode") {
                 if(language_id.empty() && view) {
-                  if(auto source_view = dynamic_cast<Source::View *>(view)) {
-                    if(source_view->language)
-                      language_id = source_view->language->get_id();
-                  }
+                  if(auto source_view = dynamic_cast<Source::View *>(view))
+                    language_id = source_view->language_id;
                 }
                 markdown += "```" + language_id + '\n' + input.substr(start, end - start) + "\n```\n";
                 ++i;
