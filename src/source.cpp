@@ -1548,7 +1548,7 @@ void Source::View::extend_selection() {
   // Attempt to select a sentence, for instance: int a = 2;
   if(!is_bracket_language) { // If for instance cmake, meson or python
     if(!select_matching_brackets) {
-      bool select_end_block = is_language({"cmake", "meson"});
+      bool select_end_block = is_language({"cmake", "meson", "julia"});
 
       auto get_tabs = [this](Gtk::TextIter iter) -> boost::optional<int> {
         iter = get_buffer()->get_iter_at_line(iter.get_line());
@@ -1563,94 +1563,134 @@ void Source::View::extend_selection() {
         return tabs;
       };
 
-      // Forward start to non-empty line
       start = start_stored;
+      end = end_stored;
+
+      if(start == get_buffer()->begin() && end == get_buffer()->end()) {
+        get_buffer()->select_range(start, end);
+        return;
+      }
+
+      // Select following line with code (for instance when inside comment)
+      // Forward start to non-empty line
       forward_to_code(start);
       start = get_buffer()->get_iter_at_line(start.get_line());
       while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
       }
-
-      // Forward end to end of line
-      end = end_stored;
+      // Forward end of line
       if(start > end)
         end = start;
-      if(!end.ends_line())
-        end.forward_to_line_end();
-
-      // Try select block that starts at cursor
-      auto iter = end;
-      if(auto end_tabs = get_tabs(end)) {
-        bool can_select_end_block = false;
-        while(iter.forward_char()) {
-          auto tabs = get_tabs(iter);
-          if(!tabs || tabs > end_tabs || (select_end_block && can_select_end_block && tabs == end_tabs)) {
-            if(!iter.ends_line())
-              iter.forward_to_line_end();
-            end = iter;
-            if(tabs > end_tabs)
-              can_select_end_block = true;
-            else if(tabs == end_tabs)
-              break;
-            continue;
-          }
-          break;
-        }
+      end = get_iter_at_line_end(end.get_line());
+      while(end.backward_char() && (*end == ' ' || *end == '\t' || end.ends_line())) {
       }
-      while(end > end_stored && end.starts_line() && end.ends_line() && end.backward_char()) {
+      end.forward_char();
+      if(end == end_stored) // Cancel line selection if the line is already selected
+        start = start_stored;
+
+      if(start != start_stored || end != end_stored) {
+        get_buffer()->select_range(start, end);
+        return;
       }
 
-      if(start == start_stored && end == end_stored) { // Try select block that cursor is within
-        // Backward start to line with less indentation
-        auto iter = get_buffer()->get_iter_at_line(start.get_line());
-        auto start_tabs = get_tabs(iter);
-        if(start_tabs >= 0) {
-          while(iter.backward_char()) {
-            auto tabs = get_tabs(iter);
-            iter = get_buffer()->get_iter_at_line(iter.get_line());
-            if(tabs >= 0 && tabs < start_tabs) {
-              start = iter;
+      // Select current line
+      // Backward to line start
+      start = get_buffer()->get_iter_at_line(start.get_line());
+      auto start_tabs = get_tabs(start);
+      while((*start == ' ' || *start == '\t' || start.ends_line()) && start.forward_char()) {
+      }
+      // Forward to line end
+      end = get_iter_at_line_end(end.get_line());
+      bool include_children = false;
+      if(start_tabs) {
+        while(end.forward_char()) {
+          auto tabs = get_tabs(end);
+          if(tabs) {
+            if(tabs > start_tabs)
+              include_children = true;
+            else if(tabs == start_tabs) {
+              if(include_children && select_end_block)
+                end = get_iter_at_line_end(end.get_line());
               break;
             }
+            else
+              break;
           }
+          end = get_iter_at_line_end(end.get_line());
         }
-        // Forward start to non-empty line
+      }
+      // Backward end to non-empty line
+      while(end.backward_char() && (*end == ' ' || *end == '\t' || end.ends_line())) {
+      }
+      end.forward_char();
+
+      if(start != start_stored || end != end_stored) {
+        get_buffer()->select_range(start, end);
+        return;
+      }
+
+      // Select block that cursor is within
+      // Backward start block start
+      if(start_tabs > 0) {
         start = get_buffer()->get_iter_at_line(start.get_line());
-        while(!start.is_end() && (*start == ' ' || *start == '\t') && start.forward_char()) {
+        while(start.backward_char()) {
+          auto tabs = get_tabs(start);
+          if(tabs && tabs < start_tabs)
+            break;
+          start = get_buffer()->get_iter_at_line(start.get_line());
+        }
+        while((*start == ' ' || *start == '\t' || start.ends_line()) && start.forward_char()) {
+        }
+        // Forward to block end
+        end = get_iter_at_line_end(end.get_line());
+        while(end.forward_char()) {
+          auto tabs = get_tabs(end);
+          if(tabs && tabs < start_tabs)
+            break;
+          end = get_iter_at_line_end(end.get_line());
+        }
+        // Backward end to non-empty line
+        while(end.backward_char() && (*end == ' ' || *end == '\t' || end.ends_line())) {
+        }
+        end.forward_char();
+
+        if(start != start_stored || end != end_stored) {
+          get_buffer()->select_range(start, end);
+          return;
         }
 
-        if(start != start_stored) {
-          // Forward end through lines with higher indentation
-          start_tabs = get_tabs(start);
-          iter = end;
-          if(start_tabs >= 0) {
-            while(iter.forward_char()) {
-              auto tabs = get_tabs(iter);
-              if(tabs < 0 || tabs > start_tabs || (select_end_block && tabs == start_tabs)) {
-                if(!iter.ends_line())
-                  iter.forward_to_line_end();
-                end = iter;
-                if(tabs == start_tabs)
-                  break;
-                continue;
-              }
-              break;
+        // Select expression surrounding block
+        // Backward to expression starting block
+        if(start.backward_char()) {
+          backward_to_code(start);
+          if(start_tabs > get_tabs(start)) {
+            start = get_buffer()->get_iter_at_line(start.get_line());
+            while((*start == ' ' || *start == '\t' || start.ends_line()) && start.forward_char()) {
             }
           }
-          while(end > end_stored && end.starts_line() && end.ends_line() && end.backward_char()) {
+          else
+            start = start_stored;
+        }
+        // Forward to expression ending block
+        if(select_end_block) {
+          forward_to_code(end);
+          if(start_tabs > get_tabs(end)) {
+            end = get_iter_at_line_end(end.get_line());
+            while(end.backward_char() && (*end == ' ' || *end == '\t' || end.ends_line())) {
+            }
+            end.forward_char();
           }
+          else
+            end = end_stored;
         }
 
-        if(start == start_stored && end == end_stored) {
-          start = get_buffer()->begin();
-          end = get_buffer()->end();
+        if(start != start_stored || end != end_stored) {
+          get_buffer()->select_range(start, end);
+          return;
         }
       }
 
       // Select no_spellcheck_tag block if markdown
-      if(no_spellcheck_tag && language_id == "markdown" && start_stored.has_tag(no_spellcheck_tag) && end_stored.has_tag(no_spellcheck_tag) &&
-         (!start.has_tag(no_spellcheck_tag) || !end.has_tag(no_spellcheck_tag))) {
-        start = start_stored;
-        end = end_stored;
+      if(language_id == "markdown" && no_spellcheck_tag && start.has_tag(no_spellcheck_tag) && end.has_tag(no_spellcheck_tag)) {
         if(!start.starts_tag(no_spellcheck_tag))
           start.backward_to_tag_toggle(no_spellcheck_tag);
         if(!end.ends_tag(no_spellcheck_tag))
@@ -1667,13 +1707,13 @@ void Source::View::extend_selection() {
         if(!end.ends_line())
           end.forward_char();
 
-        if(start == start_stored && end == end_stored) {
-          start = get_buffer()->begin();
-          end = get_buffer()->end();
+        if(start != start_stored || end != end_stored) {
+          get_buffer()->select_range(start, end);
+          return;
         }
       }
 
-      get_buffer()->select_range(start, end);
+      get_buffer()->select_range(get_buffer()->begin(), get_buffer()->end());
       return;
     }
   }
@@ -1709,9 +1749,8 @@ void Source::View::extend_selection() {
 
   if(start == start_stored && end == end_stored) { // In case of no change due to inbalanced brackets
     previous_extended_selections.pop_back();
-    if(!start.backward_char() && !end.forward_char()) {
+    if(!start.backward_char() && !end.forward_char())
       return;
-    }
     get_buffer()->select_range(start, end);
     extend_selection();
     return;
