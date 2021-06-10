@@ -1164,6 +1164,11 @@ void Source::View::extend_selection() {
 
   Gtk::TextIter start, end;
   get_buffer()->get_selection_bounds(start, end);
+
+  // If entire buffer is selected, do nothing
+  if(start == get_buffer()->begin() && end == get_buffer()->end())
+    return;
+
   auto start_stored = start;
   auto end_stored = end;
 
@@ -1566,11 +1571,6 @@ void Source::View::extend_selection() {
       start = start_stored;
       end = end_stored;
 
-      if(start == get_buffer()->begin() && end == get_buffer()->end()) {
-        get_buffer()->select_range(start, end);
-        return;
-      }
-
       // Select following line with code (for instance when inside comment)
       // Forward start to non-empty line
       forward_to_code(start);
@@ -1780,28 +1780,29 @@ void Source::View::extend_selection() {
       }
     }
 
+    // Select sentence
     end_sentence_iter.forward_char();
-    if((end_sentence_iter != end_stored || start_sentence_iter != start_stored) &&
+    if((start_sentence_iter != start_stored || end_sentence_iter != end_stored) &&
        ((*start == '{' && *end == '}') || (start.is_start() && end.is_end()))) {
-      start = start_sentence_iter;
-      end = end_sentence_iter;
-      select_matching_brackets = false;
+      get_buffer()->select_range(start_sentence_iter, end_sentence_iter);
+      return;
     }
   }
+
   if(select_matching_brackets)
     start.forward_char();
 
-  if(start == start_stored && end == end_stored) { // In case of no change due to inbalanced brackets
-    previous_extended_selections.pop_back();
-    if(!start.backward_char() && !end.forward_char())
-      return;
+  if(start != start_stored || end != end_stored) {
     get_buffer()->select_range(start, end);
-    extend_selection();
     return;
   }
 
+  // In case of no change due to inbalanced brackets
+  previous_extended_selections.pop_back();
+  if(!start.backward_char() && !end.forward_char())
+    return;
   get_buffer()->select_range(start, end);
-  return;
+  extend_selection();
 }
 
 void Source::View::shrink_selection() {
