@@ -456,6 +456,8 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_)
     : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), language_server(std::move(language_server_)), client(LanguageProtocol::Client::get(file_path, language_id, language_server)) {
+  uri_escaped = uri;
+  escape_text(uri_escaped);
   initialize();
 }
 
@@ -476,7 +478,7 @@ void Source::LanguageProtocolView::initialize() {
 
     std::string text = get_buffer()->get_text();
     escape_text(text);
-    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
+    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
 
     if(!initialized) {
       setup_signals();
@@ -521,7 +523,7 @@ void Source::LanguageProtocolView::close() {
       autocomplete->thread.join();
   }
 
-  client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri + "\"}");
+  client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri_escaped + "\"}");
   client->close(this);
   client = nullptr;
 }
@@ -537,6 +539,8 @@ void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
   dispatcher.reset();
   Source::DiffView::rename(path);
   uri = filesystem::get_uri_from_path(path);
+  uri_escaped = uri;
+  escape_text(uri_escaped);
   client = LanguageProtocol::Client::get(file_path, language_id, language_server);
   initialize();
 }
@@ -545,7 +549,7 @@ bool Source::LanguageProtocolView::save() {
   if(!Source::View::save())
     return false;
 
-  client->write_notification("textDocument/didSave", R"("textDocument":{"uri":")" + uri + "\"}");
+  client->write_notification("textDocument/didSave", R"("textDocument":{"uri":")" + uri_escaped + "\"}");
 
   update_type_coverage();
 
@@ -599,11 +603,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         method = "textDocument/rangeFormatting";
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
-        params = R"("textDocument":{"uri":")" + uri + R"("},"range":{"start":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}},\"options\":{" + options + "}";
+        params = R"("textDocument":{"uri":")" + uri_escaped + R"("},"range":{"start":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}},\"options\":{" + options + "}";
       }
       else {
         method = "textDocument/formatting";
-        params = R"("textDocument":{"uri":")" + uri + R"("},"options":{)" + options + "}";
+        params = R"("textDocument":{"uri":")" + uri_escaped + R"("},"options":{)" + options + "}";
       }
 
       client->write_request(this, method, params, [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
@@ -670,7 +674,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/documentHighlight";
 
-      client->write_request(this, method, R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      client->write_request(this, method, R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           try {
             for(auto it = result.begin(); it != result.end(); ++it)
@@ -795,7 +799,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<Changes> changes_vec;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::filesystem::path project_path;
             auto build = Project::Build::create(file_path);
@@ -832,7 +836,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         });
       }
       else {
-        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
@@ -957,7 +961,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<std::pair<Offset, std::string>> methods;
 
       std::promise<void> result_processed;
-      client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + uri + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
+      client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + uri_escaped + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&methods, &parse_result](const boost::property_tree::ptree &pt, const std::string &container) {
             for(auto it = pt.begin(); it != pt.end(); ++it) {
@@ -1068,7 +1072,7 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
       }
 
-      auto request = (R"("textDocument":{"uri":")" + uri + "\"},\"range\":" + range + ",\"context\":{\"diagnostics\":[" + diagnostics_string + "],\"only\":[\"quickfix\"]}");
+      auto request = (R"("textDocument":{"uri":")" + uri_escaped + "\"},\"range\":" + range + ",\"context\":{\"diagnostics\":[" + diagnostics_string + "],\"only\":[\"quickfix\"]}");
       thread_pool.push([this, diagnostics = std::move(diagnostics), request = std::move(request), last_count]() mutable {
         if(last_count != update_diagnostics_async_count)
           return;
@@ -1298,7 +1302,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
       struct Content {
@@ -1454,7 +1458,7 @@ void Source::LanguageProtocolView::apply_similar_symbol_tag() {
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, method, R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, current_request](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, method, R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       std::vector<LanguageProtocol::Range> ranges;
       for(auto it = result.begin(); it != result.end(); ++it) {
@@ -1485,7 +1489,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
   auto current_request = request_count;
   auto line = iter.get_line();
   auto offset = iter.get_line_offset();
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line) + ", \"character\": " + std::to_string(offset) + "}", [this, current_request, line, offset](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line) + ", \"character\": " + std::to_string(offset) + "}", [this, current_request, line, offset](const boost::property_tree::ptree &result, bool error) {
     if(!error && !result.empty()) {
       dispatcher.post([this, current_request, line, offset] {
         if(current_request != request_count || !clickable_tag_applied)
@@ -1501,7 +1505,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
 Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
@@ -1527,13 +1531,13 @@ void Source::LanguageProtocolView::setup_signals() {
         [this](const Gtk::TextIter &start, const Glib::ustring &text_, int bytes) {
           std::string text = text_;
           escape_text(text);
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
         },
         false);
 
     get_buffer()->signal_erase().connect(
         [this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
         },
         false);
   }
@@ -1541,7 +1545,7 @@ void Source::LanguageProtocolView::setup_signals() {
     get_buffer()->signal_changed().connect([this]() {
       std::string text = get_buffer()->get_text();
       escape_text(text);
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + this->uri + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + text + "\"}" + "]");
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + text + "\"}" + "]");
     });
   }
 }
@@ -1774,7 +1778,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
           }
           bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
 
-          client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
+          client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
             if(!error) {
               auto signatures = result.get_child("signatures", boost::property_tree::ptree());
               for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
@@ -1809,7 +1813,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         });
       }
       else {
-        client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::property_tree::ptree::const_iterator begin, end;
             if(auto items = result.get_child_optional("items")) {
@@ -1963,7 +1967,7 @@ boost::optional<char> Source::LanguageProtocolView::get_named_parameter_symbol()
 
 void Source::LanguageProtocolView::update_type_coverage() {
   if(capabilities.type_coverage) {
-    client->write_request(this, "textDocument/typeCoverage", R"("textDocument": {"uri":")" + uri + "\"}", [this](const boost::property_tree::ptree &result, bool error) {
+    client->write_request(this, "textDocument/typeCoverage", R"("textDocument": {"uri":")" + uri_escaped + "\"}", [this](const boost::property_tree::ptree &result, bool error) {
       if(error) {
         if(update_type_coverage_retries > 0) { // Retry typeCoverage request, since these requests can fail while waiting for language server to start
           dispatcher.post([this] {

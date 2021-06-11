@@ -182,6 +182,7 @@ namespace Source {
     Gtk::TextIter get_iter_at_line_pos(int line, int pos) override;
 
     std::string uri;
+    std::string uri_escaped;
 
   protected:
     void show_type_tooltips(const Gdk::Rectangle &rectangle) override;
