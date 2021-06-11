@@ -500,7 +500,7 @@ void Source::LanguageProtocolView::initialize() {
     this->capabilities = capabilities;
     set_editable(true);
 
-    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + "\"}");
+    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text()) + "\"}");
 
     if(!initialized) {
       setup_signals();
@@ -1523,7 +1523,7 @@ void Source::LanguageProtocolView::setup_signals() {
   if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
     get_buffer()->signal_insert().connect(
         [this](const Gtk::TextIter &start, const Glib::ustring &text, int bytes) {
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + LanguageProtocol::escape_text(text.raw()) + "\"}" + "]");
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + LanguageProtocol::escape_text(text) + "\"}" + "]");
         },
         false);
 
@@ -1535,7 +1535,7 @@ void Source::LanguageProtocolView::setup_signals() {
   }
   else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
     get_buffer()->signal_changed().connect([this]() {
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + "\"}" + "]");
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text()) + "\"}" + "]");
     });
   }
 }
