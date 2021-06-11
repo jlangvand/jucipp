@@ -112,6 +112,8 @@ namespace LanguageProtocol {
     bool type_coverage = false;
   };
 
+  std::string escape_text(std::string text);
+
   class Client {
     Client(boost::filesystem::path root_path, std::string language_id, const std::string &language_server);
     boost::filesystem::path root_path;
@@ -205,8 +207,6 @@ namespace Source {
     Glib::ThreadPool thread_pool;
 
     void setup_navigation_and_refactoring();
-
-    void escape_text(std::string &text);
 
     void tag_similar_symbols();
 

@@ -55,6 +55,32 @@ LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const boost::property_tree:
     edits.emplace_back(it->second);
 }
 
+std::string LanguageProtocol::escape_text(std::string text) {
+  for(size_t c = 0; c < text.size(); ++c) {
+    if(text[c] == '\n') {
+      text.replace(c, 1, "\\n");
+      ++c;
+    }
+    else if(text[c] == '\r') {
+      text.replace(c, 1, "\\r");
+      ++c;
+    }
+    else if(text[c] == '\t') {
+      text.replace(c, 1, "\\t");
+      ++c;
+    }
+    else if(text[c] == '"') {
+      text.replace(c, 1, "\\\"");
+      ++c;
+    }
+    else if(text[c] == '\\') {
+      text.replace(c, 1, "\\\\");
+      ++c;
+    }
+  }
+  return text;
+}
+
 LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_, const std::string &language_server) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
   process = std::make_unique<TinyProcessLib::Process>(
       filesystem::escape_argument(language_server), root_path.string(),
@@ -156,7 +182,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     process_id = process->get_id();
   }
   write_request(
-      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + filesystem::get_uri_from_path(root_path) + R"(","capabilities": {
+      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + LanguageProtocol::escape_text(filesystem::get_uri_from_path(root_path)) + R"(","capabilities": {
   "workspace": {
     "symbol": { "dynamicRegistration": false }
   },
@@ -455,9 +481,7 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_)
-    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), language_id(std::move(language_id_)), language_server(std::move(language_server_)), client(LanguageProtocol::Client::get(file_path, language_id, language_server)) {
-  uri_escaped = uri;
-  escape_text(uri_escaped);
+    : Source::BaseView(file_path, language), Source::View(file_path, language), uri(filesystem::get_uri_from_path(file_path)), uri_escaped(LanguageProtocol::escape_text(uri)), language_id(std::move(language_id_)), language_server(std::move(language_server_)), client(LanguageProtocol::Client::get(file_path, language_id, language_server)) {
   initialize();
 }
 
@@ -476,9 +500,7 @@ void Source::LanguageProtocolView::initialize() {
     this->capabilities = capabilities;
     set_editable(true);
 
-    std::string text = get_buffer()->get_text();
-    escape_text(text);
-    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + text + "\"}");
+    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + "\"}");
 
     if(!initialized) {
       setup_signals();
@@ -539,8 +561,7 @@ void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
   dispatcher.reset();
   Source::DiffView::rename(path);
   uri = filesystem::get_uri_from_path(path);
-  uri_escaped = uri;
-  escape_text(uri_escaped);
+  uri_escaped = LanguageProtocol::escape_text(uri);
   client = LanguageProtocol::Client::get(file_path, language_id, language_server);
   initialize();
 }
@@ -1017,31 +1038,6 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   };
 }
 
-void Source::LanguageProtocolView::escape_text(std::string &text) {
-  for(size_t c = 0; c < text.size(); ++c) {
-    if(text[c] == '\n') {
-      text.replace(c, 1, "\\n");
-      ++c;
-    }
-    else if(text[c] == '\r') {
-      text.replace(c, 1, "\\r");
-      ++c;
-    }
-    else if(text[c] == '\t') {
-      text.replace(c, 1, "\\t");
-      ++c;
-    }
-    else if(text[c] == '"') {
-      text.replace(c, 1, "\\\"");
-      ++c;
-    }
-    else if(text[c] == '\\') {
-      text.replace(c, 1, "\\\\");
-      ++c;
-    }
-  }
-}
-
 void Source::LanguageProtocolView::update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
   update_diagnostics_async_count++;
   size_t last_count = update_diagnostics_async_count;
@@ -1055,11 +1051,9 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
         auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
         range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
-        auto message = diagnostic.message;
-        escape_text(message);
         if(!diagnostics_string.empty())
           diagnostics_string += ',';
-        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + message + "\"";
+        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + LanguageProtocol::escape_text(diagnostic.message) + "\"";
         if(diagnostic.severity != 0)
           diagnostics_string += ",\"severity\":" + std::to_string(diagnostic.severity);
         if(!diagnostic.code.empty())
@@ -1528,10 +1522,8 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
 void Source::LanguageProtocolView::setup_signals() {
   if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
     get_buffer()->signal_insert().connect(
-        [this](const Gtk::TextIter &start, const Glib::ustring &text_, int bytes) {
-          std::string text = text_;
-          escape_text(text);
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + text + "\"}" + "]");
+        [this](const Gtk::TextIter &start, const Glib::ustring &text, int bytes) {
+          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + LanguageProtocol::escape_text(text.raw()) + "\"}" + "]");
         },
         false);
 
@@ -1543,9 +1535,7 @@ void Source::LanguageProtocolView::setup_signals() {
   }
   else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
     get_buffer()->signal_changed().connect([this]() {
-      std::string text = get_buffer()->get_text();
-      escape_text(text);
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + text + "\"}" + "]");
+      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + "\"}" + "]");
     });
   }
 }
