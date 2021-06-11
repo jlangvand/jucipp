@@ -155,6 +155,8 @@ namespace LanguageProtocol {
     void write_notification(const std::string &method, const std::string &params);
     void handle_server_notification(const std::string &method, const boost::property_tree::ptree &params);
     void handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params);
+
+    std::function<void(int exit_status)> on_exit_status;
   };
 } // namespace LanguageProtocol
 

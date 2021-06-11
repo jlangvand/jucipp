@@ -84,6 +84,12 @@ if(BUILD_TESTING)
   add_executable(utility_test utility_test.cpp $<TARGET_OBJECTS:test_stubs>)
   target_link_libraries(utility_test juci_shared)
   add_test(utility_test utility_test)
+
+  add_executable(language_protocol_client_test language_protocol_client_test.cpp $<TARGET_OBJECTS:test_stubs>)
+  target_link_libraries(language_protocol_client_test juci_shared)
+  add_test(language_protocol_client_test language_protocol_client_test)
+
+  add_executable(language_protocol_server_test language_protocol_server_test.cpp)
 endif()
 
 if(BUILD_FUZZING)

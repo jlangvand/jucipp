@@ -8,4 +8,8 @@ Source::View *Notebook::get_current_view() {
 
 bool Notebook::open(const boost::filesystem::path &file_path, Position position) { return true; }
 
+bool Notebook::open(Source::View *view) { return true; }
+
 void Notebook::open_uri(const std::string &uri) {}
+
+bool Notebook::close(Source::View *view) { return true; }

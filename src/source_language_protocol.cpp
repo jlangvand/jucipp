@@ -119,6 +119,9 @@ LanguageProtocol::Client::~Client() {
     process->kill();
     exit_status = process->get_exit_status();
   }
+
+  if(on_exit_status)
+    on_exit_status(exit_status);
   if(Config::get().log.language_server)
     std::cout << "Language server exit status: " << exit_status << std::endl;
 }
