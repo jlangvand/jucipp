@@ -709,15 +709,13 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       });
       result_processed.get_future().get();
 
-      auto embolden_token = [](std::string &line_, int token_start_pos, int token_end_pos) {
-        Glib::ustring line = line_;
-        if(static_cast<size_t>(token_start_pos) > line.size() || static_cast<size_t>(token_end_pos) > line.size())
-          return;
+      auto embolden_token = [](std::string &line, int token_start_pos, int token_end_pos) {
+        Glib::ustring uline = std::move(line);
 
         //markup token as bold
         size_t pos = 0;
-        while((pos = line.find('&', pos)) != Glib::ustring::npos) {
-          size_t pos2 = line.find(';', pos + 2);
+        while((pos = uline.find('&', pos)) != Glib::ustring::npos) {
+          size_t pos2 = uline.find(';', pos + 2);
           if(static_cast<size_t>(token_start_pos) > pos) {
             token_start_pos += pos2 - pos;
             token_end_pos += pos2 - pos;
@@ -728,16 +726,22 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             break;
           pos = pos2 + 1;
         }
-        line.insert(token_end_pos, "</b>");
-        line.insert(token_start_pos, "<b>");
+        if(static_cast<size_t>(token_start_pos) > uline.size())
+          token_start_pos = uline.size();
+        if(static_cast<size_t>(token_end_pos) > uline.size())
+          token_end_pos = uline.size();
+        if(token_start_pos != token_end_pos) {
+          uline.insert(token_end_pos, "</b>");
+          uline.insert(token_start_pos, "<b>");
+        }
 
         size_t start_pos = 0;
-        while(start_pos < line.size() && (line[start_pos] == ' ' || line[start_pos] == '\t'))
+        while(start_pos < uline.size() && (uline[start_pos] == ' ' || uline[start_pos] == '\t'))
           ++start_pos;
         if(start_pos > 0)
-          line.erase(0, start_pos);
+          uline.erase(0, start_pos);
 
-        line_ = line.raw();
+        line = std::move(uline);
       };
 
       std::unordered_map<std::string, std::vector<std::string>> file_lines;
