@@ -1,7 +1,17 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
+
 int main() {
+#ifdef _WIN32
+  _setmode(_fileno(stdout), _O_BINARY);
+#endif
+
   std::string line;
   try {
     // Read initialize and respond
