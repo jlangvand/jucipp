@@ -254,6 +254,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
           }
 
+          capabilities.use_line_index = result.get<std::string>("offsetEncoding", "") == "utf-8";
+
           write_notification("initialized", "");
         }
         result_processed.set_value();
@@ -709,13 +711,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       });
       result_processed.get_future().get();
 
-      auto embolden_token = [](std::string &line, int token_start_pos, int token_end_pos) {
-        Glib::ustring uline = std::move(line);
-
-        //markup token as bold
+      auto embolden_token = [this](std::string &line, int token_start_pos, int token_end_pos) {
+        // Markup token as bold
         size_t pos = 0;
-        while((pos = uline.find('&', pos)) != Glib::ustring::npos) {
-          size_t pos2 = uline.find(';', pos + 2);
+        while((pos = line.find('&', pos)) != std::string::npos) {
+          size_t pos2 = line.find(';', pos + 2);
           if(static_cast<size_t>(token_start_pos) > pos) {
             token_start_pos += pos2 - pos;
             token_end_pos += pos2 - pos;
@@ -726,22 +726,27 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             break;
           pos = pos2 + 1;
         }
-        if(static_cast<size_t>(token_start_pos) > uline.size())
-          token_start_pos = uline.size();
-        if(static_cast<size_t>(token_end_pos) > uline.size())
-          token_end_pos = uline.size();
-        if(token_start_pos != token_end_pos) {
-          uline.insert(token_end_pos, "</b>");
-          uline.insert(token_start_pos, "<b>");
+
+        if(!capabilities.use_line_index) {
+          auto code_units_diff = token_end_pos - token_start_pos;
+          token_start_pos = utf16_code_units_byte_count(line, token_start_pos);
+          token_end_pos = token_start_pos + utf16_code_units_byte_count(line, code_units_diff, token_start_pos);
+        }
+
+        if(static_cast<size_t>(token_start_pos) > line.size())
+          token_start_pos = line.size();
+        if(static_cast<size_t>(token_end_pos) > line.size())
+          token_end_pos = line.size();
+        if(token_start_pos < token_end_pos) {
+          line.insert(token_end_pos, "</b>");
+          line.insert(token_start_pos, "<b>");
         }
 
         size_t start_pos = 0;
-        while(start_pos < uline.size() && (uline[start_pos] == ' ' || uline[start_pos] == '\t'))
+        while(start_pos < line.size() && (line[start_pos] == ' ' || line[start_pos] == '\t'))
           ++start_pos;
         if(start_pos > 0)
-          uline.erase(0, start_pos);
-
-        line = std::move(uline);
+          line.erase(0, start_pos);
       };
 
       std::unordered_map<std::string, std::vector<std::string>> file_lines;
@@ -1278,6 +1283,8 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
 }
 
 Gtk::TextIter Source::LanguageProtocolView::get_iter_at_line_pos(int line, int pos) {
+  if(capabilities.use_line_index)
+    return get_iter_at_line_index(line, pos);
   return get_iter_at_line_offset(line, pos);
 }
 

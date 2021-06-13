@@ -8,8 +8,11 @@ public:
   ~ScopeGuard();
 };
 
-/// Returns number of utf8 characters in text argument
+/// Returns number of utf8 characters in text
 size_t utf8_character_count(const std::string &text, size_t pos = 0, size_t length = std::string::npos) noexcept;
+
+/// Returns number of bytes in the given utf16 code units in text
+size_t utf16_code_units_byte_count(const std::string &text, size_t code_units, size_t start_pos = 0);
 
 bool starts_with(const char *str, const std::string &test) noexcept;
 bool starts_with(const char *str, const char *test) noexcept;

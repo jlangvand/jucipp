@@ -110,6 +110,7 @@ namespace LanguageProtocol {
     bool rename = false;
     bool code_action = false;
     bool type_coverage = false;
+    bool use_line_index = false;
   };
 
   std::string escape_text(std::string text);

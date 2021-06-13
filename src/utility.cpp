@@ -9,11 +9,68 @@ ScopeGuard::~ScopeGuard() {
 size_t utf8_character_count(const std::string &text, size_t pos, size_t length) noexcept {
   size_t count = 0;
   auto size = length == std::string::npos ? text.size() : std::min(pos + length, text.size());
-  for(; pos < size; ++pos) {
-    if(static_cast<unsigned char>(text[pos]) <= 0b01111111 || static_cast<unsigned char>(text[pos]) >= 0b11000000)
+  for(; pos < size;) {
+    if(static_cast<unsigned char>(text[pos]) <= 0b01111111) {
       ++count;
+      ++pos;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11111000) // Invalid UTF-8 byte
+      ++pos;
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11110000) {
+      ++count;
+      pos += 4;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11100000) {
+      ++count;
+      pos += 3;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11000000) {
+      ++count;
+      pos += 2;
+    }
+    else // // Invalid start of UTF-8 character
+      ++pos;
   }
   return count;
+}
+
+size_t utf16_code_units_byte_count(const std::string &text, size_t code_units, size_t start_pos) {
+  if(code_units == 0)
+    return 0;
+
+  size_t pos = start_pos;
+  size_t current_code_units = 0;
+  for(; pos < text.size();) {
+    if(static_cast<unsigned char>(text[pos]) <= 0b01111111) {
+      ++current_code_units;
+      ++pos;
+      if(current_code_units >= code_units)
+        break;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11111000) // Invalid UTF-8 byte
+      ++pos;
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11110000) {
+      current_code_units += 2;
+      pos += 4;
+      if(current_code_units >= code_units)
+        break;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11100000) {
+      ++current_code_units;
+      pos += 3;
+      if(current_code_units >= code_units)
+        break;
+    }
+    else if(static_cast<unsigned char>(text[pos]) >= 0b11000000) {
+      ++current_code_units;
+      pos += 2;
+      if(current_code_units >= code_units)
+        break;
+    }
+    else // // Invalid start of UTF-8 character
+      ++pos;
+  }
+  return pos - start_pos;
 }
 
 bool starts_with(const char *str, const std::string &test) noexcept {
