@@ -1285,7 +1285,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
 Gtk::TextIter Source::LanguageProtocolView::get_iter_at_line_pos(int line, int pos) {
   if(capabilities.use_line_index)
     return get_iter_at_line_index(line, pos);
-  return get_iter_at_line_offset(line, pos);
+  return get_iter_at_line_index(line, utf16_code_units_byte_count(get_line(line), pos));
 }
 
 void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rectangle) {
