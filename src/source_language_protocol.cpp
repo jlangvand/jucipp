@@ -254,6 +254,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
           }
 
+          // See https://clangd.llvm.org/extensions.html#utf-8-offsets for documentation on offsetEncoding
           capabilities.use_line_index = result.get<std::string>("offsetEncoding", "") == "utf-8";
 
           write_notification("initialized", "");
