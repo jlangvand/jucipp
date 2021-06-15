@@ -126,7 +126,7 @@ LanguageProtocol::Client::~Client() {
   std::promise<void> result_processed;
   write_request(nullptr, "shutdown", "", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error)
-      this->write_notification("exit", "");
+      this->write_notification("exit");
     result_processed.set_value();
   });
   result_processed.get_future().get();
@@ -182,7 +182,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     process_id = process->get_id();
   }
   write_request(
-      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + R"(,"rootUri":")" + LanguageProtocol::escape_text(filesystem::get_uri_from_path(root_path)) + R"(","capabilities": {
+      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + ",\"rootUri\":\"" + LanguageProtocol::escape_text(filesystem::get_uri_from_path(root_path)) + R"(","capabilities": {
   "workspace": {
     "symbol": { "dynamicRegistration": false }
   },
@@ -206,6 +206,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
       }
     },
     "definition": { "dynamicRegistration": false },
+    "typeDefinition": { "dynamicRegistration": false },
+    "implementation": { "dynamicRegistration": false },
     "references": { "dynamicRegistration": false },
     "documentHighlight": { "dynamicRegistration": false },
     "documentSymbol": { "dynamicRegistration": false },
@@ -219,8 +221,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
         "codeActionKind": { "valueSet": ["quickfix"] }
       }
     }
-  },
-  "offsetEncoding": ["utf-8"]
+  }
 },
 "initializationOptions": {
   "checkOnSave": { "enable": true }
@@ -239,6 +240,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
             capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
             capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
+            capabilities.type_definition = capabilities_pt->get<bool>("typeDefinitionProvider", false);
+            capabilities.implementation = capabilities_pt->get<bool>("implementationProvider", false);
             capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
             capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
             capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
@@ -255,9 +258,10 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
           }
 
           // See https://clangd.llvm.org/extensions.html#utf-8-offsets for documentation on offsetEncoding
-          capabilities.use_line_index = result.get<std::string>("offsetEncoding", "") == "utf-8";
+          // Disabled for now since rust-analyzer does not seem to support utf-8 byte offsets from clients
+          // capabilities.use_line_index = result.get<std::string>("offsetEncoding", "") == "utf-8";
 
-          write_notification("initialized", "");
+          write_notification("initialized");
         }
         result_processed.set_value();
       });
@@ -419,11 +423,10 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
       }
     });
   }
-  std::string content(R"({"jsonrpc":"2.0","id":)" + std::to_string(message_id++) + R"(,"method":")" + method + R"(","params":{)" + params + "}}");
-  auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(message_id++) + ",\"method\":\"" + method + "\",\"params\":{" + params + "}}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << content << std::endl;
-  if(!process->write(message)) {
+  if(!process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content)) {
     Terminal::get().async_print("\e[31mError\e[m: could not write to language server. Please close and reopen all project files.\n", true);
     auto id_it = handlers.find(message_id - 1);
     if(id_it != handlers.end()) {
@@ -438,20 +441,18 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
 
 void LanguageProtocol::Client::write_response(size_t id, const std::string &result) {
   LockGuard lock(read_write_mutex);
-  std::string content(R"({"jsonrpc":"2.0","id":)" + std::to_string(id) + R"(,"result":{)" + result + "}}");
-  auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":{" + result + "}}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << content << std::endl;
-  process->write(message);
+  process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
   LockGuard lock(read_write_mutex);
-  std::string content(R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{)" + params + "}}");
-  auto message = "Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content;
+  std::string content("{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\",\"params\":{" + params + "}}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << content << std::endl;
-  process->write(message);
+  process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
 void LanguageProtocol::Client::handle_server_notification(const std::string &method, const boost::property_tree::ptree &params) {
@@ -503,7 +504,7 @@ void Source::LanguageProtocolView::initialize() {
     this->capabilities = capabilities;
     set_editable(true);
 
-    client->write_notification("textDocument/didOpen", R"("textDocument":{"uri":")" + uri_escaped + R"(","languageId":")" + language_id + R"(","version":)" + std::to_string(document_version++) + R"(,"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text()) + "\"}");
+    write_did_open_notification();
 
     if(!initialized) {
       setup_signals();
@@ -548,7 +549,7 @@ void Source::LanguageProtocolView::close() {
       autocomplete->thread.join();
   }
 
-  client->write_notification("textDocument/didClose", R"("textDocument":{"uri":")" + uri_escaped + "\"}");
+  write_notification("textDocument/didClose");
   client->close(this);
   client = nullptr;
 }
@@ -556,6 +557,76 @@ void Source::LanguageProtocolView::close() {
 Source::LanguageProtocolView::~LanguageProtocolView() {
   close();
   thread_pool.shutdown(true);
+}
+
+int Source::LanguageProtocolView::get_line_pos(const Gtk::TextIter &iter) {
+  if(capabilities.use_line_index)
+    return iter.get_line_index();
+  return utf16_code_unit_count(get_line(iter), 0, iter.get_line_index());
+}
+
+int Source::LanguageProtocolView::get_line_pos(int line, int line_index) {
+  if(capabilities.use_line_index)
+    return line_index;
+  return utf16_code_unit_count(get_line(line), 0, line_index);
+}
+
+Gtk::TextIter Source::LanguageProtocolView::get_iter_at_line_pos(int line, int pos) {
+  if(capabilities.use_line_index)
+    return get_iter_at_line_index(line, pos);
+  return get_iter_at_line_index(line, utf16_code_units_byte_count(get_line(line), pos));
+}
+
+std::pair<std::string, std::string> Source::LanguageProtocolView::make_position(int line, int character) {
+  return {"position", "{\"line\":" + std::to_string(line) + ",\"character\":" + std::to_string(character) + "}"};
+}
+
+std::pair<std::string, std::string> Source::LanguageProtocolView::make_range(const std::pair<int, int> &start, const std::pair<int, int> &end) {
+  return {"range", "{\"start\":{\"line\":" + std::to_string(start.first) + ",\"character\":" + std::to_string(start.second) + "},\"end\":{\"line\":" + std::to_string(end.first) + ",\"character\":" + std::to_string(end.second) + "}}"};
+}
+
+std::string Source::LanguageProtocolView::to_string(const std::pair<std::string, std::string> &param) {
+  std::string result;
+  result.reserve(param.first.size() + param.second.size() + 3);
+  result += '"';
+  result += param.first;
+  result += "\":";
+  result += param.second;
+  return result;
+}
+
+std::string Source::LanguageProtocolView::to_string(const std::vector<std::pair<std::string, std::string>> &params) {
+  size_t size = params.empty() ? 0 : params.size() - 1;
+  for(auto &param : params)
+    size += param.first.size() + param.second.size() + 3;
+
+  std::string result;
+  result.reserve(size);
+  for(auto &param : params) {
+    if(!result.empty())
+      result += ',';
+    result += '"';
+    result += param.first;
+    result += "\":";
+    result += param.second;
+  }
+  return result;
+}
+
+void Source::LanguageProtocolView::write_request(const std::string &method, const std::vector<std::pair<std::string, std::string>> &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function) {
+  client->write_request(this, method, "\"textDocument\":{\"uri\":\"" + uri_escaped + "\"}" + (params.empty() ? "" : "," + to_string(params)), std::move(function));
+}
+
+void Source::LanguageProtocolView::write_notification(const std::string &method) {
+  client->write_notification(method, "\"textDocument\":{\"uri\":\"" + uri_escaped + "\"}");
+}
+
+void Source::LanguageProtocolView::write_did_open_notification() {
+  client->write_notification("textDocument/didOpen", "\"textDocument\":{\"uri\":\"" + uri_escaped + "\",\"version\":" + std::to_string(document_version++) + ",\"languageId\":\"" + language_id + "\",\"text\":\"" + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + "\"}");
+}
+
+void Source::LanguageProtocolView::write_did_change_notification(const std::vector<std::pair<std::string, std::string>> &params) {
+  client->write_notification("textDocument/didChange", "\"textDocument\":{\"uri\":\"" + uri_escaped + "\",\"version\":" + std::to_string(document_version++) + (params.empty() ? "}" : "}," + to_string(params)));
 }
 
 void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
@@ -573,7 +644,7 @@ bool Source::LanguageProtocolView::save() {
   if(!Source::View::save())
     return false;
 
-  client->write_notification("textDocument/didSave", R"("textDocument":{"uri":")" + uri_escaped + "\"}");
+  write_notification("textDocument/didSave");
 
   update_type_coverage();
 
@@ -621,20 +692,17 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::promise<void> result_processed;
 
       std::string method;
-      std::string params;
-      std::string options("\"tabSize\":" + std::to_string(tab_size) + ",\"insertSpaces\":" + (tab_char == ' ' ? "true" : "false"));
+      std::vector<std::pair<std::string, std::string>> params = {{"options", '{' + to_string({{"tabSize", std::to_string(tab_size)}, {"insertSpaces", tab_char == ' ' ? "true" : "false"}}) + '}'}};
       if(get_buffer()->get_has_selection() && capabilities.document_range_formatting) {
         method = "textDocument/rangeFormatting";
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
-        params = R"("textDocument":{"uri":")" + uri_escaped + R"("},"range":{"start":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}},\"options\":{" + options + "}";
+        params.emplace_back(make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)}));
       }
-      else {
+      else
         method = "textDocument/formatting";
-        params = R"("textDocument":{"uri":")" + uri_escaped + R"("},"options":{)" + options + "}";
-      }
 
-      client->write_request(this, method, params, [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, params, [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           for(auto it = result.begin(); it != result.end(); ++it) {
             try {
@@ -653,7 +721,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       if(text_edits.size() == 1 &&
          text_edits[0].range.start.line == 0 && text_edits[0].range.start.character == 0 &&
          (text_edits[0].range.end.line > end_iter.get_line() ||
-          (text_edits[0].range.end.line == end_iter.get_line() && text_edits[0].range.end.character >= end_iter.get_line_offset()))) {
+          (text_edits[0].range.end.line == end_iter.get_line() && text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
         replace_text(text_edits[0].new_text);
       }
       else {
@@ -677,11 +745,50 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         Info::get().print("No declaration found");
       return offset;
     };
-    get_declaration_or_implementation_locations = [this]() {
-      std::vector<Offset> offsets;
-      auto offset = get_declaration_location();
-      if(offset)
-        offsets.emplace_back(std::move(offset));
+
+    // Assumes that capabilities.definition is available when capabilities.implementation is supported
+    if(capabilities.implementation) {
+      get_declaration_or_implementation_locations = [this]() {
+        // Try implementation locations first
+        auto iter = get_buffer()->get_insert()->get_iter();
+        auto offsets = get_implementations(iter);
+        auto token_iters = get_token_iters(iter);
+        bool is_implementation = false;
+        for(auto &offset : offsets) {
+          if(offset.file_path == file_path && get_iter_at_line_pos(offset.line, offset.index) == token_iters.first) {
+            is_implementation = true;
+            break;
+          }
+        }
+        if(offsets.empty() || is_implementation) {
+          if(auto offset = get_declaration_location())
+            return std::vector<Offset>({std::move(offset)});
+        }
+        return offsets;
+      };
+    }
+    else {
+      get_declaration_or_implementation_locations = [this]() {
+        std::vector<Offset> offsets;
+        if(auto offset = get_declaration_location())
+          offsets.emplace_back(std::move(offset));
+        return offsets;
+      };
+    }
+  }
+  if(capabilities.type_definition) {
+    get_type_declaration_location = [this]() {
+      auto offset = get_type_declaration(get_buffer()->get_insert()->get_iter());
+      if(!offset)
+        Info::get().print("No type declaration found");
+      return offset;
+    };
+  }
+  if(capabilities.implementation) {
+    get_implementation_locations = [this]() {
+      auto offsets = get_implementations(get_buffer()->get_insert()->get_iter());
+      if(offsets.empty())
+        Info::get().print("No implementation found");
       return offsets;
     };
   }
@@ -698,7 +805,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/documentHighlight";
 
-      client->write_request(this, method, R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           try {
             for(auto it = result.begin(); it != result.end(); ++it)
@@ -830,7 +937,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<Changes> changes_vec;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        client->write_request(this, "textDocument/rename", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "newName": ")" + text + "\"", [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/rename", {make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}, [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::filesystem::path project_path;
             auto build = Project::Build::create(file_path);
@@ -867,7 +974,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         });
       }
       else {
-        client->write_request(this, "textDocument/documentHighlight", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/documentHighlight", {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
@@ -933,7 +1040,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         if(changes->text_edits.size() == 1 &&
            changes->text_edits[0].range.start.line == 0 && changes->text_edits[0].range.start.character == 0 &&
            (changes->text_edits[0].range.end.line > end_iter.get_line() ||
-            (changes->text_edits[0].range.end.line == end_iter.get_line() && changes->text_edits[0].range.end.character >= end_iter.get_line_offset()))) {
+            (changes->text_edits[0].range.end.line == end_iter.get_line() && changes->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
           view->replace_text(changes->text_edits[0].new_text);
 
           Terminal::get().print(filesystem::get_short_path(view->file_path).string() + ":1:1\n");
@@ -992,7 +1099,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<std::pair<Offset, std::string>> methods;
 
       std::promise<void> result_processed;
-      client->write_request(this, "textDocument/documentSymbol", R"("textDocument":{"uri":")" + uri_escaped + "\"}", [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
+      write_request("textDocument/documentSymbol", {}, [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&methods, &parse_result](const boost::property_tree::ptree &pt, const std::string &container) {
             for(auto it = pt.begin(); it != pt.end(); ++it) {
@@ -1048,6 +1155,439 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   };
 }
 
+void Source::LanguageProtocolView::setup_signals() {
+  if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
+    get_buffer()->signal_insert().connect(
+        [this](const Gtk::TextIter &start, const Glib::ustring &text, int bytes) {
+          std::pair<int, int> location = {start.get_line(), get_line_pos(start)};
+          write_did_change_notification({{"contentChanges", "[{" + to_string({make_range(location, location), {"text", '"' + LanguageProtocol::escape_text(text.raw()) + '"'}}) + "}]"}});
+        },
+        false);
+
+    get_buffer()->signal_erase().connect(
+        [this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
+          write_did_change_notification({{"contentChanges", "[{" + to_string({make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)}), {"text", "\"\""}}) + "}]"}});
+        },
+        false);
+  }
+  else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
+    get_buffer()->signal_changed().connect([this]() {
+      write_did_change_notification({{"contentChanges", "[{" + to_string({"text", '"' + LanguageProtocol::escape_text(get_buffer()->get_text().raw()) + '"'}) + "}]"}});
+    });
+  }
+}
+
+void Source::LanguageProtocolView::setup_autocomplete() {
+  autocomplete = std::make_unique<Autocomplete>(this, interactive_completion, last_keyval, false);
+
+  if(!capabilities.completion)
+    return;
+
+  non_interactive_completion = [this] {
+    if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+      return;
+    autocomplete->run();
+  };
+
+  autocomplete->reparse = [this] {
+    autocomplete_rows.clear();
+  };
+
+  if(capabilities.signature_help) {
+    // Activate argument completions
+    get_buffer()->signal_changed().connect(
+        [this] {
+          if(!interactive_completion)
+            return;
+          if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+            return;
+          if(!has_focus())
+            return;
+          if(autocomplete_show_arguments)
+            autocomplete->stop();
+          autocomplete_show_arguments = false;
+          autocomplete_delayed_show_arguments_connection.disconnect();
+          autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect(
+              [this]() {
+                if(get_buffer()->get_has_selection())
+                  return false;
+                if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
+                  return false;
+                if(!has_focus())
+                  return false;
+                if(is_possible_argument()) {
+                  autocomplete->stop();
+                  autocomplete->run();
+                }
+                return false;
+              },
+              500);
+        },
+        false);
+
+    // Remove argument completions
+    signal_key_press_event().connect(
+        [this](GdkEventKey *event) {
+          if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
+             event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
+             event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
+             event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
+             (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
+            get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+            CompletionDialog::get()->hide();
+          }
+          return false;
+        },
+        false);
+  }
+
+  autocomplete->is_restart_key = [this](guint keyval) {
+    auto iter = get_buffer()->get_insert()->get_iter();
+    iter.backward_chars(2);
+    if(keyval == '.' || (keyval == ':' && *iter == ':'))
+      return true;
+    return false;
+  };
+
+  std::function<bool(Gtk::TextIter)> is_possible_xml_attribute = [](Gtk::TextIter) { return false; };
+  if(is_js) {
+    autocomplete->is_restart_key = [](guint keyval) {
+      if(keyval == '.' || keyval == ' ')
+        return true;
+      return false;
+    };
+
+    is_possible_xml_attribute = [this](Gtk::TextIter iter) {
+      return (*iter == ' ' || iter.ends_line() || *iter == '/' || (*iter == '>' && iter.backward_char())) && find_open_symbol_backward(iter, iter, '<', '>');
+    };
+  }
+
+  autocomplete->run_check = [this, is_possible_xml_attribute]() {
+    auto prefix_start = get_buffer()->get_insert()->get_iter();
+    auto prefix_end = prefix_start;
+
+    auto prev = prefix_start;
+    prev.backward_char();
+    if(!is_code_iter(prev))
+      return false;
+
+    size_t count = 0;
+    while(prefix_start.backward_char() && is_token_char(*prefix_start))
+      ++count;
+
+    autocomplete_enable_snippets = false;
+    autocomplete_show_arguments = false;
+
+    if(prefix_start != prefix_end && !is_token_char(*prefix_start))
+      prefix_start.forward_char();
+
+    prev = prefix_start;
+    prev.backward_char();
+    auto prevprev = prev;
+    if(*prev == '.') {
+      auto iter = prev;
+      bool starts_with_num = false;
+      size_t count = 0;
+      while(iter.backward_char() && is_token_char(*iter)) {
+        ++count;
+        starts_with_num = Glib::Unicode::isdigit(*iter);
+      }
+      if((count >= 1 || *iter == ')' || *iter == ']' || *iter == '"' || *iter == '\'' || *iter == '?') && !starts_with_num) {
+        {
+          LockGuard lock(autocomplete->prefix_mutex);
+          autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+        }
+        return true;
+      }
+    }
+    else if((prevprev.backward_char() && *prevprev == ':' && *prev == ':')) {
+      {
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+      }
+      return true;
+    }
+    else if(count >= 3) { // part of symbol
+      {
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+      }
+      autocomplete_enable_snippets = true;
+      return true;
+    }
+    if(is_possible_argument()) {
+      autocomplete_show_arguments = true;
+      LockGuard lock(autocomplete->prefix_mutex);
+      autocomplete->prefix = "";
+      return true;
+    }
+    if(is_possible_xml_attribute(prefix_start)) {
+      LockGuard lock(autocomplete->prefix_mutex);
+      autocomplete->prefix = "";
+      return true;
+    }
+    if(!interactive_completion) {
+      {
+        LockGuard lock(autocomplete->prefix_mutex);
+        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+      }
+      auto prevprev = prev;
+      autocomplete_enable_snippets = !(*prev == '.' || (prevprev.backward_char() && *prevprev == ':' && *prev == ':'));
+      return true;
+    }
+
+    return false;
+  };
+
+  autocomplete->before_add_rows = [this] {
+    status_state = "autocomplete...";
+    if(update_status_state)
+      update_status_state(this);
+  };
+
+  autocomplete->after_add_rows = [this] {
+    status_state = "";
+    if(update_status_state)
+      update_status_state(this);
+  };
+
+  autocomplete->add_rows = [this](std::string &buffer, int line, int line_index) {
+    if(autocomplete->state == Autocomplete::State::starting) {
+      autocomplete_rows.clear();
+      std::promise<void> result_processed;
+      if(autocomplete_show_arguments) {
+        if(!capabilities.signature_help)
+          return true;
+        dispatcher.post([this, line, line_index, &result_processed] {
+          // Find current parameter number and previously used named parameters
+          unsigned current_parameter_position = 0;
+          auto named_parameter_symbol = get_named_parameter_symbol();
+          std::set<std::string> used_named_parameters;
+          auto iter = get_buffer()->get_insert()->get_iter();
+          int para_count = 0;
+          int square_count = 0;
+          int angle_count = 0;
+          int curly_count = 0;
+          while(iter.backward_char() && backward_to_code(iter)) {
+            if(para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0) {
+              if(named_parameter_symbol && (*iter == ',' || *iter == '(')) {
+                auto next = iter;
+                if(next.forward_char() && forward_to_code(next)) {
+                  auto pair = get_token_iters(next);
+                  if(pair.first != pair.second) {
+                    auto symbol = pair.second;
+                    if(forward_to_code(symbol) && *symbol == static_cast<unsigned char>(*named_parameter_symbol))
+                      used_named_parameters.emplace(get_buffer()->get_text(pair.first, pair.second));
+                  }
+                }
+              }
+              if(*iter == ',')
+                ++current_parameter_position;
+              else if(*iter == '(')
+                break;
+            }
+            if(*iter == '(')
+              ++para_count;
+            else if(*iter == ')')
+              --para_count;
+            else if(*iter == '[')
+              ++square_count;
+            else if(*iter == ']')
+              --square_count;
+            else if(*iter == '<')
+              ++angle_count;
+            else if(*iter == '>')
+              --angle_count;
+            else if(*iter == '{')
+              ++curly_count;
+            else if(*iter == '}')
+              --curly_count;
+          }
+          bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
+
+          write_request("textDocument/signatureHelp", {make_position(line, get_line_pos(line, line_index))}, [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
+            if(!error) {
+              auto signatures = result.get_child("signatures", boost::property_tree::ptree());
+              for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
+                auto parameters = signature_it->second.get_child("parameters", boost::property_tree::ptree());
+                unsigned parameter_position = 0;
+                for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
+                  if(parameter_position == current_parameter_position || using_named_parameters) {
+                    auto label = parameter_it->second.get<std::string>("label", "");
+                    auto insert = label;
+                    auto documentation = parameter_it->second.get<std::string>("documentation", "");
+                    std::string kind;
+                    if(documentation.empty()) {
+                      auto documentation_pt = parameter_it->second.get_child_optional("documentation");
+                      if(documentation_pt) {
+                        documentation = documentation_pt->get<std::string>("value", "");
+                        kind = documentation_pt->get<std::string>("kind", "");
+                      }
+                    }
+                    if(documentation == "null") // Python erroneously returns "null" when a parameter is not documented
+                      documentation.clear();
+                    if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
+                      autocomplete->rows.emplace_back(std::move(label));
+                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
+                    }
+                  }
+                  parameter_position++;
+                }
+              }
+            }
+            result_processed.set_value();
+          });
+        });
+      }
+      else {
+        dispatcher.post([this, line, line_index, &result_processed] {
+          write_request("textDocument/completion", {make_position(line, get_line_pos(line, line_index))}, [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+            if(!error) {
+              boost::property_tree::ptree::const_iterator begin, end;
+              if(auto items = result.get_child_optional("items")) {
+                begin = items->begin();
+                end = items->end();
+              }
+              else {
+                begin = result.begin();
+                end = result.end();
+              }
+              std::string prefix;
+              {
+                LockGuard lock(autocomplete->prefix_mutex);
+                prefix = autocomplete->prefix;
+              }
+              for(auto it = begin; it != end; ++it) {
+                auto label = it->second.get<std::string>("label", "");
+                if(starts_with(label, prefix)) {
+                  auto detail = it->second.get<std::string>("detail", "");
+                  auto documentation = it->second.get<std::string>("documentation", "");
+                  std::string documentation_kind;
+                  if(documentation.empty()) {
+                    if(auto documentation_pt = it->second.get_child_optional("documentation")) {
+                      documentation = documentation_pt->get<std::string>("value", "");
+                      documentation_kind = documentation_pt->get<std::string>("kind", "");
+                    }
+                  }
+                  auto insert = it->second.get<std::string>("insertText", "");
+                  if(insert.empty())
+                    insert = it->second.get<std::string>("textEdit.newText", "");
+                  if(insert.empty())
+                    insert = label;
+                  if(!insert.empty()) {
+                    auto kind = it->second.get<int>("kind", 0);
+                    if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
+                      insert += "(${1:})";
+                    autocomplete->rows.emplace_back(std::move(label));
+                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind)});
+                  }
+                }
+              }
+
+              if(autocomplete_enable_snippets) {
+                LockGuard lock(snippets_mutex);
+                if(snippets) {
+                  for(auto &snippet : *snippets) {
+                    if(starts_with(snippet.prefix, prefix)) {
+                      autocomplete->rows.emplace_back(snippet.prefix);
+                      autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}});
+                    }
+                  }
+                }
+              }
+            }
+            result_processed.set_value();
+          });
+        });
+      }
+      result_processed.get_future().get();
+    }
+    return true;
+  };
+
+  autocomplete->on_show = [this] {
+    hide_tooltips();
+  };
+
+  autocomplete->on_hide = [this] {
+    autocomplete_rows.clear();
+  };
+
+  autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
+    auto insert = hide_window ? autocomplete_rows[index].insert : text;
+
+    get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
+
+    // Do not insert function/template parameters if they already exist
+    {
+      auto iter = get_buffer()->get_insert()->get_iter();
+      if(*iter == '(' || *iter == '<') {
+        auto bracket_pos = insert.find(*iter);
+        if(bracket_pos != std::string::npos)
+          insert.erase(bracket_pos);
+      }
+    }
+
+    // Do not instert ?. after ., instead replace . with ?.
+    if(1 < insert.size() && insert[0] == '?' && insert[1] == '.') {
+      auto iter = get_buffer()->get_insert()->get_iter();
+      auto prev = iter;
+      if(prev.backward_char() && *prev == '.') {
+        get_buffer()->erase(prev, iter);
+      }
+    }
+
+    if(hide_window) {
+      if(autocomplete_show_arguments) {
+        if(auto symbol = get_named_parameter_symbol()) // Do not select named parameters in for instance Python
+          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert + *symbol);
+        else {
+          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
+          int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
+          int end_offset = CompletionDialog::get()->start_mark->get_iter().get_offset() + insert.size();
+          get_buffer()->select_range(get_buffer()->get_iter_at_offset(start_offset), get_buffer()->get_iter_at_offset(end_offset));
+        }
+        return;
+      }
+
+      insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
+      auto iter = get_buffer()->get_insert()->get_iter();
+      if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
+        last_keyval = '(';
+        autocomplete->run();
+      }
+    }
+    else
+      get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
+  };
+
+  autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
+    auto autocomplete = autocomplete_rows[index];
+    if(autocomplete.detail.empty() && autocomplete.documentation.empty())
+      return nullptr;
+    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
+      if(language_id == "python") // Python might support markdown in the future
+        tooltip.insert_docstring(autocomplete.documentation);
+      else {
+        if(!autocomplete.detail.empty()) {
+          tooltip.insert_code(autocomplete.detail, language);
+          tooltip.remove_trailing_newlines();
+        }
+        if(!autocomplete.documentation.empty()) {
+          if(tooltip.buffer->size() > 0)
+            tooltip.buffer->insert_at_cursor("\n\n");
+          if(autocomplete.kind == "plaintext" || autocomplete.kind.empty())
+            tooltip.insert_with_links_tagged(autocomplete.documentation);
+          else if(autocomplete.kind == "markdown")
+            tooltip.insert_markdown(autocomplete.documentation);
+          else
+            tooltip.insert_code(autocomplete.documentation, autocomplete.kind);
+        }
+      }
+    };
+  };
+}
+
 void Source::LanguageProtocolView::update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
   update_diagnostics_async_count++;
   size_t last_count = update_diagnostics_async_count;
@@ -1055,33 +1595,29 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
     dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
       if(last_count != update_diagnostics_async_count)
         return;
-      std::string range;
+      std::pair<std::string, std::string> range;
       std::string diagnostics_string;
       for(auto &diagnostic : diagnostics) {
-        auto start = get_iter_at_line_pos(diagnostic.range.start.line, diagnostic.range.start.character);
-        auto end = get_iter_at_line_pos(diagnostic.range.end.line, diagnostic.range.end.character);
-        range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
-        if(!diagnostics_string.empty())
-          diagnostics_string += ',';
-        diagnostics_string += "{\"range\":" + range + ",\"message\":\"" + LanguageProtocol::escape_text(diagnostic.message) + "\"";
+        range = make_range({diagnostic.range.start.line, diagnostic.range.start.character}, {diagnostic.range.end.line, diagnostic.range.end.character});
+        std::vector<std::pair<std::string, std::string>> diagnostic_params = {range};
+        diagnostic_params.emplace_back("message", '"' + LanguageProtocol::escape_text(diagnostic.message) + '"');
         if(diagnostic.severity != 0)
-          diagnostics_string += ",\"severity\":" + std::to_string(diagnostic.severity);
+          diagnostic_params.emplace_back("severity", std::to_string(diagnostic.severity));
         if(!diagnostic.code.empty())
-          diagnostics_string += ",\"code\":\"" + diagnostic.code + "\"";
-        diagnostics_string += "}";
+          diagnostic_params.emplace_back("code", '"' + diagnostic.code + '"');
+        diagnostics_string += (diagnostics_string.empty() ? "{" : ",{") + to_string(diagnostic_params) + '}';
       }
       if(diagnostics.size() != 1) { // Use diagnostic range if only one diagnostic, otherwise use whole buffer
         auto start = get_buffer()->begin();
         auto end = get_buffer()->end();
-        range = "{\"start\":{\"line\": " + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + "}}";
+        range = make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)});
       }
-
-      auto request = (R"("textDocument":{"uri":")" + uri_escaped + "\"},\"range\":" + range + ",\"context\":{\"diagnostics\":[" + diagnostics_string + "],\"only\":[\"quickfix\"]}");
-      thread_pool.push([this, diagnostics = std::move(diagnostics), request = std::move(request), last_count]() mutable {
+      std::vector<std::pair<std::string, std::string>> params = {range, {"context", '{' + to_string({{"diagnostics", '[' + diagnostics_string + ']'}, {"only", "[\"quickfix\"]"}}) + '}'}};
+      thread_pool.push([this, diagnostics = std::move(diagnostics), params = std::move(params), last_count]() mutable {
         if(last_count != update_diagnostics_async_count)
           return;
         std::promise<void> result_processed;
-        client->write_request(this, "textDocument/codeAction", request, [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/codeAction", params, [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
           if(!error && last_count == update_diagnostics_async_count) {
             try {
               for(auto it = result.begin(); it != result.end(); ++it) {
@@ -1283,12 +1819,6 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
     update_status_diagnostics(this);
 }
 
-Gtk::TextIter Source::LanguageProtocolView::get_iter_at_line_pos(int line, int pos) {
-  if(capabilities.use_line_index)
-    return get_iter_at_line_index(line, pos);
-  return get_iter_at_line_index(line, utf16_code_units_byte_count(get_line(line), pos));
-}
-
 void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rectangle) {
   if(!capabilities.hover)
     return;
@@ -1308,7 +1838,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, "textDocument/hover", R"("textDocument": {"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/hover", {make_position(iter.get_line(), get_line_pos(iter))}, [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
       struct Content {
@@ -1451,20 +1981,14 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
 }
 
 void Source::LanguageProtocolView::apply_similar_symbol_tag() {
-  if(!capabilities.document_highlight && !capabilities.references)
+  if(!capabilities.document_highlight)
     return;
 
   auto iter = get_buffer()->get_insert()->get_iter();
-  std::string method;
-  if(capabilities.document_highlight)
-    method = "textDocument/documentHighlight";
-  else
-    method = "textDocument/references";
-
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  client->write_request(this, method, R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + R"(}, "context": {"includeDeclaration": true})", [this, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/documentHighlight", {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       std::vector<LanguageProtocol::Range> ranges;
       for(auto it = result.begin(); it != result.end(); ++it) {
@@ -1493,15 +2017,13 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  auto line = iter.get_line();
-  auto offset = iter.get_line_offset();
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line) + ", \"character\": " + std::to_string(offset) + "}", [this, current_request, line, offset](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/definition", {make_position(iter.get_line(), get_line_pos(iter))}, [this, current_request, line = iter.get_line(), line_offset = iter.get_line_offset()](const boost::property_tree::ptree &result, bool error) {
     if(!error && !result.empty()) {
-      dispatcher.post([this, current_request, line, offset] {
+      dispatcher.post([this, current_request, line, line_offset] {
         if(current_request != request_count || !clickable_tag_applied)
           return;
         get_buffer()->remove_tag(clickable_tag, get_buffer()->begin(), get_buffer()->end());
-        auto range = get_token_iters(get_iter_at_line_pos(line, offset));
+        auto range = get_token_iters(get_iter_at_line_offset(line, line_offset));
         get_buffer()->apply_tag(clickable_tag, range.first, range.second);
       });
     }
@@ -1511,7 +2033,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
 Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  client->write_request(this, "textDocument/definition", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(iter.get_line()) + ", \"character\": " + std::to_string(iter.get_line_offset()) + "}", [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/definition", {make_position(iter.get_line(), get_line_pos(iter))}, [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
@@ -1531,434 +2053,47 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
   return *offset;
 }
 
-void Source::LanguageProtocolView::setup_signals() {
-  if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::incremental) {
-    get_buffer()->signal_insert().connect(
-        [this](const Gtk::TextIter &start, const Glib::ustring &text, int bytes) {
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(}},"text":")" + LanguageProtocol::escape_text(text) + "\"}" + "]");
-        },
-        false);
-
-    get_buffer()->signal_erase().connect(
-        [this](const Gtk::TextIter &start, const Gtk::TextIter &end) {
-          client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"range":{"start":{"line": )" + std::to_string(start.get_line()) + ",\"character\":" + std::to_string(start.get_line_offset()) + R"(},"end":{"line":)" + std::to_string(end.get_line()) + ",\"character\":" + std::to_string(end.get_line_offset()) + R"(}},"text":""})" + "]");
-        },
-        false);
-  }
-  else if(capabilities.text_document_sync == LanguageProtocol::Capabilities::TextDocumentSync::full) {
-    get_buffer()->signal_changed().connect([this]() {
-      client->write_notification("textDocument/didChange", R"("textDocument":{"uri":")" + uri_escaped + R"(","version":)" + std::to_string(document_version++) + "},\"contentChanges\":[" + R"({"text":")" + LanguageProtocol::escape_text(get_buffer()->get_text()) + "\"}" + "]");
-    });
-  }
+Source::Offset Source::LanguageProtocolView::get_type_declaration(const Gtk::TextIter &iter) {
+  auto offset = std::make_shared<Offset>();
+  std::promise<void> result_processed;
+  write_request("textDocument/typeDefinition", {make_position(iter.get_line(), get_line_pos(iter))}, [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+    if(!error) {
+      for(auto it = result.begin(); it != result.end(); ++it) {
+        try {
+          LanguageProtocol::Location location(it->second);
+          offset->file_path = std::move(location.file);
+          offset->line = location.range.start.line;
+          offset->index = location.range.start.character;
+          break; // TODO: can a language server return several type definitions?
+        }
+        catch(...) {
+        }
+      }
+    }
+    result_processed.set_value();
+  });
+  result_processed.get_future().get();
+  return *offset;
 }
 
-void Source::LanguageProtocolView::setup_autocomplete() {
-  autocomplete = std::make_unique<Autocomplete>(this, interactive_completion, last_keyval, false);
-
-  if(!capabilities.completion)
-    return;
-
-  non_interactive_completion = [this] {
-    if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-      return;
-    autocomplete->run();
-  };
-
-  autocomplete->reparse = [this] {
-    autocomplete_rows.clear();
-  };
-
-  if(capabilities.signature_help) {
-    // Activate argument completions
-    get_buffer()->signal_changed().connect(
-        [this] {
-          if(!interactive_completion)
-            return;
-          if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-            return;
-          if(!has_focus())
-            return;
-          if(autocomplete_show_arguments)
-            autocomplete->stop();
-          autocomplete_show_arguments = false;
-          autocomplete_delayed_show_arguments_connection.disconnect();
-          autocomplete_delayed_show_arguments_connection = Glib::signal_timeout().connect(
-              [this]() {
-                if(get_buffer()->get_has_selection())
-                  return false;
-                if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
-                  return false;
-                if(!has_focus())
-                  return false;
-                if(is_possible_argument()) {
-                  autocomplete->stop();
-                  autocomplete->run();
-                }
-                return false;
-              },
-              500);
-        },
-        false);
-
-    // Remove argument completions
-    signal_key_press_event().connect(
-        [this](GdkEventKey *event) {
-          if(autocomplete_show_arguments && CompletionDialog::get() && CompletionDialog::get()->is_visible() &&
-             event->keyval != GDK_KEY_Down && event->keyval != GDK_KEY_Up &&
-             event->keyval != GDK_KEY_Return && event->keyval != GDK_KEY_KP_Enter &&
-             event->keyval != GDK_KEY_ISO_Left_Tab && event->keyval != GDK_KEY_Tab &&
-             (event->keyval < GDK_KEY_Shift_L || event->keyval > GDK_KEY_Hyper_R)) {
-            get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
-            CompletionDialog::get()->hide();
-          }
-          return false;
-        },
-        false);
-  }
-
-  autocomplete->is_restart_key = [this](guint keyval) {
-    auto iter = get_buffer()->get_insert()->get_iter();
-    iter.backward_chars(2);
-    if(keyval == '.' || (keyval == ':' && *iter == ':'))
-      return true;
-    return false;
-  };
-
-  std::function<bool(Gtk::TextIter)> is_possible_xml_attribute = [](Gtk::TextIter) { return false; };
-  if(is_js) {
-    autocomplete->is_restart_key = [](guint keyval) {
-      if(keyval == '.' || keyval == ' ')
-        return true;
-      return false;
-    };
-
-    is_possible_xml_attribute = [this](Gtk::TextIter iter) {
-      return (*iter == ' ' || iter.ends_line() || *iter == '/' || (*iter == '>' && iter.backward_char())) && find_open_symbol_backward(iter, iter, '<', '>');
-    };
-  }
-
-  autocomplete->run_check = [this, is_possible_xml_attribute]() {
-    auto prefix_start = get_buffer()->get_insert()->get_iter();
-    auto prefix_end = prefix_start;
-
-    auto prev = prefix_start;
-    prev.backward_char();
-    if(!is_code_iter(prev))
-      return false;
-
-    size_t count = 0;
-    while(prefix_start.backward_char() && is_token_char(*prefix_start))
-      ++count;
-
-    autocomplete_enable_snippets = false;
-    autocomplete_show_arguments = false;
-
-    if(prefix_start != prefix_end && !is_token_char(*prefix_start))
-      prefix_start.forward_char();
-
-    prev = prefix_start;
-    prev.backward_char();
-    auto prevprev = prev;
-    if(*prev == '.') {
-      auto iter = prev;
-      bool starts_with_num = false;
-      size_t count = 0;
-      while(iter.backward_char() && is_token_char(*iter)) {
-        ++count;
-        starts_with_num = Glib::Unicode::isdigit(*iter);
-      }
-      if((count >= 1 || *iter == ')' || *iter == ']' || *iter == '"' || *iter == '\'' || *iter == '?') && !starts_with_num) {
-        {
-          LockGuard lock(autocomplete->prefix_mutex);
-          autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
+std::vector<Source::Offset> Source::LanguageProtocolView::get_implementations(const Gtk::TextIter &iter) {
+  auto offsets = std::make_shared<std::vector<Offset>>();
+  std::promise<void> result_processed;
+  write_request("textDocument/implementation", {make_position(iter.get_line(), get_line_pos(iter))}, [offsets, &result_processed](const boost::property_tree::ptree &result, bool error) {
+    if(!error) {
+      for(auto it = result.begin(); it != result.end(); ++it) {
+        try {
+          LanguageProtocol::Location location(it->second);
+          offsets->emplace_back(location.range.start.line, location.range.start.character, location.file);
         }
-        return true;
-      }
-    }
-    else if((prevprev.backward_char() && *prevprev == ':' && *prev == ':')) {
-      {
-        LockGuard lock(autocomplete->prefix_mutex);
-        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
-      }
-      return true;
-    }
-    else if(count >= 3) { // part of symbol
-      {
-        LockGuard lock(autocomplete->prefix_mutex);
-        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
-      }
-      autocomplete_enable_snippets = true;
-      return true;
-    }
-    if(is_possible_argument()) {
-      autocomplete_show_arguments = true;
-      LockGuard lock(autocomplete->prefix_mutex);
-      autocomplete->prefix = "";
-      return true;
-    }
-    if(is_possible_xml_attribute(prefix_start)) {
-      LockGuard lock(autocomplete->prefix_mutex);
-      autocomplete->prefix = "";
-      return true;
-    }
-    if(!interactive_completion) {
-      {
-        LockGuard lock(autocomplete->prefix_mutex);
-        autocomplete->prefix = get_buffer()->get_text(prefix_start, prefix_end);
-      }
-      auto prevprev = prev;
-      autocomplete_enable_snippets = !(*prev == '.' || (prevprev.backward_char() && *prevprev == ':' && *prev == ':'));
-      return true;
-    }
-
-    return false;
-  };
-
-  autocomplete->before_add_rows = [this] {
-    status_state = "autocomplete...";
-    if(update_status_state)
-      update_status_state(this);
-  };
-
-  autocomplete->after_add_rows = [this] {
-    status_state = "";
-    if(update_status_state)
-      update_status_state(this);
-  };
-
-  autocomplete->add_rows = [this](std::string &buffer, int line_number, int column) {
-    if(autocomplete->state == Autocomplete::State::starting) {
-      autocomplete_rows.clear();
-      std::promise<void> result_processed;
-      if(autocomplete_show_arguments) {
-        if(!capabilities.signature_help)
-          return true;
-        dispatcher.post([this, line_number, column, &result_processed] {
-          // Find current parameter number and previously used named parameters
-          unsigned current_parameter_position = 0;
-          auto named_parameter_symbol = get_named_parameter_symbol();
-          std::set<std::string> used_named_parameters;
-          auto iter = get_buffer()->get_insert()->get_iter();
-          int para_count = 0;
-          int square_count = 0;
-          int angle_count = 0;
-          int curly_count = 0;
-          while(iter.backward_char() && backward_to_code(iter)) {
-            if(para_count == 0 && square_count == 0 && angle_count == 0 && curly_count == 0) {
-              if(named_parameter_symbol && (*iter == ',' || *iter == '(')) {
-                auto next = iter;
-                if(next.forward_char() && forward_to_code(next)) {
-                  auto pair = get_token_iters(next);
-                  if(pair.first != pair.second) {
-                    auto symbol = pair.second;
-                    if(forward_to_code(symbol) && *symbol == static_cast<unsigned char>(*named_parameter_symbol))
-                      used_named_parameters.emplace(get_buffer()->get_text(pair.first, pair.second));
-                  }
-                }
-              }
-              if(*iter == ',')
-                ++current_parameter_position;
-              else if(*iter == '(')
-                break;
-            }
-            if(*iter == '(')
-              ++para_count;
-            else if(*iter == ')')
-              --para_count;
-            else if(*iter == '[')
-              ++square_count;
-            else if(*iter == ']')
-              --square_count;
-            else if(*iter == '<')
-              ++angle_count;
-            else if(*iter == '>')
-              --angle_count;
-            else if(*iter == '{')
-              ++curly_count;
-            else if(*iter == '}')
-              --curly_count;
-          }
-          bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
-
-          client->write_request(this, "textDocument/signatureHelp", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
-            if(!error) {
-              auto signatures = result.get_child("signatures", boost::property_tree::ptree());
-              for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
-                auto parameters = signature_it->second.get_child("parameters", boost::property_tree::ptree());
-                unsigned parameter_position = 0;
-                for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
-                  if(parameter_position == current_parameter_position || using_named_parameters) {
-                    auto label = parameter_it->second.get<std::string>("label", "");
-                    auto insert = label;
-                    auto documentation = parameter_it->second.get<std::string>("documentation", "");
-                    std::string kind;
-                    if(documentation.empty()) {
-                      auto documentation_pt = parameter_it->second.get_child_optional("documentation");
-                      if(documentation_pt) {
-                        documentation = documentation_pt->get<std::string>("value", "");
-                        kind = documentation_pt->get<std::string>("kind", "");
-                      }
-                    }
-                    if(documentation == "null") // Python erroneously returns "null" when a parameter is not documented
-                      documentation.clear();
-                    if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
-                      autocomplete->rows.emplace_back(std::move(label));
-                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
-                    }
-                  }
-                  parameter_position++;
-                }
-              }
-            }
-            result_processed.set_value();
-          });
-        });
-      }
-      else {
-        client->write_request(this, "textDocument/completion", R"("textDocument":{"uri":")" + uri_escaped + R"("}, "position": {"line": )" + std::to_string(line_number - 1) + ", \"character\": " + std::to_string(column - 1) + "}", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
-          if(!error) {
-            boost::property_tree::ptree::const_iterator begin, end;
-            if(auto items = result.get_child_optional("items")) {
-              begin = items->begin();
-              end = items->end();
-            }
-            else {
-              begin = result.begin();
-              end = result.end();
-            }
-            std::string prefix;
-            {
-              LockGuard lock(autocomplete->prefix_mutex);
-              prefix = autocomplete->prefix;
-            }
-            for(auto it = begin; it != end; ++it) {
-              auto label = it->second.get<std::string>("label", "");
-              if(starts_with(label, prefix)) {
-                auto detail = it->second.get<std::string>("detail", "");
-                auto documentation = it->second.get<std::string>("documentation", "");
-                std::string documentation_kind;
-                if(documentation.empty()) {
-                  if(auto documentation_pt = it->second.get_child_optional("documentation")) {
-                    documentation = documentation_pt->get<std::string>("value", "");
-                    documentation_kind = documentation_pt->get<std::string>("kind", "");
-                  }
-                }
-                auto insert = it->second.get<std::string>("insertText", "");
-                if(insert.empty())
-                  insert = it->second.get<std::string>("textEdit.newText", "");
-                if(insert.empty())
-                  insert = label;
-                if(!insert.empty()) {
-                  auto kind = it->second.get<int>("kind", 0);
-                  if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
-                    insert += "(${1:})";
-                  autocomplete->rows.emplace_back(std::move(label));
-                  autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind)});
-                }
-              }
-            }
-
-            if(autocomplete_enable_snippets) {
-              LockGuard lock(snippets_mutex);
-              if(snippets) {
-                for(auto &snippet : *snippets) {
-                  if(starts_with(snippet.prefix, prefix)) {
-                    autocomplete->rows.emplace_back(snippet.prefix);
-                    autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}});
-                  }
-                }
-              }
-            }
-          }
-          result_processed.set_value();
-        });
-      }
-      result_processed.get_future().get();
-    }
-    return true;
-  };
-
-  autocomplete->on_show = [this] {
-    hide_tooltips();
-  };
-
-  autocomplete->on_hide = [this] {
-    autocomplete_rows.clear();
-  };
-
-  autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    auto insert = hide_window ? autocomplete_rows[index].insert : text;
-
-    get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
-
-    // Do not insert function/template parameters if they already exist
-    {
-      auto iter = get_buffer()->get_insert()->get_iter();
-      if(*iter == '(' || *iter == '<') {
-        auto bracket_pos = insert.find(*iter);
-        if(bracket_pos != std::string::npos)
-          insert.erase(bracket_pos);
-      }
-    }
-
-    // Do not instert ?. after ., instead replace . with ?.
-    if(1 < insert.size() && insert[0] == '?' && insert[1] == '.') {
-      auto iter = get_buffer()->get_insert()->get_iter();
-      auto prev = iter;
-      if(prev.backward_char() && *prev == '.') {
-        get_buffer()->erase(prev, iter);
-      }
-    }
-
-    if(hide_window) {
-      if(autocomplete_show_arguments) {
-        if(auto symbol = get_named_parameter_symbol()) // Do not select named parameters in for instance Python
-          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert + *symbol);
-        else {
-          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
-          int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
-          int end_offset = CompletionDialog::get()->start_mark->get_iter().get_offset() + insert.size();
-          get_buffer()->select_range(get_buffer()->get_iter_at_offset(start_offset), get_buffer()->get_iter_at_offset(end_offset));
-        }
-        return;
-      }
-
-      insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
-      auto iter = get_buffer()->get_insert()->get_iter();
-      if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
-        last_keyval = '(';
-        autocomplete->run();
-      }
-    }
-    else
-      get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
-  };
-
-  autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
-    auto autocomplete = autocomplete_rows[index];
-    if(autocomplete.detail.empty() && autocomplete.documentation.empty())
-      return nullptr;
-    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
-      if(language_id == "python") // Python might support markdown in the future
-        tooltip.insert_docstring(autocomplete.documentation);
-      else {
-        if(!autocomplete.detail.empty()) {
-          tooltip.insert_code(autocomplete.detail, language);
-          tooltip.remove_trailing_newlines();
-        }
-        if(!autocomplete.documentation.empty()) {
-          if(tooltip.buffer->size() > 0)
-            tooltip.buffer->insert_at_cursor("\n\n");
-          if(autocomplete.kind == "plaintext" || autocomplete.kind.empty())
-            tooltip.insert_with_links_tagged(autocomplete.documentation);
-          else if(autocomplete.kind == "markdown")
-            tooltip.insert_markdown(autocomplete.documentation);
-          else
-            tooltip.insert_code(autocomplete.documentation, autocomplete.kind);
+        catch(...) {
         }
       }
-    };
-  };
+    }
+    result_processed.set_value();
+  });
+  result_processed.get_future().get();
+  return *offsets;
 }
 
 boost::optional<char> Source::LanguageProtocolView::get_named_parameter_symbol() {
@@ -1969,7 +2104,7 @@ boost::optional<char> Source::LanguageProtocolView::get_named_parameter_symbol()
 
 void Source::LanguageProtocolView::update_type_coverage() {
   if(capabilities.type_coverage) {
-    client->write_request(this, "textDocument/typeCoverage", R"("textDocument": {"uri":")" + uri_escaped + "\"}", [this](const boost::property_tree::ptree &result, bool error) {
+    write_request("textDocument/typeCoverage", {}, [this](const boost::property_tree::ptree &result, bool error) {
       if(error) {
         if(update_type_coverage_retries > 0) { // Retry typeCoverage request, since these requests can fail while waiting for language server to start
           dispatcher.post([this] {

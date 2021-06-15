@@ -243,7 +243,7 @@ void Source::GenericView::setup_autocomplete() {
       update_status_state(this);
   };
 
-  autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
+  autocomplete.add_rows = [this](std::string &buffer, int /*line*/, int /*line_index*/) {
     if(autocomplete.state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
       autocomplete_insert.clear();

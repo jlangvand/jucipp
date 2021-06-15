@@ -948,10 +948,10 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     full_reparse();
   };
 
-  autocomplete.add_rows = [this](std::string &buffer, int line_number, int column) {
+  autocomplete.add_rows = [this](std::string &buffer, int line, int line_index) {
     if(is_language({"chdr", "cpphdr"}))
       clangmm::remove_include_guard(buffer);
-    code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line_number, column));
+    code_complete_results = std::make_unique<clangmm::CodeCompleteResults>(clang_tu->get_code_completions(buffer, line + 1, line_index + 1));
     if(!code_complete_results->cx_results)
       return false;
 

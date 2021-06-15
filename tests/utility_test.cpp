@@ -50,6 +50,25 @@ int main() {
   g_assert_cmpuint(utf16_code_units_byte_count("test🔥test", 10), ==, 12); // Fire emoji between test words
   g_assert_cmpuint(utf16_code_units_byte_count("test🔥test", 11), ==, 12); // Fire emoji between test words
 
+  g_assert_cmpuint(utf16_code_unit_count("", 0, 0), ==, 0);
+  g_assert_cmpuint(utf16_code_unit_count("", 0, 2), ==, 0);
+  g_assert_cmpuint(utf16_code_unit_count("", 2, 2), ==, 0);
+  g_assert_cmpuint(utf16_code_unit_count("test", 0, 1), ==, 1);
+  g_assert_cmpuint(utf16_code_unit_count("test", 0, 4), ==, 4);
+  g_assert_cmpuint(utf16_code_unit_count("test", 0, 10), ==, 4);
+  g_assert_cmpuint(utf16_code_unit_count("test", 2, 2), ==, 2);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 0, 0), ==, 0);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 0, 2), ==, 1);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 0, 4), ==, 2);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 0, 6), ==, 3);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 2, 6), ==, 2);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 4, 6), ==, 1);
+  g_assert_cmpuint(utf16_code_unit_count("æøå", 6, 6), ==, 0);
+  g_assert_cmpuint(utf16_code_unit_count("test🔥test", 0, 0), ==, 0);   // Fire emoji between test words
+  g_assert_cmpuint(utf16_code_unit_count("test🔥test", 0, 4), ==, 4);   // Fire emoji between test words
+  g_assert_cmpuint(utf16_code_unit_count("test🔥test", 0, 8), ==, 6);   // Fire emoji between test words
+  g_assert_cmpuint(utf16_code_unit_count("test🔥test", 0, 12), ==, 10); // Fire emoji between test words
+
   std::string empty;
   std::string test("test");
   std::string testtest("testtest");

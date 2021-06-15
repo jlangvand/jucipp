@@ -59,19 +59,19 @@ void Autocomplete::run() {
     if(thread.joinable())
       thread.join();
     auto iter = view->get_buffer()->get_insert()->get_iter();
-    auto line_nr = iter.get_line() + 1;
-    auto column_nr = iter.get_line_index() + 1;
+    auto line = iter.get_line();
+    auto line_index = iter.get_line_index();
     Glib::ustring buffer;
     if(pass_buffer_and_strip_word) {
       auto pos = iter.get_offset() - 1;
       buffer = view->get_buffer()->get_text();
       while(pos >= 0 && Source::BaseView::is_token_char(buffer[pos])) {
         buffer.replace(pos, 1, " ");
-        column_nr--;
+        line_index--;
         pos--;
       }
     }
-    thread = std::thread([this, line_nr, column_nr, buffer = std::move(buffer)] {
+    thread = std::thread([this, line, line_index, buffer = std::move(buffer)] {
       auto lock = get_parse_lock();
       if(!is_processing())
         return;
@@ -79,7 +79,7 @@ void Autocomplete::run() {
 
       rows.clear();
       auto &buffer_raw = const_cast<std::string &>(buffer.raw());
-      bool success = add_rows(buffer_raw, line_nr, column_nr);
+      bool success = add_rows(buffer_raw, line, line_index);
       if(!is_processing())
         return;
 

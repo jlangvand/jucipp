@@ -101,6 +101,8 @@ namespace LanguageProtocol {
     bool completion = false;
     bool signature_help = false;
     bool definition = false;
+    bool type_definition = false;
+    bool implementation = false;
     bool references = false;
     bool document_highlight = false;
     bool workspace_symbol = false;
@@ -155,7 +157,7 @@ namespace LanguageProtocol {
     void parse_server_message();
     void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function = nullptr);
     void write_response(size_t id, const std::string &result);
-    void write_notification(const std::string &method, const std::string &params);
+    void write_notification(const std::string &method, const std::string &params = {});
     void handle_server_notification(const std::string &method, const boost::property_tree::ptree &params);
     void handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params);
 
@@ -174,14 +176,31 @@ namespace Source {
     void rename(const boost::filesystem::path &path) override;
     bool save() override;
 
-    void update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
-
   private:
-    std::atomic<size_t> update_diagnostics_async_count = {0};
+    /// Get line offset depending on if utf-8 byte offsets or utf-16 code units are used
+    int get_line_pos(const Gtk::TextIter &iter);
+    /// Get line offset depending on if utf-8 byte offsets or utf-16 code units are used
+    int get_line_pos(int line, int line_index);
 
+    std::pair<std::string, std::string> make_position(int line, int character);
+    std::pair<std::string, std::string> make_range(const std::pair<int, int> &start, const std::pair<int, int> &end);
+    std::string to_string(const std::pair<std::string, std::string> &param);
+    std::string to_string(const std::vector<std::pair<std::string, std::string>> &params);
+    /// Helper method for calling client->write_request
+    void write_request(const std::string &method, const std::vector<std::pair<std::string, std::string>> &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function);
+    /// Helper method for calling client->write_notification
+    void write_notification(const std::string &method);
+    /// Helper method for calling client->write_notification
+    void write_did_open_notification();
+    /// Helper method for calling client->write_notification
+    void write_did_change_notification(const std::vector<std::pair<std::string, std::string>> &params);
+
+    std::atomic<size_t> update_diagnostics_async_count = {0};
     void update_diagnostics(std::vector<LanguageProtocol::Diagnostic> diagnostics);
 
   public:
+    void update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics);
+
     Gtk::TextIter get_iter_at_line_pos(int line, int pos) override;
 
     std::string uri;
@@ -208,14 +227,16 @@ namespace Source {
     Glib::ThreadPool thread_pool;
 
     void setup_navigation_and_refactoring();
+    void setup_signals();
+    void setup_autocomplete();
 
     void tag_similar_symbols();
 
     Offset get_declaration(const Gtk::TextIter &iter);
+    Offset get_type_declaration(const Gtk::TextIter &iter);
+    std::vector<Offset> get_implementations(const Gtk::TextIter &iter);
 
     std::unique_ptr<Autocomplete> autocomplete;
-    void setup_signals();
-    void setup_autocomplete();
 
     struct AutocompleteRow {
       std::string insert;
