@@ -187,7 +187,7 @@ namespace Source {
     std::string to_string(const std::pair<std::string, std::string> &param);
     std::string to_string(const std::vector<std::pair<std::string, std::string>> &params);
     /// Helper method for calling client->write_request
-    void write_request(const std::string &method, const std::vector<std::pair<std::string, std::string>> &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function);
+    void write_request(const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function);
     /// Helper method for calling client->write_notification
     void write_notification(const std::string &method);
     /// Helper method for calling client->write_notification
@@ -243,6 +243,8 @@ namespace Source {
       std::string detail;
       std::string documentation;
       std::string kind;
+      /// CompletionItem for completionItem/resolve
+      boost::property_tree::ptree ptree;
     };
     std::vector<AutocompleteRow> autocomplete_rows;
 

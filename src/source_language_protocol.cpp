@@ -613,8 +613,8 @@ std::string Source::LanguageProtocolView::to_string(const std::vector<std::pair<
   return result;
 }
 
-void Source::LanguageProtocolView::write_request(const std::string &method, const std::vector<std::pair<std::string, std::string>> &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function) {
-  client->write_request(this, method, "\"textDocument\":{\"uri\":\"" + uri_escaped + "\"}" + (params.empty() ? "" : "," + to_string(params)), std::move(function));
+void Source::LanguageProtocolView::write_request(const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function) {
+  client->write_request(this, method, "\"textDocument\":{\"uri\":\"" + uri_escaped + "\"}" + (params.empty() ? "" : "," + params), std::move(function));
 }
 
 void Source::LanguageProtocolView::write_notification(const std::string &method) {
@@ -702,7 +702,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/formatting";
 
-      write_request(method, params, [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, to_string(params), [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           for(auto it = result.begin(); it != result.end(); ++it) {
             try {
@@ -805,7 +805,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/documentHighlight";
 
-      write_request(method, {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
         if(!error) {
           try {
             for(auto it = result.begin(); it != result.end(); ++it)
@@ -937,7 +937,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<Changes> changes_vec;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        write_request("textDocument/rename", {make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}, [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/rename", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}), [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             boost::filesystem::path project_path;
             auto build = Project::Build::create(file_path);
@@ -974,7 +974,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         });
       }
       else {
-        write_request("textDocument/documentHighlight", {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
@@ -1405,7 +1405,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
           }
           bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
 
-          write_request("textDocument/signatureHelp", {make_position(line, get_line_pos(line, line_index))}, [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
+          write_request("textDocument/signatureHelp", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
             if(!error) {
               auto signatures = result.get_child("signatures", boost::property_tree::ptree());
               for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
@@ -1428,7 +1428,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       documentation.clear();
                     if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
                       autocomplete->rows.emplace_back(std::move(label));
-                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind)});
+                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind), {}});
                     }
                   }
                   parameter_position++;
@@ -1441,8 +1441,9 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }
       else {
         dispatcher.post([this, line, line_index, &result_processed] {
-          write_request("textDocument/completion", {make_position(line, get_line_pos(line, line_index))}, [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+          write_request("textDocument/completion", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
             if(!error) {
+              bool is_incomplete = result.get<bool>("isIncomplete", false);
               boost::property_tree::ptree::const_iterator begin, end;
               if(auto items = result.get_child_optional("items")) {
                 begin = items->begin();
@@ -1469,6 +1470,9 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       documentation_kind = documentation_pt->get<std::string>("kind", "");
                     }
                   }
+                  boost::property_tree::ptree ptree;
+                  if(detail.empty() && documentation.empty() && (is_incomplete || is_js)) // Workaround for typescript-language-server (is_js)
+                    ptree = it->second;
                   auto insert = it->second.get<std::string>("insertText", "");
                   if(insert.empty())
                     insert = it->second.get<std::string>("textEdit.newText", "");
@@ -1479,7 +1483,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                     if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
                       insert += "(${1:})";
                     autocomplete->rows.emplace_back(std::move(label));
-                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind)});
+                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind), std::move(ptree)});
                   }
                 }
               }
@@ -1490,7 +1494,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   for(auto &snippet : *snippets) {
                     if(starts_with(snippet.prefix, prefix)) {
                       autocomplete->rows.emplace_back(snippet.prefix);
-                      autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}});
+                      autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}, {}});
                     }
                   }
                 }
@@ -1563,8 +1567,36 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
   autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
     auto autocomplete = autocomplete_rows[index];
+    if(autocomplete.detail.empty() && autocomplete.documentation.empty() && !autocomplete.ptree.empty()) {
+      try {
+        std::stringstream ss;
+        boost::property_tree::write_json(ss, autocomplete.ptree, false);
+        // ss.str() is enclosed in {}, and has ending newline
+        auto str = ss.str();
+        if(str.size() <= 3)
+          return nullptr;
+        std::promise<void> result_processed;
+        write_request("completionItem/resolve", str.substr(1, str.size() - 3), [&result_processed, &autocomplete](const boost::property_tree::ptree &result, bool error) {
+          if(!error) {
+            autocomplete.detail = result.get<std::string>("detail", "");
+            autocomplete.documentation = result.get<std::string>("documentation", "");
+            if(autocomplete.documentation.empty()) {
+              if(auto documentation = result.get_child_optional("documentation")) {
+                autocomplete.kind = documentation->get<std::string>("kind", "");
+                autocomplete.documentation = documentation->get<std::string>("value", "");
+              }
+            }
+          }
+          result_processed.set_value();
+        });
+        result_processed.get_future().get();
+      }
+      catch(...) {
+      }
+    }
     if(autocomplete.detail.empty() && autocomplete.documentation.empty())
       return nullptr;
+
     return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
       if(language_id == "python") // Python might support markdown in the future
         tooltip.insert_docstring(autocomplete.documentation);
@@ -1617,7 +1649,7 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         if(last_count != update_diagnostics_async_count)
           return;
         std::promise<void> result_processed;
-        write_request("textDocument/codeAction", params, [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/codeAction", to_string(params), [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
           if(!error && last_count == update_diagnostics_async_count) {
             try {
               for(auto it = result.begin(); it != result.end(); ++it) {
@@ -1838,7 +1870,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/hover", {make_position(iter.get_line(), get_line_pos(iter))}, [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/hover", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
       struct Content {
@@ -1988,7 +2020,7 @@ void Source::LanguageProtocolView::apply_similar_symbol_tag() {
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/documentHighlight", {make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}, [this, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, current_request](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       std::vector<LanguageProtocol::Range> ranges;
       for(auto it = result.begin(); it != result.end(); ++it) {
@@ -2017,7 +2049,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/definition", {make_position(iter.get_line(), get_line_pos(iter))}, [this, current_request, line = iter.get_line(), line_offset = iter.get_line_offset()](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, current_request, line = iter.get_line(), line_offset = iter.get_line_offset()](const boost::property_tree::ptree &result, bool error) {
     if(!error && !result.empty()) {
       dispatcher.post([this, current_request, line, line_offset] {
         if(current_request != request_count || !clickable_tag_applied)
@@ -2033,7 +2065,7 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
 Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  write_request("textDocument/definition", {make_position(iter.get_line(), get_line_pos(iter))}, [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
@@ -2056,7 +2088,7 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
 Source::Offset Source::LanguageProtocolView::get_type_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  write_request("textDocument/typeDefinition", {make_position(iter.get_line(), get_line_pos(iter))}, [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/typeDefinition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
@@ -2079,7 +2111,7 @@ Source::Offset Source::LanguageProtocolView::get_type_declaration(const Gtk::Tex
 std::vector<Source::Offset> Source::LanguageProtocolView::get_implementations(const Gtk::TextIter &iter) {
   auto offsets = std::make_shared<std::vector<Offset>>();
   std::promise<void> result_processed;
-  write_request("textDocument/implementation", {make_position(iter.get_line(), get_line_pos(iter))}, [offsets, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/implementation", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offsets, &result_processed](const boost::property_tree::ptree &result, bool error) {
     if(!error) {
       for(auto it = result.begin(); it != result.end(); ++it) {
         try {
