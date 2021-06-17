@@ -1197,6 +1197,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     // Activate argument completions
     get_buffer()->signal_changed().connect(
         [this] {
+          autocompete_possibly_no_arguments = false;
           if(!interactive_completion)
             return;
           if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
@@ -1434,6 +1435,17 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   parameter_position++;
                 }
               }
+              if(autocomplete_rows.empty()) {
+                dispatcher.post([this] {
+                  // Move cursor forward if no arguments in completed function and if cursor is still inside ()
+                  if(autocompete_possibly_no_arguments) {
+                    auto iter = get_buffer()->get_insert()->get_iter();
+                    auto prev = iter;
+                    if(prev.backward_char() && *prev == '(' && *iter == ')' && iter.forward_char())
+                      get_buffer()->place_cursor(iter);
+                  }
+                });
+              }
             }
             result_processed.set_value();
           });
@@ -1558,6 +1570,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       auto iter = get_buffer()->get_insert()->get_iter();
       if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
         last_keyval = '(';
+        autocompete_possibly_no_arguments = true;
         autocomplete->run();
       }
     }

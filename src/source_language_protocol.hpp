@@ -251,6 +251,8 @@ namespace Source {
     std::atomic<bool> autocomplete_enable_snippets = {false};
     bool autocomplete_show_arguments = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
+    /// Used to move cursor forward if no arguments in completed function and if cursor is still inside ()
+    bool autocompete_possibly_no_arguments = false;
 
     /// If language supports named parameters, returns the symbol separating the named parameter and value,
     /// for instance '=' for Python
