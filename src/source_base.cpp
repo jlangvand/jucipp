@@ -591,7 +591,7 @@ std::pair<char, unsigned> Source::BaseView::find_tab_char_and_size() {
         single_quoted = false;
         double_quoted = false;
         tab_count = 0;
-        if(last_char == '{')
+        if(last_char == '{' || (!is_c && !is_cpp && last_char == '['))
           bracket_last_line = true;
         else
           bracket_last_line = false;
@@ -648,14 +648,13 @@ std::pair<char, unsigned> Source::BaseView::find_tab_char_and_size() {
         else if(*iter == '/' && *next_iter == '*')
           comment = true;
         else if(*iter == '*' && *next_iter == '/') {
-          iter.forward_char();
-          iter.forward_char();
+          iter.forward_chars(2);
           comment = false;
         }
       }
       if(!single_quoted && !double_quoted && !comment && !line_comment && *iter != ' ' && *iter != '\t' && !iter.ends_line())
         last_char = *iter;
-      if(!single_quoted && !double_quoted && !comment && !line_comment && *iter == '}' && tab_count != -1 && last_tab_diff != -1)
+      if(!single_quoted && !double_quoted && !comment && !line_comment && (*iter == '}' || (!is_c && !is_cpp && last_char == ']')) && tab_count != -1 && last_tab_diff != -1)
         last_tab_count -= last_tab_diff;
       if(*iter != ' ' && *iter != '\t')
         tab_count = -1;
