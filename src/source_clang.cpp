@@ -370,9 +370,11 @@ void Source::ClangViewParse::update_diagnostics() {
         }
         return false;
       };
-      auto add_include_fixit = [this, &diagnostic, &get_new_include_offsets](bool has_std, bool has_using_std, const std::string &token) {
-        auto headers = Documentation::CppReference::get_headers(has_std || has_using_std ? "std::" + token : token);
-        if(headers.empty() && !has_std && has_using_std)
+      auto add_include_fixit = [this, &diagnostic, &get_new_include_offsets](std::string ns, bool has_using_std, const std::string &token) {
+        auto headers = Documentation::CppReference::get_headers(!ns.empty() ? ns + "::" + token : (has_using_std ? "std::" + token : token));
+        if(headers.empty() && !ns.empty() && ns != "std" && !starts_with(ns, "std::") && has_using_std)
+          headers = Documentation::CppReference::get_headers("std::" + ns + "::" + token);
+        if(headers.empty() && ns.empty() && has_using_std)
           headers = Documentation::CppReference::get_headers(token);
         if(!headers.empty()) {
           std::string *c_header = nullptr;
@@ -403,18 +405,35 @@ void Source::ClangViewParse::update_diagnostics() {
                   end = diagnostic.spelling.find('\'', start);
                 if(end != std::string::npos) {
                   auto type = diagnostic.spelling.substr(start, end - start);
-                  bool has_std = false;
+                  std::string ns;
                   if(is_cpp) {
                     if(starts_with(type, "std::")) {
-                      has_std = true;
+                      ns = "std";
                       type.erase(0, 5);
                     }
                     if(starts_with(type, "__1::"))
                       type.erase(0, 5);
                   }
-                  add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), type);
+                  add_include_fixit(ns, is_cpp && has_using_namespace_std(c), type);
                   break;
                 }
+              }
+            }
+            if(diagnostic.severity >= clangmm::Diagnostic::Severity::Error &&
+               starts_with(diagnostic.spelling, "variable has incomplete type '")) {
+              size_t start = 30;
+              auto end = diagnostic.spelling.find('\'', start);
+              if(end != std::string::npos) {
+                auto type = diagnostic.spelling.substr(start, end - start);
+                std::string ns;
+                if(is_cpp) {
+                  if(starts_with(type, "std::")) {
+                    ns = "std";
+                    type.erase(0, 5);
+                  }
+                }
+                add_include_fixit(ns, is_cpp && has_using_namespace_std(c), type);
+                break;
               }
             }
             if(is_token_char(*start) && token.get_kind() == clangmm::Token::Kind::Identifier) {
@@ -427,24 +446,41 @@ void Source::ClangViewParse::update_diagnostics() {
                   starts_with(diagnostic.spelling, "implicit instantiation of undefined template") ||
                   starts_with(diagnostic.spelling, "no viable constructor or deduction guide for deduction of template arguments of"))) {
                 auto token_string = get_token(start);
-                bool has_std = false;
+                std::string ns;
                 if(is_cpp) {
-                  if(token_string == "std" && c + 2 < clang_tokens->size() && (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Kind::Identifier) {
+                  if(token_string == "std" && c + 2 < clang_tokens->size() &&
+                     (*clang_tokens)[c + 1].get_kind() == clangmm::Token::Punctuation &&
+                     (*clang_tokens)[c + 2].get_kind() == clangmm::Token::Identifier &&
+                     (*clang_tokens)[c + 1].get_spelling() == "::") {
                     token_string = (*clang_tokens)[c + 2].get_spelling();
-                    has_std = true;
+                    ns = "std";
                   }
                   else if(c >= 2 &&
                           (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
                           (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
                           (*clang_tokens)[c - 1].get_spelling() == "::" &&
                           (*clang_tokens)[c - 2].get_spelling() == "std")
-                    has_std = true;
+                    ns = "std";
+                  else if(c >= 4 &&
+                          (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
+                          (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
+                          (*clang_tokens)[c - 3].get_kind() == clangmm::Token::Punctuation &&
+                          (*clang_tokens)[c - 4].get_kind() == clangmm::Token::Identifier &&
+                          (*clang_tokens)[c - 1].get_spelling() == "::" &&
+                          (*clang_tokens)[c - 3].get_spelling() == "::" &&
+                          (*clang_tokens)[c - 4].get_spelling() == "std")
+                    ns = "std::" + (*clang_tokens)[c - 2].get_spelling();
+                  else if(c >= 2 &&
+                          (*clang_tokens)[c - 1].get_kind() == clangmm::Token::Punctuation &&
+                          (*clang_tokens)[c - 2].get_kind() == clangmm::Token::Identifier &&
+                          (*clang_tokens)[c - 1].get_spelling() == "::")
+                    ns = (*clang_tokens)[c - 2].get_spelling();
                 }
-                add_include_fixit(has_std, is_cpp && has_using_namespace_std(c), token_string);
+                add_include_fixit(ns, is_cpp && has_using_namespace_std(c), token_string);
               }
               else if(diagnostic.severity >= clangmm::Diagnostic::Severity::Warning && is_c &&
                       starts_with(diagnostic.spelling, "implicitly declaring library function"))
-                add_include_fixit(false, false, get_token(start));
+                add_include_fixit("", false, get_token(start));
             }
             break;
           }
