@@ -1570,7 +1570,8 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       auto iter = get_buffer()->get_insert()->get_iter();
       if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
         last_keyval = '(';
-        autocompete_possibly_no_arguments = true;
+        if(is_js) // Workaround for typescript-language-server
+          autocompete_possibly_no_arguments = true;
         autocomplete->run();
       }
     }

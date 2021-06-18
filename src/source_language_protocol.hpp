@@ -251,6 +251,7 @@ namespace Source {
     std::atomic<bool> autocomplete_enable_snippets = {false};
     bool autocomplete_show_arguments = false;
     sigc::connection autocomplete_delayed_show_arguments_connection;
+    /// Workaround for typescript-language-server.
     /// Used to move cursor forward if no arguments in completed function and if cursor is still inside ()
     bool autocompete_possibly_no_arguments = false;
 

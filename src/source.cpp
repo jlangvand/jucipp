@@ -1553,7 +1553,7 @@ void Source::View::extend_selection() {
   // Attempt to select a sentence, for instance: int a = 2;
   if(!is_bracket_language) { // If for instance cmake, meson or python
     if(!select_matching_brackets) {
-      bool select_end_block = is_language({"cmake", "meson", "julia"});
+      bool select_end_block = is_language({"cmake", "meson", "julia", "xml"});
 
       auto get_tabs = [this](Gtk::TextIter iter) -> boost::optional<int> {
         iter = get_buffer()->get_iter_at_line(iter.get_line());
