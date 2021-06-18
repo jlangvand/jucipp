@@ -90,6 +90,7 @@ if(BUILD_TESTING)
   add_test(language_protocol_client_test language_protocol_client_test)
 
   add_executable(language_protocol_server_test language_protocol_server_test.cpp)
+  target_link_libraries(language_protocol_server_test Boost::filesystem)
 endif()
 
 if(BUILD_FUZZING)

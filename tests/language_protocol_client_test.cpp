@@ -1,4 +1,3 @@
-#include "config.hpp"
 #include "source_language_protocol.hpp"
 #include <glib.h>
 
@@ -31,15 +30,60 @@ int main() {
 
   view->get_buffer()->insert_at_cursor(" ");
   g_assert(view->get_buffer()->get_text() == R"( fn main() {
-    println!("Hello, world!");
+    let a = 2;
+    println!("{}", a);
 }
 )");
 
   view->format_style(false);
   g_assert(view->get_buffer()->get_text() == R"(fn main() {
-    println!("Hello, world!");
+    let a = 2;
+    println!("{}", a);
 }
 )");
+
+  g_assert(view->get_declaration_location);
+  auto location = view->get_declaration_location();
+  g_assert(location);
+  g_assert(location.file_path == "main.rs");
+  g_assert_cmpuint(location.line, ==, 0);
+  g_assert_cmpuint(location.index, ==, 3);
+
+  g_assert(view->get_type_declaration_location);
+  location = view->get_type_declaration_location();
+  g_assert(location);
+  g_assert(location.file_path == "main.rs");
+  g_assert_cmpuint(location.line, ==, 0);
+  g_assert_cmpuint(location.index, ==, 4);
+
+  g_assert(view->get_implementation_locations);
+  auto locations = view->get_implementation_locations();
+  g_assert(locations.size() == 2);
+  g_assert(locations[0].file_path == "main.rs");
+  g_assert(locations[1].file_path == "main.rs");
+  g_assert_cmpuint(locations[0].line, ==, 0);
+  g_assert_cmpuint(locations[0].index, ==, 0);
+  g_assert_cmpuint(locations[1].line, ==, 1);
+  g_assert_cmpuint(locations[1].index, ==, 0);
+
+  g_assert(view->get_usages);
+  auto usages = view->get_usages();
+  g_assert(usages.size() == 2);
+  g_assert(usages[0].first.file_path == view->file_path);
+  g_assert(usages[1].first.file_path == view->file_path);
+  g_assert_cmpuint(usages[0].first.line, ==, 1);
+  g_assert_cmpuint(usages[0].first.index, ==, 8);
+  g_assert_cmpuint(usages[1].first.line, ==, 2);
+  g_assert_cmpuint(usages[1].first.index, ==, 19);
+  g_assert(usages[0].second == "let <b>a</b> = 2;");
+  g_assert(usages[1].second == "println!(&quot;{}&quot;, <b>a</b>);");
+
+  g_assert(view->get_methods);
+  auto methods = view->get_methods();
+  g_assert(methods.size() == 1);
+  g_assert_cmpuint(methods[0].first.line, ==, 0);
+  g_assert_cmpuint(methods[0].first.index, ==, 0);
+  g_assert(methods[0].second == "1: <b>main</b>");
 
   std::atomic<int> exit_status(-1);
   view->client->on_exit_status = [&exit_status](int exit_status_) {
