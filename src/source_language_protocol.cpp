@@ -52,7 +52,41 @@ LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std:
 LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const boost::property_tree::ptree &pt) : file(filesystem::get_path_from_uri(pt.get<std::string>("textDocument.uri", "")).string()) {
   auto edits_it = pt.get_child("edits", boost::property_tree::ptree());
   for(auto it = edits_it.begin(); it != edits_it.end(); ++it)
-    edits.emplace_back(it->second);
+    text_edits.emplace_back(it->second);
+}
+
+LanguageProtocol::TextDocumentEdit::TextDocumentEdit(std::string file, std::vector<TextEdit> text_edits) : file(std::move(file)), text_edits(std::move(text_edits)) {}
+
+LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const boost::property_tree::ptree &pt, boost::filesystem::path file_path) {
+  boost::filesystem::path project_path;
+  auto build = Project::Build::create(file_path);
+  if(!build->project_path.empty())
+    project_path = build->project_path;
+  else
+    project_path = file_path.parent_path();
+  try {
+    if(auto changes_pt = pt.get_child_optional("changes")) {
+      for(auto file_it = changes_pt->begin(); file_it != changes_pt->end(); ++file_it) {
+        auto file = filesystem::get_path_from_uri(file_it->first);
+        if(filesystem::file_in_path(file, project_path)) {
+          std::vector<LanguageProtocol::TextEdit> text_edits;
+          for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it)
+            text_edits.emplace_back(edit_it->second);
+          document_edits.emplace_back(file.string(), std::move(text_edits));
+        }
+      }
+    }
+    else if(auto changes_pt = pt.get_child_optional("documentChanges")) {
+      for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
+        LanguageProtocol::TextDocumentEdit document_edit(change_it->second);
+        if(filesystem::file_in_path(document_edit.file, project_path))
+          document_edits.emplace_back(std::move(document_edit.file), std::move(document_edit.text_edits));
+      }
+    }
+  }
+  catch(...) {
+    document_edits.clear();
+  }
 }
 
 std::string LanguageProtocol::escape_text(std::string text) {
@@ -114,6 +148,8 @@ std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const bo
   auto instance = it->second.lock();
   if(!instance)
     it->second = instance = std::shared_ptr<Client>(new Client(root_path, language_id, language_server), [](Client *client_ptr) {
+      client_ptr->dispatcher = nullptr; // Dispatcher must be destroyed in main thread
+
       std::thread delete_thread([client_ptr] { // Delete client in the background
         delete client_ptr;
       });
@@ -218,9 +254,21 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     "codeAction": {
       "dynamicRegistration": false,
       "codeActionLiteralSupport": {
-        "codeActionKind": { "valueSet": ["quickfix"] }
+        "codeActionKind": {
+          "valueSet": [
+            "",
+            "quickfix",
+            "refactor",
+            "refactor.extract",
+            "refactor.inline",
+            "refactor.rewrite",
+            "source",
+            "source.organizeImports"
+          ]
+        }
       }
-    }
+    },
+    "executeCommand": { "dynamicRegistration": false }
   }
 },
 "initializationOptions": {
@@ -254,6 +302,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
             if(!capabilities.code_action)
               capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
+            capabilities.execute_command = static_cast<bool>(capabilities_pt->get_child_optional("executeCommandProvider"));
             capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
           }
 
@@ -480,8 +529,83 @@ void LanguageProtocol::Client::handle_server_notification(const std::string &met
 }
 
 void LanguageProtocol::Client::handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params) {
-  // TODO: respond to requests from server here
-  // write_response(*id, "");
+  if(method == "workspace/applyEdit") {
+    std::promise<void> result_processed;
+    dispatcher->post([&result_processed, params] {
+      ScopeGuard guard({[&result_processed] {
+        result_processed.set_value();
+      }});
+      if(auto current_view = dynamic_cast<Source::LanguageProtocolView *>(Notebook::get().get_current_view())) {
+        LanguageProtocol::WorkspaceEdit workspace_edit;
+        try {
+          workspace_edit = LanguageProtocol::WorkspaceEdit(params.get_child("edit"), current_view->file_path);
+        }
+        catch(...) {
+          return;
+        }
+
+        struct DocumentEditAndView {
+          LanguageProtocol::TextDocumentEdit *document_edit;
+          Source::View *view;
+        };
+        std::vector<DocumentEditAndView> document_edits_and_views;
+
+        for(auto &document_edit : workspace_edit.document_edits) {
+          Source::View *view = nullptr;
+          for(auto it = Source::View::views.begin(); it != Source::View::views.end(); ++it) {
+            if((*it)->file_path == document_edit.file) {
+              view = *it;
+              break;
+            }
+          }
+          if(!view) {
+            if(!Notebook::get().open(document_edit.file))
+              return;
+            view = Notebook::get().get_current_view();
+            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
+          }
+          else
+            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
+        }
+
+        if(current_view)
+          Notebook::get().open(current_view);
+
+        for(auto &document_edit_and_view : document_edits_and_views) {
+          auto document_edit = document_edit_and_view.document_edit;
+          auto view = document_edit_and_view.view;
+          auto buffer = view->get_buffer();
+          buffer->begin_user_action();
+
+          auto end_iter = buffer->end();
+          // If entire buffer is replaced
+          if(document_edit->text_edits.size() == 1 &&
+             document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
+             (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
+              (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= current_view->get_line_pos(end_iter)))) {
+            view->replace_text(document_edit->text_edits[0].new_text);
+          }
+          else {
+            for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
+              auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+              auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
+              if(view != current_view)
+                view->get_buffer()->place_cursor(start_iter);
+              buffer->erase(start_iter, end_iter);
+              start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+              buffer->insert(start_iter, text_edit_it->new_text);
+            }
+          }
+
+          buffer->end_user_action();
+          if(!view->save())
+            return;
+        }
+      }
+    });
+    result_processed.get_future().get();
+  }
+  write_response(id, "");
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_)
@@ -924,66 +1048,32 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
   if(capabilities.rename || capabilities.document_highlight) {
     rename_similar_tokens = [this](const std::string &text) {
-      struct Changes {
-        std::string file;
-        std::vector<LanguageProtocol::TextEdit> text_edits;
-      };
-
       auto previous_text = get_token(get_buffer()->get_insert()->get_iter());
       if(previous_text.empty())
         return;
 
       auto iter = get_buffer()->get_insert()->get_iter();
-      std::vector<Changes> changes_vec;
+      LanguageProtocol::WorkspaceEdit workspace_edit;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        write_request("textDocument/rename", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}), [this, &changes_vec, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/rename", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}), [this, &workspace_edit, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
-            boost::filesystem::path project_path;
-            auto build = Project::Build::create(file_path);
-            if(!build->project_path.empty())
-              project_path = build->project_path;
-            else
-              project_path = file_path.parent_path();
-            try {
-              if(auto changes_pt = result.get_child_optional("changes")) {
-                for(auto file_it = changes_pt->begin(); file_it != changes_pt->end(); ++file_it) {
-                  auto file = file_it->first;
-                  file.erase(0, 7);
-                  if(filesystem::file_in_path(file, project_path)) {
-                    std::vector<LanguageProtocol::TextEdit> edits;
-                    for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it)
-                      edits.emplace_back(edit_it->second);
-                    changes_vec.emplace_back(Changes{std::move(file), std::move(edits)});
-                  }
-                }
-              }
-              else if(auto changes_pt = result.get_child_optional("documentChanges")) {
-                for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
-                  LanguageProtocol::TextDocumentEdit text_document_edit(change_it->second);
-                  if(filesystem::file_in_path(text_document_edit.file, project_path))
-                    changes_vec.emplace_back(Changes{std::move(text_document_edit.file), std::move(text_document_edit.edits)});
-                }
-              }
-            }
-            catch(...) {
-              changes_vec.clear();
-            }
+            workspace_edit = LanguageProtocol::WorkspaceEdit(result, file_path);
           }
           result_processed.set_value();
         });
       }
       else {
-        write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &changes_vec, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &workspace_edit, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
               for(auto it = result.begin(); it != result.end(); ++it)
                 edits.emplace_back(it->second, text);
-              changes_vec.emplace_back(Changes{file_path.string(), std::move(edits)});
+              workspace_edit.document_edits.emplace_back(file_path.string(), std::move(edits));
             }
             catch(...) {
-              changes_vec.clear();
+              workspace_edit.document_edits.clear();
             }
           }
           result_processed.set_value();
@@ -993,35 +1083,35 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
       auto current_view = Notebook::get().get_current_view();
 
-      struct ChangesAndView {
-        Changes *changes;
+      struct DocumentEditAndView {
+        LanguageProtocol::TextDocumentEdit *document_edit;
         Source::View *view;
         bool close;
       };
-      std::vector<ChangesAndView> changes_and_views;
+      std::vector<DocumentEditAndView> document_edits_and_views;
 
-      for(auto &changes : changes_vec) {
+      for(auto &document_edit : workspace_edit.document_edits) {
         Source::View *view = nullptr;
         for(auto it = views.begin(); it != views.end(); ++it) {
-          if((*it)->file_path == changes.file) {
+          if((*it)->file_path == document_edit.file) {
             view = *it;
             break;
           }
         }
         if(!view) {
-          if(!Notebook::get().open(changes.file))
+          if(!Notebook::get().open(document_edit.file))
             return;
           view = Notebook::get().get_current_view();
-          changes_and_views.emplace_back(ChangesAndView{&changes, view, true});
+          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view, true});
         }
         else
-          changes_and_views.emplace_back(ChangesAndView{&changes, view, false});
+          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view, false});
       }
 
       if(current_view)
         Notebook::get().open(current_view);
 
-      if(!changes_and_views.empty()) {
+      if(!document_edits_and_views.empty()) {
         Terminal::get().print("Renamed ");
         Terminal::get().print(previous_text, true);
         Terminal::get().print(" to ");
@@ -1029,19 +1119,19 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         Terminal::get().print(" at:\n");
       }
 
-      for(auto &changes_and_view : changes_and_views) {
-        auto changes = changes_and_view.changes;
-        auto view = changes_and_view.view;
+      for(auto &document_edit_and_view : document_edits_and_views) {
+        auto document_edit = document_edit_and_view.document_edit;
+        auto view = document_edit_and_view.view;
         auto buffer = view->get_buffer();
         buffer->begin_user_action();
 
         auto end_iter = buffer->end();
         // If entire buffer is replaced
-        if(changes->text_edits.size() == 1 &&
-           changes->text_edits[0].range.start.line == 0 && changes->text_edits[0].range.start.character == 0 &&
-           (changes->text_edits[0].range.end.line > end_iter.get_line() ||
-            (changes->text_edits[0].range.end.line == end_iter.get_line() && changes->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
-          view->replace_text(changes->text_edits[0].new_text);
+        if(document_edit->text_edits.size() == 1 &&
+           document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
+           (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
+            (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
+          view->replace_text(document_edit->text_edits[0].new_text);
 
           Terminal::get().print(filesystem::get_short_path(view->file_path).string() + ":1:1\n");
         }
@@ -1053,13 +1143,13 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           };
           std::list<TerminalOutput> terminal_output_list;
 
-          for(auto edit_it = changes->text_edits.rbegin(); edit_it != changes->text_edits.rend(); ++edit_it) {
-            auto start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
-            auto end_iter = view->get_iter_at_line_pos(edit_it->range.end.line, edit_it->range.end.character);
+          for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
+            auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+            auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
             if(view != current_view)
               view->get_buffer()->place_cursor(start_iter);
             buffer->erase(start_iter, end_iter);
-            start_iter = view->get_iter_at_line_pos(edit_it->range.start.line, edit_it->range.start.character);
+            start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
 
             auto start_line_iter = buffer->get_iter_at_line(start_iter.get_line());
             while((*start_line_iter == ' ' || *start_line_iter == '\t') && start_line_iter < start_iter && start_line_iter.forward_char()) {
@@ -1067,11 +1157,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             auto end_line_iter = start_iter;
             while(!end_line_iter.ends_line() && end_line_iter.forward_char()) {
             }
-            terminal_output_list.emplace_front(TerminalOutput{filesystem::get_short_path(view->file_path).string() + ':' + std::to_string(edit_it->range.start.line + 1) + ':' + std::to_string(edit_it->range.start.character + 1) + ": " + buffer->get_text(start_line_iter, start_iter),
-                                                              edit_it->new_text,
+            terminal_output_list.emplace_front(TerminalOutput{filesystem::get_short_path(view->file_path).string() + ':' + std::to_string(text_edit_it->range.start.line + 1) + ':' + std::to_string(text_edit_it->range.start.character + 1) + ": " + buffer->get_text(start_line_iter, start_iter),
+                                                              text_edit_it->new_text,
                                                               buffer->get_text(start_iter, end_line_iter) + '\n'});
 
-            buffer->insert(start_iter, edit_it->new_text);
+            buffer->insert(start_iter, text_edit_it->new_text);
           }
 
           for(auto &output : terminal_output_list) {
@@ -1086,10 +1176,10 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           return;
       }
 
-      for(auto &changes_and_view : changes_and_views) {
-        if(changes_and_view.close)
-          Notebook::get().close(changes_and_view.view);
-        changes_and_view.close = false;
+      for(auto &document_edit_and_view : document_edits_and_views) {
+        if(document_edit_and_view.close)
+          Notebook::get().close(document_edit_and_view.view);
+        document_edit_and_view.close = false;
       }
     };
   }
@@ -1149,9 +1239,155 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   };
 
   get_fix_its = [this]() {
-    if(fix_its.empty())
+    if(!fix_its.empty())
+      return fix_its;
+
+    if(!capabilities.code_action) {
       Info::get().print("No fix-its found in current buffer");
-    return fix_its;
+      return std::vector<FixIt>{};
+    }
+
+    // Fetch code actions if no fix-its are available
+    std::promise<void> result_processed;
+    Gtk::TextIter start, end;
+    get_buffer()->get_selection_bounds(start, end);
+    std::vector<std::pair<std::string, boost::property_tree::ptree>> results;
+    write_request("textDocument/codeAction", to_string({make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)}), {"context", "{\"diagnostics\":[]}"}}), [&result_processed, &results](const boost::property_tree::ptree &result, bool error) {
+      if(!error) {
+        for(auto it = result.begin(); it != result.end(); ++it) {
+          auto title = it->second.get<std::string>("title", "");
+          if(!title.empty())
+            results.emplace_back(title, it->second);
+        }
+      }
+      result_processed.set_value();
+    });
+    result_processed.get_future().get();
+
+    if(results.empty()) {
+      Info::get().print("No code actions found at cursor");
+      return std::vector<FixIt>{};
+    }
+
+    SelectionDialog::create(this, true, true);
+    for(auto &result : results)
+      SelectionDialog::get()->add_row(result.first);
+    SelectionDialog::get()->on_select = [this, results = std::move(results)](unsigned int index, const std::string &text, bool hide_window) {
+      if(index >= results.size())
+        return;
+
+      auto edit_pt = results[index].second.get_child_optional("edit");
+      if(!edit_pt) {
+
+        if(capabilities.execute_command) {
+          auto command_pt = results[index].second.get_child_optional("command");
+          if(command_pt) {
+            std::stringstream ss;
+            boost::property_tree::write_json(ss, *command_pt, false);
+            // ss.str() is enclosed in {}, and has ending newline
+            auto str = ss.str();
+            if(str.size() <= 3)
+              return;
+            write_request("workspace/executeCommand", str.substr(1, str.size() - 3), [](const boost::property_tree::ptree &result, bool error) {
+            });
+            return;
+          }
+        }
+
+        // TODO: disabled since rust-analyzer does not yet support numbers inside "" (boost::property_tree::write_json outputs all values with "")
+        // std::promise<void> result_processed;
+        // std::stringstream ss;
+        // boost::property_tree::write_json(ss, results[index].second, false);
+        // // ss.str() is enclosed in {}, and has ending newline
+        // auto str = ss.str();
+        // if(str.size() <= 3)
+        //   return;
+        // write_request("codeAction/resolve", str.substr(1, str.size() - 3), [&result_processed, &edit_pt](const boost::property_tree::ptree &result, bool error) {
+        //   if(!error) {
+        //     auto child = result.get_child_optional("edit");
+        //     if(child)
+        //       edit_pt = *child; // Make copy, since result will be destroyed at end of callback
+        //   }
+        //   result_processed.set_value();
+        // });
+        // result_processed.get_future().get();
+
+        if(!edit_pt)
+          return;
+      }
+
+      LanguageProtocol::WorkspaceEdit workspace_edit;
+      try {
+        workspace_edit = LanguageProtocol::WorkspaceEdit(*edit_pt, file_path);
+      }
+      catch(...) {
+        return;
+      }
+
+      auto current_view = Notebook::get().get_current_view();
+
+      struct DocumentEditAndView {
+        LanguageProtocol::TextDocumentEdit *document_edit;
+        Source::View *view;
+      };
+      std::vector<DocumentEditAndView> document_edits_and_views;
+
+      for(auto &document_edit : workspace_edit.document_edits) {
+        Source::View *view = nullptr;
+        for(auto it = views.begin(); it != views.end(); ++it) {
+          if((*it)->file_path == document_edit.file) {
+            view = *it;
+            break;
+          }
+        }
+        if(!view) {
+          if(!Notebook::get().open(document_edit.file))
+            return;
+          view = Notebook::get().get_current_view();
+          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
+        }
+        else
+          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
+      }
+
+      if(current_view)
+        Notebook::get().open(current_view);
+
+      for(auto &document_edit_and_view : document_edits_and_views) {
+        auto document_edit = document_edit_and_view.document_edit;
+        auto view = document_edit_and_view.view;
+        auto buffer = view->get_buffer();
+        buffer->begin_user_action();
+
+        auto end_iter = buffer->end();
+        // If entire buffer is replaced
+        if(document_edit->text_edits.size() == 1 &&
+           document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
+           (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
+            (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
+          view->replace_text(document_edit->text_edits[0].new_text);
+        }
+        else {
+          for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
+            auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+            auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
+            if(view != current_view)
+              view->get_buffer()->place_cursor(start_iter);
+            buffer->erase(start_iter, end_iter);
+            start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+            buffer->insert(start_iter, text_edit_it->new_text);
+          }
+        }
+
+        buffer->end_user_action();
+        if(!view->save())
+          return;
+      }
+    };
+    hide_tooltips();
+    SelectionDialog::get()->show();
+
+    return std::vector<FixIt>{};
   };
 }
 
@@ -1675,20 +1911,26 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                     for(auto it = diagnostics_pt->begin(); it != diagnostics_pt->end(); ++it)
                       quickfix_diagnostics.emplace_back(it->second);
                   }
-                  if(auto changes = it->second.get_child_optional("edit.changes")) {
-                    for(auto file_it = changes->begin(); file_it != changes->end(); ++file_it) {
-                      for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it) {
-                        LanguageProtocol::TextEdit edit(edit_it->second);
+                  auto edit_pt = it->second.get_child_optional("edit");
+                  if(!edit_pt) {
+                    auto arguments = it->second.get_child_optional("arguments"); // Workaround for typescript-language-server (arguments)
+                    if(arguments && arguments->begin() != arguments->end())
+                      edit_pt = arguments->begin()->second;
+                  }
+                  if(edit_pt) {
+                    LanguageProtocol::WorkspaceEdit workspace_edit(*edit_pt, file_path);
+                    for(auto &document_edit : workspace_edit.document_edits) {
+                      for(auto &text_edit : document_edit.text_edits) {
                         if(!quickfix_diagnostics.empty()) {
                           for(auto &diagnostic : diagnostics) {
                             for(auto &quickfix_diagnostic : quickfix_diagnostics) {
                               if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
                                 auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                                 pair.first->second.emplace(
-                                    edit.new_text,
-                                    filesystem::get_path_from_uri(file_it->first).string(),
-                                    std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                   Offset(edit.range.end.line, edit.range.end.character)));
+                                    std::move(text_edit.new_text),
+                                    std::move(document_edit.file),
+                                    std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
+                                                                   Offset(text_edit.range.end.line, text_edit.range.end.character)));
                                 break;
                               }
                             }
@@ -1696,58 +1938,14 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                         }
                         else { // Workaround for language server that does not report quickfix diagnostics
                           for(auto &diagnostic : diagnostics) {
-                            if(edit.range.start.line == diagnostic.range.start.line) {
+                            if(text_edit.range.start.line == diagnostic.range.start.line) {
                               auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                               pair.first->second.emplace(
-                                  edit.new_text,
-                                  filesystem::get_path_from_uri(file_it->first).string(),
-                                  std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                 Offset(edit.range.end.line, edit.range.end.character)));
+                                  std::move(text_edit.new_text),
+                                  std::move(document_edit.file),
+                                  std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
+                                                                 Offset(text_edit.range.end.line, text_edit.range.end.character)));
                               break;
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                  else {
-                    auto changes_pt = it->second.get_child_optional("edit.documentChanges");
-                    if(!changes_pt) { // Workaround for typescript-language-server
-                      if(auto arguments_pt = it->second.get_child_optional("arguments")) {
-                        if(!arguments_pt->empty())
-                          changes_pt = arguments_pt->begin()->second.get_child_optional("documentChanges");
-                      }
-                    }
-                    if(changes_pt) {
-                      for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
-                        LanguageProtocol::TextDocumentEdit text_document_edit(change_it->second);
-                        for(auto &edit : text_document_edit.edits) {
-                          if(!quickfix_diagnostics.empty()) {
-                            for(auto &diagnostic : diagnostics) {
-                              for(auto &quickfix_diagnostic : quickfix_diagnostics) {
-                                if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
-                                  auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
-                                  pair.first->second.emplace(
-                                      edit.new_text,
-                                      text_document_edit.file,
-                                      std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                     Offset(edit.range.end.line, edit.range.end.character)));
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                          else { // Workaround for language server that does not report quickfix diagnostics
-                            for(auto &diagnostic : diagnostics) {
-                              if(edit.range.start.line == diagnostic.range.start.line) {
-                                auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
-                                pair.first->second.emplace(
-                                    edit.new_text,
-                                    text_document_edit.file,
-                                    std::make_pair<Offset, Offset>(Offset(edit.range.start.line, edit.range.start.character),
-                                                                   Offset(edit.range.end.line, edit.range.end.character)));
-                                break;
-                              }
                             }
                           }
                         }

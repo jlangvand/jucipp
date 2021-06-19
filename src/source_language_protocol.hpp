@@ -86,9 +86,17 @@ namespace LanguageProtocol {
   class TextDocumentEdit {
   public:
     TextDocumentEdit(const boost::property_tree::ptree &pt);
+    TextDocumentEdit(std::string file, std::vector<TextEdit> text_edits);
 
     std::string file;
-    std::vector<TextEdit> edits;
+    std::vector<TextEdit> text_edits;
+  };
+
+  class WorkspaceEdit {
+  public:
+    WorkspaceEdit() = default;
+    WorkspaceEdit(const boost::property_tree::ptree &pt, boost::filesystem::path file_path);
+    std::vector<TextDocumentEdit> document_edits;
   };
 
   class Capabilities {
@@ -111,6 +119,7 @@ namespace LanguageProtocol {
     bool document_range_formatting = false;
     bool rename = false;
     bool code_action = false;
+    bool execute_command = false;
     bool type_coverage = false;
     bool use_line_index = false;
   };
@@ -123,6 +132,9 @@ namespace LanguageProtocol {
     std::string language_id;
 
     Capabilities capabilities;
+
+    /// Dispatcher must be destroyed in main thread
+    std::unique_ptr<Dispatcher> dispatcher = std::make_unique<Dispatcher>();
 
     Mutex views_mutex;
     std::set<Source::LanguageProtocolView *> views GUARDED_BY(views_mutex);
@@ -176,12 +188,12 @@ namespace Source {
     void rename(const boost::filesystem::path &path) override;
     bool save() override;
 
-  private:
     /// Get line offset depending on if utf-8 byte offsets or utf-16 code units are used
     int get_line_pos(const Gtk::TextIter &iter);
     /// Get line offset depending on if utf-8 byte offsets or utf-16 code units are used
     int get_line_pos(int line, int line_index);
 
+  private:
     std::pair<std::string, std::string> make_position(int line, int character);
     std::pair<std::string, std::string> make_range(const std::pair<int, int> &start, const std::pair<int, int> &end);
     std::string to_string(const std::pair<std::string, std::string> &param);
