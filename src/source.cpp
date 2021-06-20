@@ -1858,7 +1858,7 @@ void Source::View::show_or_hide() {
                 end = get_buffer()->get_iter_at_line(end.get_line());
                 break;
               }
-              static std::vector<std::string> exact = {"}", ")", "]", ">", "</", "else", "endif"};
+              static std::vector<std::string> exact = {"}", ")", "]", ">", "</", "else", "end"};
               static std::vector<std::string> followed_by_non_token_char = {"elseif", "elif", "catch", "case", "default", "private", "public", "protected"};
               if(text == "{") { // C/C++ sometimes starts a block with a standalone {
                 if(!is_token_char(*last_tabs_end)) {
