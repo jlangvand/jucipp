@@ -1665,7 +1665,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       documentation.clear();
                     if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
                       autocomplete->rows.emplace_back(std::move(label));
-                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind), {}});
+                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, std::move(documentation), std::move(kind), {}, {}});
                     }
                   }
                   parameter_position++;
@@ -1718,9 +1718,23 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       documentation_kind = documentation_pt->get<std::string>("kind", "");
                     }
                   }
+
                   boost::property_tree::ptree ptree;
                   if(detail.empty() && documentation.empty() && (is_incomplete || is_js)) // Workaround for typescript-language-server (is_js)
                     ptree = it->second;
+
+                  std::vector<LanguageProtocol::TextEdit> additional_text_edits;
+                  auto additional_text_edits_pt = it->second.get_child_optional("additionalTextEdits");
+                  if(additional_text_edits_pt) {
+                    try {
+                      for(auto text_edit_it = additional_text_edits_pt->begin(); text_edit_it != additional_text_edits_pt->end(); ++text_edit_it)
+                        additional_text_edits.emplace_back(text_edit_it->second);
+                    }
+                    catch(...) {
+                      additional_text_edits.clear();
+                    }
+                  }
+
                   auto insert = it->second.get<std::string>("insertText", "");
                   if(insert.empty())
                     insert = it->second.get<std::string>("textEdit.newText", "");
@@ -1731,7 +1745,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                     if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
                       insert += "(${1:})";
                     autocomplete->rows.emplace_back(std::move(label));
-                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind), std::move(ptree)});
+                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(documentation_kind), std::move(ptree), std::move(additional_text_edits)});
                   }
                 }
               }
@@ -1742,7 +1756,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   for(auto &snippet : *snippets) {
                     if(starts_with(snippet.prefix, prefix)) {
                       autocomplete->rows.emplace_back(snippet.prefix);
-                      autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}, {}});
+                      autocomplete_rows.emplace_back(AutocompleteRow{snippet.body, {}, snippet.description, {}, {}, {}});
                     }
                   }
                 }
@@ -1802,7 +1816,19 @@ void Source::LanguageProtocolView::setup_autocomplete() {
         return;
       }
 
+      auto additional_text_edits = std::move(autocomplete_rows[index].additional_text_edits); // autocomplete_rows will be cleared after insert_snippet (see autocomplete->on_hide)
+
+      get_buffer()->begin_user_action();
       insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
+      for(auto it = additional_text_edits.rbegin(); it != additional_text_edits.rend(); ++it) {
+        auto start = get_iter_at_line_pos(it->range.start.line, it->range.start.character);
+        auto end = get_iter_at_line_pos(it->range.end.line, it->range.end.character);
+        get_buffer()->erase(start, end);
+        start = get_iter_at_line_pos(it->range.start.line, it->range.start.character);
+        get_buffer()->insert(start, it->new_text);
+      }
+      get_buffer()->end_user_action();
+
       auto iter = get_buffer()->get_insert()->get_iter();
       if(*iter == ')' && iter.backward_char() && *iter == '(') { // If no arguments, try signatureHelp
         last_keyval = '(';

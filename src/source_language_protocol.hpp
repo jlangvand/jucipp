@@ -257,6 +257,7 @@ namespace Source {
       std::string kind;
       /// CompletionItem for completionItem/resolve
       boost::property_tree::ptree ptree;
+      std::vector<LanguageProtocol::TextEdit> additional_text_edits;
     };
     std::vector<AutocompleteRow> autocomplete_rows;
 
