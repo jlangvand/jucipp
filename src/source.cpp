@@ -1858,8 +1858,8 @@ void Source::View::show_or_hide() {
                 end = get_buffer()->get_iter_at_line(end.get_line());
                 break;
               }
-              static std::vector<std::string> exact = {"}", ")", "]", ">", "</", "else", "end"};
-              static std::vector<std::string> followed_by_non_token_char = {"elseif", "elif", "catch", "case", "default", "private", "public", "protected"};
+              static std::vector<std::string> starts_with_symbols = {"}", ")", "]", ">", "</"};
+              static std::vector<std::string> exact_tokens = {"else", "end", "endif", "elseif", "elif", "catch", "case", "default", "private", "public", "protected"};
               if(text == "{") { // C/C++ sometimes starts a block with a standalone {
                 if(!is_token_char(*last_tabs_end)) {
                   end = get_buffer()->get_iter_at_line(end.get_line());
@@ -1875,11 +1875,11 @@ void Source::View::show_or_hide() {
                   }
                 }
               }
-              else if(std::none_of(exact.begin(), exact.end(), [&text](const std::string &e) {
-                        return starts_with(text, e);
+              else if(std::none_of(starts_with_symbols.begin(), starts_with_symbols.end(), [&text](const std::string &symbol) {
+                        return starts_with(text, symbol);
                       }) &&
-                      std::none_of(followed_by_non_token_char.begin(), followed_by_non_token_char.end(), [&text](const std::string &e) {
-                        return starts_with(text, e) && text.size() > e.size() && !is_token_char(text[e.size()]);
+                      std::none_of(exact_tokens.begin(), exact_tokens.end(), [&text](const std::string &token) {
+                        return starts_with(text, token) && (text.size() <= token.size() || !is_token_char(text[token.size()]));
                       })) {
                 end = get_buffer()->get_iter_at_line(end.get_line());
                 break;
