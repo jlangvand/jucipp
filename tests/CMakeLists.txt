@@ -90,7 +90,11 @@ if(BUILD_TESTING)
   add_test(language_protocol_client_test language_protocol_client_test)
 
   add_executable(language_protocol_server_test language_protocol_server_test.cpp)
-  target_link_libraries(language_protocol_server_test Boost::filesystem)
+  target_link_libraries(language_protocol_server_test juci_shared)
+  
+  add_executable(json_test json_test.cpp $<TARGET_OBJECTS:test_stubs>)
+  target_link_libraries(json_test juci_shared)
+  add_test(json_test json_test)
 endif()
 
 if(BUILD_FUZZING)

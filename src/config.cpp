@@ -1,6 +1,7 @@
 #include "config.hpp"
 #include "files.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
 #include <algorithm>
 #include <exception>
@@ -77,8 +78,16 @@ void Config::update(boost::property_tree::ptree &cfg) {
     return;
   cfg_ok &= add_missing_nodes(cfg, default_cfg);
   cfg_ok &= remove_deprecated_nodes(cfg, default_cfg);
-  if(!cfg_ok)
-    boost::property_tree::write_json((home_juci_path / "config" / "config.json").string(), cfg);
+  if(!cfg_ok) {
+    auto path = home_juci_path / "config" / "config.json";
+    std::ofstream output(path.string(), std::ios::binary);
+    if(output) {
+      JSON::write(output, cfg);
+      output << '\n';
+    }
+    else
+      std::cerr << "Error writing config file: " << filesystem::get_short_path(path).string() << std::endl;
+  }
 }
 
 void Config::make_version_dependent_corrections(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, const std::string &version) {

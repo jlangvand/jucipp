@@ -1,37 +1,11 @@
+#include "json.hpp"
 #include <boost/filesystem.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <iostream>
 
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
 #endif
-
-std::string escape_text(std::string text) {
-  for(size_t c = 0; c < text.size(); ++c) {
-    if(text[c] == '\n') {
-      text.replace(c, 1, "\\n");
-      ++c;
-    }
-    else if(text[c] == '\r') {
-      text.replace(c, 1, "\\r");
-      ++c;
-    }
-    else if(text[c] == '\t') {
-      text.replace(c, 1, "\\t");
-      ++c;
-    }
-    else if(text[c] == '"') {
-      text.replace(c, 1, "\\\"");
-      ++c;
-    }
-    else if(text[c] == '\\') {
-      text.replace(c, 1, "\\\\");
-      ++c;
-    }
-  }
-  return text;
-}
 
 int main() {
 #ifdef _WIN32
@@ -472,7 +446,7 @@ int main() {
   "id": "5",
   "result": [
     {
-      "uri": "file://)" + escape_text(file_path.string()) +
+      "uri": "file://)" + JSON::escape_string(file_path.string()) +
                            R"(",
       "range": {
         "start": {
@@ -486,7 +460,7 @@ int main() {
       }
     },
     {
-      "uri": "file://)" + escape_text(file_path.string()) +
+      "uri": "file://)" + JSON::escape_string(file_path.string()) +
                            R"(",
       "range": {
         "start": {

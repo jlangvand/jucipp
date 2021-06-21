@@ -12,7 +12,7 @@
 
 CMake::CMake(const boost::filesystem::path &path) {
   const auto find_cmake_project = [](const boost::filesystem::path &file_path) {
-    std::ifstream input(file_path.string(), std::ofstream::binary);
+    std::ifstream input(file_path.string(), std::ios::binary);
     if(input) {
       std::string line;
       while(std::getline(input, line)) {

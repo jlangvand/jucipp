@@ -4,244 +4,243 @@
 /// If you add or remove nodes from the default_config_file, increase the juci
 /// version number (JUCI_VERSION) in ../CMakeLists.txt to automatically apply
 /// the changes to user's ~/.juci/config/config.json files
-const std::string default_config_file =
-    R"RAW({
-    "version": ")RAW" +
-    std::string(JUCI_VERSION) +
-    R"RAW(",
-    "gtk_theme": {
-        "name_comment": "Use \"\" for default theme, At least these two exist on all systems: Adwaita, Raleigh",
-        "name": "",
-        "variant_comment": "Use \"\" for default variant, and \"dark\" for dark theme variant. Note that not all themes support dark variant, but for instance Adwaita does",
-        "variant": "",
-        "font_comment": "Set to override theme font, for instance: \"Arial 12\"",
-        "font": ""
-    },
-    "source": {
-        "style_comment": "Use \"\" for default style, and for instance juci-dark or juci-dark-blue together with dark gtk_theme variant. Styles from normal gtksourceview install: classic, cobalt, kate, oblivion, solarized-dark, solarized-light, tango",
-        "style": "juci-light",
-        "font_comment": "Use \"\" for default font, and for instance \"Monospace 12\" to also set size",)RAW"
+const std::string default_config_file = R"RAW({
+  "version": ")RAW" +
+                                        std::string(JUCI_VERSION) +
+                                        R"RAW(",
+  "gtk_theme": {
+    "name_comment": "Use \"\" for default theme, At least these two exist on all systems: Adwaita, Raleigh",
+    "name": "",
+    "variant_comment": "Use \"\" for default variant, and \"dark\" for dark theme variant. Note that not all themes support dark variant, but for instance Adwaita does",
+    "variant": "",
+    "font_comment": "Set to override theme font, for instance: \"Arial 12\"",
+    "font": ""
+  },
+  "source": {
+    "style_comment": "Use \"\" for default style, and for instance juci-dark or juci-dark-blue together with dark gtk_theme variant. Styles from normal gtksourceview install: classic, cobalt, kate, oblivion, solarized-dark, solarized-light, tango",
+    "style": "juci-light",
+    "font_comment": "Use \"\" for default font, and for instance \"Monospace 12\" to also set size",)RAW"
 #ifdef __APPLE__
-    R"RAW(
-        "font": "Menlo",)RAW"
+                                        R"RAW(
+    "font": "Menlo",)RAW"
 #else
 #ifdef _WIN32
-    R"RAW(
-        "font": "Consolas",)RAW"
+                                        R"RAW(
+    "font": "Consolas",)RAW"
 #else
-    R"RAW(
-        "font": "Monospace",)RAW"
+                                        R"RAW(
+    "font": "Monospace",)RAW"
 #endif
 #endif
-    R"RAW(
-        "cleanup_whitespace_characters_comment": "Remove trailing whitespace characters on save, and add trailing newline if missing",
-        "cleanup_whitespace_characters": false,
-        "show_whitespace_characters_comment": "Determines what kind of whitespaces should be drawn. Use comma-separated list of: space, tab, newline, nbsp, leading, text, trailing or all",
-        "show_whitespace_characters": "",
-        "format_style_on_save_comment": "Performs style format on save if supported on language in buffer",
-        "format_style_on_save": false,
-        "format_style_on_save_if_style_file_found_comment": "Format style if format file is found, even if format_style_on_save is false",
-        "format_style_on_save_if_style_file_found": true,
-        "smart_brackets_comment": "If smart_inserts is enabled, this option is automatically enabled. When inserting an already closed bracket, the cursor might instead be moved, avoiding the need of arrow keys after autocomplete",
-        "smart_brackets": true,
-        "smart_inserts_comment": "When for instance inserting (, () gets inserted. Applies to: (), [], \", '. Also enables pressing ; inside an expression before a final ) to insert ; at the end of line, and deletions of empty insertions",
-        "smart_inserts": true,
-        "show_map": true,
-        "map_font_size": "1",
-        "show_git_diff": true,
-        "show_background_pattern": true,
-        "show_right_margin": false,
-        "right_margin_position": 80,
-        "spellcheck_language_comment": "Use \"\" to set language from your locale settings",
-        "spellcheck_language": "en_US",
-        "auto_tab_char_and_size_comment": "Use false to always use default tab char and size",
-        "auto_tab_char_and_size": true,
-        "default_tab_char_comment": "Use \"\t\" for regular tab",
-        "default_tab_char": " ",
-        "default_tab_size": 2,
-        "tab_indents_line": true,
-        "word_wrap_comment": "Specify language ids that should enable word wrap, for instance: chdr, c, cpphdr, cpp, js, python, or all to enable word wrap for all languages",
-        "word_wrap": "markdown, latex",
-        "highlight_current_line": true,
-        "show_line_numbers": true,
-        "enable_multiple_cursors": false,
-        "auto_reload_changed_files": true,
-        "search_for_selection": true,
-        "clang_format_style_comment": "IndentWidth, AccessModifierOffset and UseTab are set automatically. See http://clang.llvm.org/docs/ClangFormatStyleOptions.html",
-        "clang_format_style": "ColumnLimit: 0, NamespaceIndentation: All",
-        "clang_tidy_enable_comment": "Enable clang-tidy in new C/C++ buffers",
-        "clang_tidy_enable": false,
-        "clang_tidy_checks_comment": "In new C/C++ buffers, these checks are appended to the value of 'Checks' in the .clang-tidy file, if any",
-        "clang_tidy_checks": "",
-        "clang_usages_threads_comment": "The number of threads used in finding usages in unparsed files. -1 corresponds to the number of cores available, and 0 disables the search",
-        "clang_usages_threads": -1,
-        "clang_detailed_preprocessing_record_comment": "Set to true to, at the cost of increased resource use, include all macro definitions and instantiations when parsing new C/C++ buffers. You should reopen buffers and delete build/.usages_clang after changing this option.",
-        "clang_detailed_preprocessing_record": false,
-        "debug_place_cursor_at_stop": false
-    },
-    "terminal": {
-        "history_size": 10000,
-        "font_comment": "Use \"\" to use source.font with slightly smaller size",
-        "font": "",
-        "clear_on_compile": true,
-        "clear_on_run_command": false,
-        "hide_entry_on_run_command": true
-    },
-    "project": {
-        "default_build_path_comment": "Use <project_directory_name> to insert the project top level directory name",
-        "default_build_path": "./build",
-        "debug_build_path_comment": "Use <project_directory_name> to insert the project top level directory name, and <default_build_path> to insert your default_build_path setting.",
-        "debug_build_path": "<default_build_path>/debug",
-        "cmake": {)RAW"
+                                        R"RAW(
+    "cleanup_whitespace_characters_comment": "Remove trailing whitespace characters on save, and add trailing newline if missing",
+    "cleanup_whitespace_characters": false,
+    "show_whitespace_characters_comment": "Determines what kind of whitespaces should be drawn. Use comma-separated list of: space, tab, newline, nbsp, leading, text, trailing or all",
+    "show_whitespace_characters": "",
+    "format_style_on_save_comment": "Performs style format on save if supported on language in buffer",
+    "format_style_on_save": false,
+    "format_style_on_save_if_style_file_found_comment": "Format style if format file is found, even if format_style_on_save is false",
+    "format_style_on_save_if_style_file_found": true,
+    "smart_brackets_comment": "If smart_inserts is enabled, this option is automatically enabled. When inserting an already closed bracket, the cursor might instead be moved, avoiding the need of arrow keys after autocomplete",
+    "smart_brackets": true,
+    "smart_inserts_comment": "When for instance inserting (, () gets inserted. Applies to: (), [], \", '. Also enables pressing ; inside an expression before a final ) to insert ; at the end of line, and deletions of empty insertions",
+    "smart_inserts": true,
+    "show_map": true,
+    "map_font_size": 1,
+    "show_git_diff": true,
+    "show_background_pattern": true,
+    "show_right_margin": false,
+    "right_margin_position": 80,
+    "spellcheck_language_comment": "Use \"\" to set language from your locale settings",
+    "spellcheck_language": "en_US",
+    "auto_tab_char_and_size_comment": "Use false to always use default tab char and size",
+    "auto_tab_char_and_size": true,
+    "default_tab_char_comment": "Use \"\t\" for regular tab",
+    "default_tab_char": " ",
+    "default_tab_size": 2,
+    "tab_indents_line": true,
+    "word_wrap_comment": "Specify language ids that should enable word wrap, for instance: chdr, c, cpphdr, cpp, js, python, or all to enable word wrap for all languages",
+    "word_wrap": "markdown, latex",
+    "highlight_current_line": true,
+    "show_line_numbers": true,
+    "enable_multiple_cursors": false,
+    "auto_reload_changed_files": true,
+    "search_for_selection": true,
+    "clang_format_style_comment": "IndentWidth, AccessModifierOffset and UseTab are set automatically. See http://clang.llvm.org/docs/ClangFormatStyleOptions.html",
+    "clang_format_style": "ColumnLimit: 0, NamespaceIndentation: All",
+    "clang_tidy_enable_comment": "Enable clang-tidy in new C/C++ buffers",
+    "clang_tidy_enable": false,
+    "clang_tidy_checks_comment": "In new C/C++ buffers, these checks are appended to the value of 'Checks' in the .clang-tidy file, if any",
+    "clang_tidy_checks": "",
+    "clang_usages_threads_comment": "The number of threads used in finding usages in unparsed files. -1 corresponds to the number of cores available, and 0 disables the search",
+    "clang_usages_threads": -1,
+    "clang_detailed_preprocessing_record_comment": "Set to true to, at the cost of increased resource use, include all macro definitions and instantiations when parsing new C/C++ buffers. You should reopen buffers and delete build/.usages_clang after changing this option.",
+    "clang_detailed_preprocessing_record": false,
+    "debug_place_cursor_at_stop": false
+  },
+  "terminal": {
+    "history_size": 10000,
+    "font_comment": "Use \"\" to use source.font with slightly smaller size",
+    "font": "",
+    "clear_on_compile": true,
+    "clear_on_run_command": false,
+    "hide_entry_on_run_command": true
+  },
+  "project": {
+    "default_build_path_comment": "Use <project_directory_name> to insert the project top level directory name",
+    "default_build_path": "./build",
+    "debug_build_path_comment": "Use <project_directory_name> to insert the project top level directory name, and <default_build_path> to insert your default_build_path setting.",
+    "debug_build_path": "<default_build_path>/debug",
+    "cmake": {)RAW"
 #ifdef _WIN32
-    R"RAW(
-            "command": "cmake -G\"MSYS Makefiles\"",)RAW"
+                                        R"RAW(
+      "command": "cmake -G\"MSYS Makefiles\"",)RAW"
 #else
-    R"RAW(
-            "command": "cmake",)RAW"
+                                        R"RAW(
+      "command": "cmake",)RAW"
 #endif
-    R"RAW(
-            "compile_command": "cmake --build ."
-        },
-        "meson": {
-            "command": "meson",
-            "compile_command": "ninja"
-        },
-        "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
-        "default_build_management_system": "cmake",
-        "save_on_compile_or_run": true,)RAW"
+                                        R"RAW(
+      "compile_command": "cmake --build ."
+    },
+    "meson": {
+      "command": "meson",
+      "compile_command": "ninja"
+    },
+    "default_build_management_system_comment": "Select which build management system to use when creating a new C or C++ project, for instance \"cmake\" or \"meson\"",
+    "default_build_management_system": "cmake",
+    "save_on_compile_or_run": true,)RAW"
 #ifdef JUCI_USE_UCTAGS
-    R"RAW(
-        "ctags_command": "uctags",)RAW"
+                                        R"RAW(
+    "ctags_command": "uctags",)RAW"
 #else
-    R"RAW(
-        "ctags_command": "ctags",)RAW"
+                                        R"RAW(
+    "ctags_command": "ctags",)RAW"
 #endif
-    R"RAW(
-        "grep_command": "grep",
-        "cargo_command": "cargo",
-        "python_command": "python -u",
-        "markdown_command": "grip -b"
-    },
-    "keybindings": {
-        "preferences": "<primary>comma",
-        "snippets": "",
-        "commands": "",
-        "quit": "<primary>q",
-        "file_new_file": "<primary>n",
-        "file_new_folder": "<primary><shift>n",
-        "file_open_file": "<primary>o",
-        "file_open_folder": "<primary><shift>o",
-        "file_reload_file": "",
-        "file_save": "<primary>s",
-        "file_save_as": "<primary><shift>s",
-        "file_close_file": "<primary>w",
-        "file_close_folder": "",
-        "file_close_project": "",
-        "file_print": "",
-        "edit_undo": "<primary>z",
-        "edit_redo": "<primary><shift>z",
-        "edit_cut": "<primary>x",
-        "edit_cut_lines": "<primary><shift>x",
-        "edit_copy": "<primary>c",
-        "edit_copy_lines": "<primary><shift>c",
-        "edit_paste": "<primary>v",
-        "edit_extend_selection": "<primary><shift>a",
-        "edit_shrink_selection": "<primary><shift><alt>a",
-        "edit_show_or_hide": "",
-        "edit_find": "<primary>f",
-        "source_spellcheck": "",
-        "source_spellcheck_clear": "",
-        "source_spellcheck_next_error": "<primary><shift>e",
-        "source_git_next_diff": "<primary>k",
-        "source_git_show_diff": "<alt>k",
-        "source_indentation_set_buffer_tab": "",
-        "source_indentation_auto_indent_buffer": "<primary><shift>i",
-        "source_goto_line": "<primary>g",
-        "source_center_cursor": "<primary>l",
-        "source_cursor_history_back": "<alt>Left",
-        "source_cursor_history_forward": "<alt>Right",
-        "source_show_completion_comment": "Add completion keybinding to disable interactive autocompletion",
-        "source_show_completion": "",
-        "source_find_file": "<primary>p",
-        "source_find_symbol": "<primary><shift>f",
-        "source_find_pattern": "<alt><shift>f",
-        "source_comments_toggle": "<primary>slash",
-        "source_comments_add_documentation": "<primary><alt>slash",
-        "source_find_documentation": "<primary><shift>d",
-        "source_goto_declaration": "<primary>d",
-        "source_goto_type_declaration": "<alt><shift>d",
-        "source_goto_implementation": "<primary>i",
-        "source_goto_usage": "<primary>u",
-        "source_goto_method": "<primary>m",
-        "source_rename": "<primary>r",
-        "source_implement_method": "<primary><shift>m",
-        "source_goto_next_diagnostic": "<primary>e",
-        "source_apply_fix_its": "<control>space",
-        "project_set_run_arguments": "",
-        "project_compile_and_run": "<primary>Return",
-        "project_compile": "<primary><shift>Return",
-        "project_run_command": "<alt>Return",
-        "project_kill_last_running": "<primary>Escape",
-        "project_force_kill_last_running": "<primary><shift>Escape",
-        "debug_set_run_arguments": "",
-        "debug_start_continue": "<primary>y",
-        "debug_stop": "<primary><shift>y",
-        "debug_kill": "<primary><shift>k",
-        "debug_step_over": "<primary>j",
-        "debug_step_into": "<primary>t",
-        "debug_step_out": "<primary><shift>t",
-        "debug_backtrace": "<primary><shift>j",
-        "debug_show_variables": "<primary><shift>b",
-        "debug_run_command": "<alt><shift>Return",
-        "debug_toggle_breakpoint": "<primary>b",
-        "debug_show_breakpoints": "<primary><shift><alt>b",
-        "debug_goto_stop": "<primary><shift>l",)RAW"
+                                        R"RAW(
+    "grep_command": "grep",
+    "cargo_command": "cargo",
+    "python_command": "python -u",
+    "markdown_command": "grip -b"
+  },
+  "keybindings": {
+    "preferences": "<primary>comma",
+    "snippets": "",
+    "commands": "",
+    "quit": "<primary>q",
+    "file_new_file": "<primary>n",
+    "file_new_folder": "<primary><shift>n",
+    "file_open_file": "<primary>o",
+    "file_open_folder": "<primary><shift>o",
+    "file_reload_file": "",
+    "file_save": "<primary>s",
+    "file_save_as": "<primary><shift>s",
+    "file_close_file": "<primary>w",
+    "file_close_folder": "",
+    "file_close_project": "",
+    "file_print": "",
+    "edit_undo": "<primary>z",
+    "edit_redo": "<primary><shift>z",
+    "edit_cut": "<primary>x",
+    "edit_cut_lines": "<primary><shift>x",
+    "edit_copy": "<primary>c",
+    "edit_copy_lines": "<primary><shift>c",
+    "edit_paste": "<primary>v",
+    "edit_extend_selection": "<primary><shift>a",
+    "edit_shrink_selection": "<primary><shift><alt>a",
+    "edit_show_or_hide": "",
+    "edit_find": "<primary>f",
+    "source_spellcheck": "",
+    "source_spellcheck_clear": "",
+    "source_spellcheck_next_error": "<primary><shift>e",
+    "source_git_next_diff": "<primary>k",
+    "source_git_show_diff": "<alt>k",
+    "source_indentation_set_buffer_tab": "",
+    "source_indentation_auto_indent_buffer": "<primary><shift>i",
+    "source_goto_line": "<primary>g",
+    "source_center_cursor": "<primary>l",
+    "source_cursor_history_back": "<alt>Left",
+    "source_cursor_history_forward": "<alt>Right",
+    "source_show_completion_comment": "Add completion keybinding to disable interactive autocompletion",
+    "source_show_completion": "",
+    "source_find_file": "<primary>p",
+    "source_find_symbol": "<primary><shift>f",
+    "source_find_pattern": "<alt><shift>f",
+    "source_comments_toggle": "<primary>slash",
+    "source_comments_add_documentation": "<primary><alt>slash",
+    "source_find_documentation": "<primary><shift>d",
+    "source_goto_declaration": "<primary>d",
+    "source_goto_type_declaration": "<alt><shift>d",
+    "source_goto_implementation": "<primary>i",
+    "source_goto_usage": "<primary>u",
+    "source_goto_method": "<primary>m",
+    "source_rename": "<primary>r",
+    "source_implement_method": "<primary><shift>m",
+    "source_goto_next_diagnostic": "<primary>e",
+    "source_apply_fix_its": "<control>space",
+    "project_set_run_arguments": "",
+    "project_compile_and_run": "<primary>Return",
+    "project_compile": "<primary><shift>Return",
+    "project_run_command": "<alt>Return",
+    "project_kill_last_running": "<primary>Escape",
+    "project_force_kill_last_running": "<primary><shift>Escape",
+    "debug_set_run_arguments": "",
+    "debug_start_continue": "<primary>y",
+    "debug_stop": "<primary><shift>y",
+    "debug_kill": "<primary><shift>k",
+    "debug_step_over": "<primary>j",
+    "debug_step_into": "<primary>t",
+    "debug_step_out": "<primary><shift>t",
+    "debug_backtrace": "<primary><shift>j",
+    "debug_show_variables": "<primary><shift>b",
+    "debug_run_command": "<alt><shift>Return",
+    "debug_toggle_breakpoint": "<primary>b",
+    "debug_show_breakpoints": "<primary><shift><alt>b",
+    "debug_goto_stop": "<primary><shift>l",)RAW"
 #ifdef __linux
-    R"RAW(
-        "window_next_tab": "<primary>Tab",
-        "window_previous_tab": "<primary><shift>Tab",)RAW"
+                                        R"RAW(
+    "window_next_tab": "<primary>Tab",
+    "window_previous_tab": "<primary><shift>Tab",)RAW"
 #else
-    R"RAW(
-        "window_next_tab": "<primary><alt>Right",
-        "window_previous_tab": "<primary><alt>Left",)RAW"
+                                        R"RAW(
+    "window_next_tab": "<primary><alt>Right",
+    "window_previous_tab": "<primary><alt>Left",)RAW"
 #endif
-    R"RAW(
-        "window_goto_tab": "",
-        "window_toggle_split": "",
-        "window_split_source_buffer": "",)RAW"
+                                        R"RAW(
+    "window_goto_tab": "",
+    "window_toggle_split": "",
+    "window_split_source_buffer": "",)RAW"
 #ifdef __APPLE__
-    R"RAW(
-        "window_toggle_full_screen": "<primary><control>f",)RAW"
+                                        R"RAW(
+    "window_toggle_full_screen": "<primary><control>f",)RAW"
 #else
-    R"RAW(
-        "window_toggle_full_screen": "F11",)RAW"
+                                        R"RAW(
+    "window_toggle_full_screen": "F11",)RAW"
 #endif
-    R"RAW(
-        "window_toggle_directories": "",
-        "window_toggle_terminal": "",
-        "window_toggle_menu": "",
-        "window_toggle_tabs": "",
-        "window_toggle_zen_mode": "",
-        "window_clear_terminal": ""
-    },
-    "documentation_searches": {
-        "clang": {
-            "separator": "::",
-            "queries": {
-                "@empty": "https://www.google.com/search?q=c%2B%2B+",
-                "std": "https://www.google.com/search?q=site:http://www.cplusplus.com/reference/+",
-                "boost": "https://www.google.com/search?q=site:http://www.boost.org/doc/libs/1_59_0/+",
-                "Gtk": "https://www.google.com/search?q=site:https://developer.gnome.org/gtkmm/stable/+",
-                "@any": "https://www.google.com/search?q="
-            }
-        }
-    },
-    "log": {
-        "libclang_comment": "Outputs diagnostics for new C/C++ buffers",
-        "libclang": false,
-        "language_server": false
+                                        R"RAW(
+    "window_toggle_directories": "",
+    "window_toggle_terminal": "",
+    "window_toggle_menu": "",
+    "window_toggle_tabs": "",
+    "window_toggle_zen_mode": "",
+    "window_clear_terminal": ""
+  },
+  "documentation_searches": {
+    "clang": {
+      "separator": "::",
+      "queries": {
+        "@empty": "https://www.google.com/search?q=c%2B%2B+",
+        "std": "https://www.google.com/search?q=site:http://www.cplusplus.com/reference/+",
+        "boost": "https://www.google.com/search?q=site:http://www.boost.org/doc/libs/1_59_0/+",
+        "Gtk": "https://www.google.com/search?q=site:https://developer.gnome.org/gtkmm/stable/+",
+        "@any": "https://www.google.com/search?q="
+      }
     }
+  },
+  "log": {
+    "libclang_comment": "Outputs diagnostics for new C/C++ buffers",
+    "libclang": false,
+    "language_server": false
+  }
 }
 )RAW";
 

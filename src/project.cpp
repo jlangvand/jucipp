@@ -487,7 +487,7 @@ void Project::LLDB::debug_start(const std::string &command, const boost::filesys
     auto sysroot = filesystem::get_rust_sysroot_path().string();
     if(!sysroot.empty()) {
       std::string line;
-      std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ofstream::binary);
+      std::ifstream input(sysroot + "/lib/rustlib/etc/lldb_commands", std::ios::binary);
       if(input) {
         startup_commands.emplace_back("command script import \"" + sysroot + "/lib/rustlib/etc/lldb_lookup.py\"");
         while(std::getline(input, line))

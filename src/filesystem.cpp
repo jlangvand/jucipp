@@ -9,7 +9,7 @@
 //Only use on small files
 std::string filesystem::read(const std::string &path) {
   std::string str;
-  std::ifstream input(path, std::ofstream::binary);
+  std::ifstream input(path, std::ios::binary);
   if(input) {
     input.seekg(0, std::ios::end);
     auto size = input.tellg();
@@ -23,7 +23,7 @@ std::string filesystem::read(const std::string &path) {
 
 //Only use on small files
 bool filesystem::write(const std::string &path, const std::string &new_content) {
-  std::ofstream output(path, std::ofstream::binary);
+  std::ofstream output(path, std::ios::binary);
   if(output)
     output << new_content;
   else

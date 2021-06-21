@@ -729,7 +729,7 @@ void Usages::Clang::write_cache(const boost::filesystem::path &path, const Clang
     return;
   tmp_file /= ("jucipp" + std::to_string(get_current_process_id()) + path_str);
 
-  std::ofstream stream(tmp_file.string());
+  std::ofstream stream(tmp_file.string(), std::ios::binary);
   if(stream) {
     try {
       boost::archive::text_oarchive text_oarchive(stream);

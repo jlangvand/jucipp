@@ -57,6 +57,14 @@ namespace LanguageProtocol {
     }
   };
 
+  class Documentation {
+  public:
+    Documentation(const boost::property_tree::ptree &pt);
+    Documentation(std::string value) : value(std::move(value)) {}
+    std::string value;
+    std::string kind;
+  };
+
   class Diagnostic {
   public:
     class RelatedInformation {
@@ -74,6 +82,7 @@ namespace LanguageProtocol {
     std::string code;
     std::vector<RelatedInformation> related_informations;
     std::map<std::string, std::set<Source::FixIt>> quickfixes;
+    boost::property_tree::ptree ptree;
   };
 
   class TextEdit {
@@ -107,6 +116,7 @@ namespace LanguageProtocol {
     TextDocumentSync text_document_sync = TextDocumentSync::none;
     bool hover = false;
     bool completion = false;
+    bool completion_resolve = false;
     bool signature_help = false;
     bool definition = false;
     bool type_definition = false;
@@ -119,12 +129,11 @@ namespace LanguageProtocol {
     bool document_range_formatting = false;
     bool rename = false;
     bool code_action = false;
+    bool code_action_resolve = false;
     bool execute_command = false;
     bool type_coverage = false;
     bool use_line_index = false;
   };
-
-  std::string escape_text(std::string text);
 
   class Client {
     Client(boost::filesystem::path root_path, std::string language_id, const std::string &language_server);
@@ -253,8 +262,7 @@ namespace Source {
     struct AutocompleteRow {
       std::string insert;
       std::string detail;
-      std::string documentation;
-      std::string kind;
+      LanguageProtocol::Documentation documentation;
       /// CompletionItem for completionItem/resolve
       boost::property_tree::ptree ptree;
       std::vector<LanguageProtocol::TextEdit> additional_text_edits;

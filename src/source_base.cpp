@@ -409,7 +409,7 @@ bool Source::BaseView::load(bool not_undoable_action) {
       }
     }
     catch(const Glib::Error &error) {
-      Terminal::get().print("\e[31mError\e[m: Could not read file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
+      Terminal::get().print("\e[31mError\e[m: could not read file " + filesystem::get_short_path(file_path).string() + ": " + error.what() + '\n', true);
       return false;
     }
   }
@@ -479,7 +479,7 @@ void Source::BaseView::replace_text(const std::string &new_text) {
     }
   }
   catch(...) {
-    Terminal::get().print("\e[31mError\e[m: Could not replace text in buffer\n", true);
+    Terminal::get().print("\e[31mError\e[m: could not replace text in buffer\n", true);
   }
 
   get_buffer()->end_user_action();

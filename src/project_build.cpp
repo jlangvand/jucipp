@@ -152,7 +152,7 @@ bool Project::CMakeBuild::is_valid() {
   auto default_path = get_default_path();
   if(default_path.empty())
     return true;
-  std::ifstream input((default_path / "CMakeCache.txt").string(), std::ofstream::binary);
+  std::ifstream input((default_path / "CMakeCache.txt").string(), std::ios::binary);
   if(!input)
     return true;
   std::string line;

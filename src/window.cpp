@@ -11,6 +11,7 @@
 #include "filesystem.hpp"
 #include "grep.hpp"
 #include "info.hpp"
+#include "json.hpp"
 #include "menu.hpp"
 #include "notebook.hpp"
 #include "project.hpp"
@@ -253,7 +254,7 @@ void Window::configure() {
     if(scheme)
       style = scheme->get_style("def:note");
     else {
-      Terminal::get().print("\e[31mError\e[m: Could not find gtksourceview style: " + Config::get().source.style + '\n', true);
+      Terminal::get().print("\e[31mError\e[m: could not find gtksourceview style: " + Config::get().source.style + '\n', true);
     }
   }
   auto foreground_value = style && style->property_foreground_set() ? style->property_foreground().get_value() : get_style_context()->get_color().to_string();
@@ -385,7 +386,7 @@ void Window::set_menu_actions() {
         Terminal::get().print(" \e[32mcreated\e[m\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
   menu.add_action("file_new_project_cpp", []() {
@@ -442,7 +443,7 @@ void Window::set_menu_actions() {
         Terminal::get().print(" \e[32mcreated\e[m\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
   menu.add_action("file_new_project_rust", []() {
@@ -471,7 +472,7 @@ void Window::set_menu_actions() {
         Terminal::get().print(" \e[32mcreated\e[m\n");
       }
       else
-        Terminal::get().print("\e[31mError\e[m: Could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
+        Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
 
@@ -527,7 +528,7 @@ void Window::set_menu_actions() {
     if(auto view = Notebook::get().get_current_view()) {
       auto path = Dialog::save_file_as(view->file_path);
       if(!path.empty()) {
-        std::ofstream file(path, std::ofstream::binary);
+        std::ofstream file(path, std::ios::binary);
         if(file) {
           file << view->get_buffer()->get_text().raw();
           file.close();
@@ -2318,7 +2319,14 @@ void Window::save_session() {
     window_pt.put("height", height);
     root_pt.add_child("window", window_pt);
 
-    boost::property_tree::write_json((Config::get().home_juci_path / "last_session.json").string(), root_pt);
+    auto path = Config::get().home_juci_path / "last_session.json";
+    std::ofstream output(path.string(), std::ios::binary);
+    if(output) {
+      JSON::write(output, root_pt);
+      output << '\n';
+    }
+    else
+      Terminal::get().print("\e[31mError\e[m: could not write session file: " + filesystem::get_short_path(path).string() + "\n", true);
   }
   catch(...) {
   }

@@ -10,6 +10,7 @@ set(JUCI_SHARED_FILES
   filesystem.cpp
   git.cpp
   grep.cpp
+  json.cpp
   menu.cpp
   meson.cpp
   project_build.cpp
