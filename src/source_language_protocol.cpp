@@ -491,7 +491,7 @@ void LanguageProtocol::Client::write_response(size_t id, const std::string &resu
 
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
   LockGuard lock(read_write_mutex);
-  std::string content("{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\"" + (params.empty() ? "" : ",\"params\":{" + params + '}') + '}');
+  std::string content("{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\",\"params\":{" + params + "}}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << content << std::endl;
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
