@@ -2,10 +2,10 @@
 #include "clangmm.hpp"
 #include "config.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <algorithm>
-#include <boost/property_tree/json_parser.hpp>
 #include <regex>
 
 CompileCommands::FindSystemIncludePaths::FindSystemIncludePaths() {
@@ -55,14 +55,11 @@ std::vector<std::string> CompileCommands::Command::parameter_values(const std::s
 
 CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
   try {
-    boost::property_tree::ptree root_pt;
-    boost::property_tree::json_parser::read_json((build_path / "compile_commands.json").string(), root_pt);
-
-    auto commands_pt = root_pt.get_child("");
-    for(auto &command : commands_pt) {
-      boost::filesystem::path directory = command.second.get<std::string>("directory");
-      auto parameters_str = command.second.get<std::string>("command");
-      boost::filesystem::path file = command.second.get<std::string>("file");
+    JSON compile_commands(build_path / "compile_commands.json");
+    for(auto &command : compile_commands.array()) {
+      boost::filesystem::path directory = command.string("directory");
+      auto parameters_str = command.string("command");
+      boost::filesystem::path file = command.string("file");
 
       std::vector<std::string> parameters;
       bool backslash = false;
@@ -77,7 +74,7 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
           if(parameter[c] == '\\')
             parameter.replace(c, 2, std::string() + parameter[c + 1]);
         }
-        parameters.emplace_back(parameter);
+        parameters.emplace_back(std::move(parameter));
       };
       for(size_t c = 0; c < parameters_str.size(); ++c) {
         if(backslash)
@@ -108,7 +105,7 @@ CompileCommands::CompileCommands(const boost::filesystem::path &build_path) {
       if(parameter_start_pos != std::string::npos)
         add_parameter();
 
-      commands.emplace_back(Command{directory, parameters, filesystem::get_absolute_path(file, build_path)});
+      commands.emplace_back(Command{std::move(directory), std::move(parameters), filesystem::get_absolute_path(file, build_path)});
     }
   }
   catch(...) {

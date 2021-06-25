@@ -1,7 +1,7 @@
 #pragma once
 #include "dispatcher.hpp"
+#include "json.hpp"
 #include <boost/filesystem.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -125,7 +125,6 @@ public:
 
   void load();
 
-  std::string version;
   Menu menu;
   Theme theme;
   Terminal terminal;
@@ -140,9 +139,9 @@ private:
   /// Used to dispatch Terminal outputs after juCi++ GUI setup and configuration
   Dispatcher dispatcher;
 
-  void update(boost::property_tree::ptree &cfg);
-  void make_version_dependent_corrections(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, const std::string &version);
-  bool add_missing_nodes(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, std::string parent_path = "");
-  bool remove_deprecated_nodes(boost::property_tree::ptree &cfg, const boost::property_tree::ptree &default_cfg, std::string parent_path = "");
-  void read(const boost::property_tree::ptree &cfg);
+  void update(JSON &cfg);
+  void make_version_dependent_corrections(JSON &cfg, const JSON &default_cfg, const std::string &version);
+  void add_missing_nodes(JSON &cfg, const JSON &default_cfg);
+  void remove_deprecated_nodes(JSON &cfg, const JSON &default_cfg);
+  void read(const JSON &cfg);
 };

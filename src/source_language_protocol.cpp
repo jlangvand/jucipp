@@ -17,61 +17,53 @@
 #include <regex>
 #include <unordered_map>
 
-const std::vector<std::string> not_string_keys = {"line", "character", "severity", "tags", "isPreferred", "deprecated", "preselect", "insertTextFormat", "insertTextMode", "version"};
 const std::string type_coverage_message = "Un-type checked code. Consider adding type annotations.";
 
-LanguageProtocol::Offset::Offset(const boost::property_tree::ptree &pt) {
+LanguageProtocol::Position::Position(const JSON &position) {
   try {
-    line = pt.get<int>("line");
-    character = pt.get<int>("character");
+    line = position.integer("line");
+    character = position.integer("character");
   }
   catch(...) {
     // Workaround for buggy rls
-    line = std::min(pt.get<std::size_t>("line"), static_cast<std::size_t>(std::numeric_limits<int>::max()));
-    character = std::min(pt.get<std::size_t>("character"), static_cast<std::size_t>(std::numeric_limits<int>::max()));
+    line = std::min(position.integer("line"), std::numeric_limits<long long>::max());
+    character = std::min(position.integer("character"), std::numeric_limits<long long>::max());
   }
 }
-LanguageProtocol::Range::Range(const boost::property_tree::ptree &pt) : start(pt.get_child("start")), end(pt.get_child("end")) {}
+LanguageProtocol::Range::Range(const JSON &range) : start(range.object("start")), end(range.object("end")) {}
 
-LanguageProtocol::Location::Location(const boost::property_tree::ptree &pt, std::string file_) : range(pt.get_child("range")) {
-  if(file_.empty()) {
-    file = filesystem::get_path_from_uri(pt.get<std::string>("uri")).string();
+LanguageProtocol::Location::Location(const JSON &location, std::string file_) : file(file_.empty() ? filesystem::get_path_from_uri(location.string("uri")).string() : std::move(file_)), range(location.object("range")) {
+}
+
+LanguageProtocol::Documentation::Documentation(const boost::optional<JSON> &documentation) {
+  if(!documentation)
+    return;
+  if(auto child = documentation->object_optional()) {
+    value = child->string_or("value", "");
+    kind = child->string_or("kind", "");
   }
   else
-    file = std::move(file_);
+    value = documentation->string_or("");
 }
 
-LanguageProtocol::Documentation::Documentation(const boost::property_tree::ptree &pt) {
-  value = pt.get<std::string>("documentation", "");
-  if(value.empty()) {
-    if(auto documentation_pt = pt.get_child_optional("documentation")) {
-      value = documentation_pt->get<std::string>("value", "");
-      kind = documentation_pt->get<std::string>("kind", "");
-    }
-  }
-  if(value == "null") // Python erroneously returns "null" when a parameter is not documented
-    value.clear();
+LanguageProtocol::Diagnostic::RelatedInformation::RelatedInformation(const JSON &related_information) : message(related_information.string("message")), location(related_information.object("location")) {}
+
+LanguageProtocol::Diagnostic::Diagnostic(JSON &&diagnostic) : message(diagnostic.string("message")), range(diagnostic.object("range")), severity(diagnostic.integer_or("severity", 0)), code(diagnostic.string_or("code", "")) {
+  for(auto &related_information : diagnostic.array_or_empty("relatedInformation"))
+    related_informations.emplace_back(related_information);
+  object = std::make_shared<JSON>(JSON::make_owner(std::move(diagnostic)));
 }
 
-LanguageProtocol::Diagnostic::RelatedInformation::RelatedInformation(const boost::property_tree::ptree &pt) : message(pt.get<std::string>("message")), location(pt.get_child("location")) {}
+LanguageProtocol::TextEdit::TextEdit(const JSON &text_edit, std::string new_text_) : range(text_edit.object("range")), new_text(new_text_.empty() ? text_edit.string("newText") : std::move(new_text_)) {}
 
-LanguageProtocol::Diagnostic::Diagnostic(const boost::property_tree::ptree &pt) : message(pt.get<std::string>("message")), range(pt.get_child("range")), severity(pt.get<int>("severity", 0)), code(pt.get<std::string>("code", "")), ptree(pt) {
-  auto related_information_it = pt.get_child("relatedInformation", boost::property_tree::ptree());
-  for(auto it = related_information_it.begin(); it != related_information_it.end(); ++it)
-    related_informations.emplace_back(it->second);
-}
-
-LanguageProtocol::TextEdit::TextEdit(const boost::property_tree::ptree &pt, std::string new_text_) : range(pt.get_child("range")), new_text(new_text_.empty() ? pt.get<std::string>("newText") : std::move(new_text_)) {}
-
-LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const boost::property_tree::ptree &pt) : file(filesystem::get_path_from_uri(pt.get<std::string>("textDocument.uri", "")).string()) {
-  auto edits_it = pt.get_child("edits", boost::property_tree::ptree());
-  for(auto it = edits_it.begin(); it != edits_it.end(); ++it)
-    text_edits.emplace_back(it->second);
+LanguageProtocol::TextDocumentEdit::TextDocumentEdit(const JSON &text_document_edit) : file(filesystem::get_path_from_uri(text_document_edit.object("textDocument").string("uri")).string()) {
+  for(auto &text_edit : text_document_edit.array_or_empty("edits"))
+    text_edits.emplace_back(text_edit);
 }
 
 LanguageProtocol::TextDocumentEdit::TextDocumentEdit(std::string file, std::vector<TextEdit> text_edits) : file(std::move(file)), text_edits(std::move(text_edits)) {}
 
-LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const boost::property_tree::ptree &pt, boost::filesystem::path file_path) {
+LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const JSON &workspace_edit, boost::filesystem::path file_path) {
   boost::filesystem::path project_path;
   auto build = Project::Build::create(file_path);
   if(!build->project_path.empty())
@@ -79,23 +71,28 @@ LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const boost::property_tree::ptree
   else
     project_path = file_path.parent_path();
   try {
-    if(auto changes_pt = pt.get_child_optional("changes")) {
-      for(auto file_it = changes_pt->begin(); file_it != changes_pt->end(); ++file_it) {
-        auto file = filesystem::get_path_from_uri(file_it->first);
+    if(auto children = workspace_edit.children_optional("changes")) {
+      for(auto &child : *children) {
+        auto file = filesystem::get_path_from_uri(child.first);
         if(filesystem::file_in_path(file, project_path)) {
           std::vector<LanguageProtocol::TextEdit> text_edits;
-          for(auto edit_it = file_it->second.begin(); edit_it != file_it->second.end(); ++edit_it)
-            text_edits.emplace_back(edit_it->second);
+          for(auto &text_edit : child.second.array())
+            text_edits.emplace_back(text_edit);
           document_edits.emplace_back(file.string(), std::move(text_edits));
         }
       }
     }
-    else if(auto changes_pt = pt.get_child_optional("documentChanges")) {
-      for(auto change_it = changes_pt->begin(); change_it != changes_pt->end(); ++change_it) {
-        LanguageProtocol::TextDocumentEdit document_edit(change_it->second);
+    else if(auto children = workspace_edit.array_optional("documentChanges")) {
+      for(auto &child : *children) {
+        LanguageProtocol::TextDocumentEdit document_edit(child);
         if(filesystem::file_in_path(document_edit.file, project_path))
           document_edits.emplace_back(std::move(document_edit.file), std::move(document_edit.text_edits));
       }
+    }
+    else if(auto child = workspace_edit.object_optional("documentChanges")) {
+      LanguageProtocol::TextDocumentEdit document_edit(*child);
+      if(filesystem::file_in_path(document_edit.file, project_path))
+        document_edits.emplace_back(std::move(document_edit.file), std::move(document_edit.text_edits));
     }
   }
   catch(...) {
@@ -148,7 +145,7 @@ std::shared_ptr<LanguageProtocol::Client> LanguageProtocol::Client::get(const bo
 
 LanguageProtocol::Client::~Client() {
   std::promise<void> result_processed;
-  write_request(nullptr, "shutdown", "", [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request(nullptr, "shutdown", "", [this, &result_processed](JSON &&result, bool error) {
     if(!error)
       this->write_notification("exit");
     result_processed.set_value();
@@ -263,37 +260,37 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
   "checkOnSave": { "enable": true }
 },
 "trace": "off")",
-      [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      [this, &result_processed](JSON &&result, bool error) {
         if(!error) {
-          if(auto capabilities_pt = result.get_child_optional("capabilities")) {
-            try {
-              capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync"));
+          if(auto object = result.object_optional("capabilities")) {
+            if(auto child = object->child_optional("textDocumentSync")) {
+              if(auto integer = child->integer_optional())
+                capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(*integer);
+              else
+                capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(child->integer_or("change", 0));
             }
-            catch(...) {
-              capabilities.text_document_sync = static_cast<LanguageProtocol::Capabilities::TextDocumentSync>(capabilities_pt->get<int>("textDocumentSync.change", 0));
+            capabilities.hover = static_cast<bool>(object->child_optional("hoverProvider"));
+            if(auto child = object->child_optional("completionProvider")) {
+              capabilities.completion = true;
+              capabilities.completion_resolve = child->boolean_or("resolveProvider", false);
             }
-            capabilities.hover = capabilities_pt->get<bool>("hoverProvider", false);
-            capabilities.completion = static_cast<bool>(capabilities_pt->get_child_optional("completionProvider"));
-            capabilities.completion_resolve = capabilities_pt->get<bool>("completionProvider.resolveProvider", false);
-            capabilities.signature_help = static_cast<bool>(capabilities_pt->get_child_optional("signatureHelpProvider"));
-            capabilities.definition = capabilities_pt->get<bool>("definitionProvider", false);
-            capabilities.type_definition = capabilities_pt->get<bool>("typeDefinitionProvider", false);
-            capabilities.implementation = capabilities_pt->get<bool>("implementationProvider", false);
-            capabilities.references = capabilities_pt->get<bool>("referencesProvider", false);
-            capabilities.document_highlight = capabilities_pt->get<bool>("documentHighlightProvider", false);
-            capabilities.workspace_symbol = capabilities_pt->get<bool>("workspaceSymbolProvider", false);
-            capabilities.document_symbol = capabilities_pt->get<bool>("documentSymbolProvider", false);
-            capabilities.document_formatting = capabilities_pt->get<bool>("documentFormattingProvider", false);
-            capabilities.document_range_formatting = capabilities_pt->get<bool>("documentRangeFormattingProvider", false);
-            capabilities.rename = capabilities_pt->get<bool>("renameProvider", false);
-            if(!capabilities.rename)
-              capabilities.rename = capabilities_pt->get<bool>("renameProvider.prepareProvider", false);
-            capabilities.code_action = capabilities_pt->get<bool>("codeActionProvider", false);
-            if(!capabilities.code_action)
-              capabilities.code_action = static_cast<bool>(capabilities_pt->get_child_optional("codeActionProvider.codeActionKinds"));
-            capabilities.code_action_resolve = capabilities_pt->get<bool>("codeActionProvider.resolveProvider", false);
-            capabilities.execute_command = static_cast<bool>(capabilities_pt->get_child_optional("executeCommandProvider"));
-            capabilities.type_coverage = capabilities_pt->get<bool>("typeCoverageProvider", false);
+            capabilities.signature_help = static_cast<bool>(object->child_optional("signatureHelpProvider"));
+            capabilities.definition = static_cast<bool>(object->child_optional("definitionProvider"));
+            capabilities.type_definition = static_cast<bool>(object->child_optional("typeDefinitionProvider"));
+            capabilities.implementation = static_cast<bool>(object->child_optional("implementationProvider"));
+            capabilities.references = static_cast<bool>(object->child_optional("referencesProvider"));
+            capabilities.document_highlight = static_cast<bool>(object->child_optional("documentHighlightProvider"));
+            capabilities.workspace_symbol = static_cast<bool>(object->child_optional("workspaceSymbolProvider"));
+            capabilities.document_symbol = static_cast<bool>(object->child_optional("documentSymbolProvider"));
+            capabilities.document_formatting = static_cast<bool>(object->child_optional("documentFormattingProvider"));
+            capabilities.document_range_formatting = static_cast<bool>(object->child_optional("documentRangeFormattingProvider"));
+            capabilities.rename = static_cast<bool>(object->child_optional("renameProvider"));
+            if(auto child = object->child_optional("codeActionProvider")) {
+              capabilities.code_action = true;
+              capabilities.code_action_resolve = child->boolean_or("resolveProvider", false);
+            }
+            capabilities.execute_command = static_cast<bool>(object->child_optional("executeCommandProvider"));
+            capabilities.type_coverage = static_cast<bool>(object->child_optional("typeCoverageProvider"));
           }
 
           // See https://clangd.llvm.org/extensions.html#utf-8-offsets for documentation on offsetEncoding
@@ -323,7 +320,7 @@ void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
       auto function = std::move(it->second.second);
       it = handlers.erase(it);
       lock.unlock();
-      function(boost::property_tree::ptree(), true);
+      function({}, true);
       lock.lock();
     }
     else
@@ -368,53 +365,49 @@ void LanguageProtocol::Client::parse_server_message() {
 
       try {
         server_message_stream.seekg(server_message_content_pos, std::ios::beg);
-        boost::property_tree::ptree pt;
-        boost::property_tree::read_json(server_message_stream, pt);
+        JSON object(server_message_stream);
 
         if(Config::get().log.language_server) {
           std::cout << "language server: ";
-          JSON::write(std::cout, pt);
-          std::cout << '\n';
+          std::cout << std::setw(2) << object << '\n';
         }
 
-        auto message_id = pt.get_optional<size_t>("id");
+        auto message_id = object.integer_optional("id");
         {
           LockGuard lock(read_write_mutex);
-          if(auto result = pt.get_child_optional("result")) {
+          if(auto result = object.child_optional("result")) {
             if(message_id) {
               auto id_it = handlers.find(*message_id);
               if(id_it != handlers.end()) {
                 auto function = std::move(id_it->second.second);
                 handlers.erase(id_it);
                 lock.unlock();
-                function(*result, false);
+                function(JSON::make_owner(std::move(*result)), false);
                 lock.lock();
               }
             }
           }
-          else if(auto error = pt.get_child_optional("error")) {
-            if(!Config::get().log.language_server) {
-              JSON::write(std::cerr, pt);
-              std::cerr << '\n';
-            }
+          else if(auto error = object.child_optional("error")) {
+            if(!Config::get().log.language_server)
+              std::cerr << std::setw(2) << object << '\n';
             if(message_id) {
               auto id_it = handlers.find(*message_id);
               if(id_it != handlers.end()) {
                 auto function = std::move(id_it->second.second);
                 handlers.erase(id_it);
                 lock.unlock();
-                function(*error, true);
+                function(JSON::make_owner(std::move(*error)), true);
                 lock.lock();
               }
             }
           }
-          else if(auto method = pt.get_optional<std::string>("method")) {
-            if(auto params = pt.get_child_optional("params")) {
+          else if(auto method = object.string_optional("method")) {
+            if(auto params = object.object_optional("params")) {
               lock.unlock();
               if(message_id)
-                handle_server_request(*message_id, *method, *params);
+                handle_server_request(*message_id, *method, JSON::make_owner(std::move(*params)));
               else
-                handle_server_notification(*method, *params);
+                handle_server_notification(*method, JSON::make_owner(std::move(*params)));
               lock.lock();
             }
           }
@@ -438,7 +431,7 @@ void LanguageProtocol::Client::parse_server_message() {
   }
 }
 
-void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool error)> &&function) {
+void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(JSON &&result, bool error)> &&function) {
   LockGuard lock(read_write_mutex);
   if(function) {
     handlers.emplace(message_id, std::make_pair(view, std::move(function)));
@@ -460,7 +453,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
         auto function = std::move(id_it->second.second);
         handlers.erase(id_it);
         lock.unlock();
-        function(boost::property_tree::ptree(), true);
+        function({}, true);
         lock.lock();
       }
     });
@@ -475,7 +468,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
       auto function = std::move(id_it->second.second);
       handlers.erase(id_it);
       lock.unlock();
-      function(boost::property_tree::ptree(), true);
+      function({}, true);
       lock.lock();
     }
   }
@@ -497,15 +490,14 @@ void LanguageProtocol::Client::write_notification(const std::string &method, con
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
-void LanguageProtocol::Client::handle_server_notification(const std::string &method, const boost::property_tree::ptree &params) {
+void LanguageProtocol::Client::handle_server_notification(const std::string &method, JSON &&params) {
   if(method == "textDocument/publishDiagnostics") {
     std::vector<Diagnostic> diagnostics;
-    auto file = filesystem::get_path_from_uri(params.get<std::string>("uri", ""));
+    auto file = filesystem::get_path_from_uri(params.string_or("uri", ""));
     if(!file.empty()) {
-      auto diagnostics_pt = params.get_child("diagnostics", boost::property_tree::ptree());
-      for(auto it = diagnostics_pt.begin(); it != diagnostics_pt.end(); ++it) {
+      for(auto &child : params.array_or_empty("diagnostics")) {
         try {
-          diagnostics.emplace_back(it->second);
+          diagnostics.emplace_back(std::move(child));
         }
         catch(...) {
         }
@@ -521,18 +513,18 @@ void LanguageProtocol::Client::handle_server_notification(const std::string &met
   }
 }
 
-void LanguageProtocol::Client::handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params) {
+void LanguageProtocol::Client::handle_server_request(size_t id, const std::string &method, JSON &&params) {
   if(method == "workspace/applyEdit") {
     std::promise<void> result_processed;
     bool applied = true;
-    dispatcher->post([&result_processed, &applied, params] {
+    dispatcher->post([&result_processed, &applied, params = std::make_shared<JSON>(std::move(params))] {
       ScopeGuard guard({[&result_processed] {
         result_processed.set_value();
       }});
       if(auto current_view = dynamic_cast<Source::LanguageProtocolView *>(Notebook::get().get_current_view())) {
         LanguageProtocol::WorkspaceEdit workspace_edit;
         try {
-          workspace_edit = LanguageProtocol::WorkspaceEdit(params.get_child("edit"), current_view->file_path);
+          workspace_edit = LanguageProtocol::WorkspaceEdit(params->object("edit"), current_view->file_path);
         }
         catch(...) {
           applied = false;
@@ -738,7 +730,7 @@ std::string Source::LanguageProtocolView::to_string(const std::vector<std::pair<
   return result;
 }
 
-void Source::LanguageProtocolView::write_request(const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function) {
+void Source::LanguageProtocolView::write_request(const std::string &method, const std::string &params, std::function<void(JSON &&result, bool)> &&function) {
   client->write_request(this, method, "\"textDocument\":{\"uri\":\"" + uri_escaped + "\"}" + (params.empty() ? "" : "," + params), std::move(function));
 }
 
@@ -827,11 +819,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/formatting";
 
-      write_request(method, to_string(params), [&text_edits, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, to_string(params), [&text_edits, &result_processed](JSON &&result, bool error) {
         if(!error) {
-          for(auto it = result.begin(); it != result.end(); ++it) {
+          for(auto &edit : result.array_or_empty()) {
             try {
-              text_edits.emplace_back(it->second);
+              text_edits.emplace_back(edit);
             }
             catch(...) {
             }
@@ -930,11 +922,11 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       else
         method = "textDocument/documentHighlight";
 
-      write_request(method, to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &locations, &result_processed](const boost::property_tree::ptree &result, bool error) {
+      write_request(method, to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &locations, &result_processed](JSON &&result, bool error) {
         if(!error) {
           try {
-            for(auto it = result.begin(); it != result.end(); ++it)
-              locations.emplace(it->second, !capabilities.references ? file_path.string() : std::string());
+            for(auto &location : result.array_or_empty())
+              locations.emplace(location, !capabilities.references ? file_path.string() : std::string());
           }
           catch(...) {
             locations.clear();
@@ -1057,7 +1049,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       LanguageProtocol::WorkspaceEdit workspace_edit;
       std::promise<void> result_processed;
       if(capabilities.rename) {
-        write_request("textDocument/rename", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}), [this, &workspace_edit, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/rename", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"newName", '"' + text + '"'}}), [this, &workspace_edit, &result_processed](JSON &&result, bool error) {
           if(!error) {
             workspace_edit = LanguageProtocol::WorkspaceEdit(result, file_path);
           }
@@ -1065,12 +1057,12 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         });
       }
       else {
-        write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &workspace_edit, &text, &result_processed](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, &workspace_edit, &text, &result_processed](JSON &&result, bool error) {
           if(!error) {
             try {
               std::vector<LanguageProtocol::TextEdit> edits;
-              for(auto it = result.begin(); it != result.end(); ++it)
-                edits.emplace_back(it->second, text);
+              for(auto &edit : result.array_or_empty())
+                edits.emplace_back(edit, text);
               workspace_edit.document_edits.emplace_back(file_path.string(), std::move(edits));
             }
             catch(...) {
@@ -1190,33 +1182,32 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       std::vector<std::pair<Offset, std::string>> methods;
 
       std::promise<void> result_processed;
-      write_request("textDocument/documentSymbol", {}, [&result_processed, &methods](const boost::property_tree::ptree &result, bool error) {
+      write_request("textDocument/documentSymbol", {}, [&result_processed, &methods](JSON &&result, bool error) {
         if(!error) {
-          std::function<void(const boost::property_tree::ptree &ptee, const std::string &container)> parse_result = [&methods, &parse_result](const boost::property_tree::ptree &pt, const std::string &container) {
-            for(auto it = pt.begin(); it != pt.end(); ++it) {
+          std::function<void(const JSON &symbols, const std::string &container)> parse_result = [&methods, &parse_result](const JSON &symbols, const std::string &container) {
+            for(auto &symbol : symbols.array_or_empty()) {
               try {
-                auto kind = it->second.get<int>("kind");
+                auto name = symbol.string("name");
+                auto kind = symbol.integer("kind");
                 if(kind == 6 || kind == 9 || kind == 12) {
                   std::unique_ptr<LanguageProtocol::Range> range;
                   std::string prefix;
-                  if(auto location_pt = it->second.get_child_optional("location")) {
-                    LanguageProtocol::Location location(*location_pt);
+                  if(auto location_object = symbol.object_optional("location")) {
+                    LanguageProtocol::Location location(*location_object);
                     range = std::make_unique<LanguageProtocol::Range>(location.range);
-                    std::string container = it->second.get<std::string>("containerName", "");
-                    if(container == "null")
-                      container.clear();
+                    std::string container = symbol.string_or("containerName", "");
                     if(!container.empty())
                       prefix = container;
                   }
                   else {
-                    range = std::make_unique<LanguageProtocol::Range>(it->second.get_child("range"));
+                    range = std::make_unique<LanguageProtocol::Range>(symbol.object("range"));
                     if(!container.empty())
                       prefix = container;
                   }
-                  methods.emplace_back(Offset(range->start.line, range->start.character), (!prefix.empty() ? Glib::Markup::escape_text(prefix) + ':' : "") + std::to_string(range->start.line + 1) + ": " + "<b>" + Glib::Markup::escape_text(it->second.get<std::string>("name")) + "</b>");
+                  methods.emplace_back(Offset(range->start.line, range->start.character), (!prefix.empty() ? Glib::Markup::escape_text(prefix) + ':' : "") + std::to_string(range->start.line + 1) + ": " + "<b>" + Glib::Markup::escape_text(name) + "</b>");
                 }
-                if(auto children = it->second.get_child_optional("children"))
-                  parse_result(*children, (!container.empty() ? container + "::" : "") + it->second.get<std::string>("name"));
+                if(auto children = symbol.child_optional("children"))
+                  parse_result(*children, (!container.empty() ? container + "::" : "") + name);
               }
               catch(...) {
               }
@@ -1252,13 +1243,13 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
     std::promise<void> result_processed;
     Gtk::TextIter start, end;
     get_buffer()->get_selection_bounds(start, end);
-    std::vector<std::pair<std::string, boost::property_tree::ptree>> results;
-    write_request("textDocument/codeAction", to_string({make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)}), {"context", "{\"diagnostics\":[]}"}}), [&result_processed, &results](const boost::property_tree::ptree &result, bool error) {
+    std::vector<std::pair<std::string, std::shared_ptr<JSON>>> results;
+    write_request("textDocument/codeAction", to_string({make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)}), {"context", "{\"diagnostics\":[]}"}}), [&result_processed, &results](JSON &&result, bool error) {
       if(!error) {
-        for(auto it = result.begin(); it != result.end(); ++it) {
-          auto title = it->second.get<std::string>("title", "");
+        for(auto &code_action : result.array_or_empty()) {
+          auto title = code_action.string_or("title", "");
           if(!title.empty())
-            results.emplace_back(title, it->second);
+            results.emplace_back(title, std::make_shared<JSON>(JSON::make_owner(std::move(code_action))));
         }
       }
       result_processed.set_value();
@@ -1277,29 +1268,30 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       if(index >= results.size())
         return;
 
-      auto edit_pt = results[index].second.get_child_optional("edit");
-      if(capabilities.code_action_resolve && !edit_pt) {
+      auto edit = results[index].second->object_optional("edit");
+      if(capabilities.code_action_resolve && !edit) {
         std::promise<void> result_processed;
         std::stringstream ss;
-        for(auto it = results[index].second.begin(); it != results[index].second.end(); ++it) {
-          ss << (it != results[index].second.begin() ? ",\"" : "\"") << JSON::escape_string(it->first) << "\":";
-          JSON::write(ss, it->second, false, not_string_keys);
+        bool first = true;
+        for(auto &child : results[index].second->children_or_empty()) {
+          ss << (!first ? ",\"" : "\"") << JSON::escape_string(child.first) << "\":" << child.second;
+          first = false;
         }
-        write_request("codeAction/resolve", ss.str(), [&result_processed, &edit_pt](const boost::property_tree::ptree &result, bool error) {
+        write_request("codeAction/resolve", ss.str(), [&result_processed, &edit](JSON &&result, bool error) {
           if(!error) {
-            auto child = result.get_child_optional("edit");
-            if(child)
-              edit_pt = *child; // Make copy, since result will be destroyed at end of callback
+            auto object = result.object_optional("edit");
+            if(object)
+              edit = JSON::make_owner(std::move(*object));
           }
           result_processed.set_value();
         });
         result_processed.get_future().get();
       }
 
-      if(edit_pt) {
+      if(edit) {
         LanguageProtocol::WorkspaceEdit workspace_edit;
         try {
-          workspace_edit = LanguageProtocol::WorkspaceEdit(*edit_pt, file_path);
+          workspace_edit = LanguageProtocol::WorkspaceEdit(*edit, file_path);
         }
         catch(...) {
           return;
@@ -1367,14 +1359,15 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       }
 
       if(capabilities.execute_command) {
-        auto command_pt = results[index].second.get_child_optional("command");
-        if(command_pt) {
+        auto command = results[index].second->object_optional("command");
+        if(command) {
           std::stringstream ss;
-          for(auto it = command_pt->begin(); it != command_pt->end(); ++it) {
-            ss << (it != command_pt->begin() ? ",\"" : "\"") << JSON::escape_string(it->first) << "\":";
-            JSON::write(ss, it->second, false, not_string_keys);
+          bool first = true;
+          for(auto &child : command->children_or_empty()) {
+            ss << (!first ? ",\"" : "\"") << JSON::escape_string(child.first) << "\":" << child.second;
+            first = false;
           }
-          write_request("workspace/executeCommand", ss.str(), [](const boost::property_tree::ptree &result, bool error) {
+          write_request("workspace/executeCommand", ss.str(), [](JSON &&result, bool error) {
           });
         }
       }
@@ -1637,19 +1630,17 @@ void Source::LanguageProtocolView::setup_autocomplete() {
           }
           bool using_named_parameters = named_parameter_symbol && !(current_parameter_position > 0 && used_named_parameters.empty());
 
-          write_request("textDocument/signatureHelp", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](const boost::property_tree::ptree &result, bool error) {
+          write_request("textDocument/signatureHelp", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed, current_parameter_position, using_named_parameters, used_named_parameters = std::move(used_named_parameters)](JSON &&result, bool error) {
             if(!error) {
-              auto signatures = result.get_child("signatures", boost::property_tree::ptree());
-              for(auto signature_it = signatures.begin(); signature_it != signatures.end(); ++signature_it) {
-                auto parameters = signature_it->second.get_child("parameters", boost::property_tree::ptree());
+              for(auto &signature : result.array_or_empty("signatures")) {
                 unsigned parameter_position = 0;
-                for(auto parameter_it = parameters.begin(); parameter_it != parameters.end(); ++parameter_it) {
+                for(auto &parameter : signature.array_or_empty("parameters")) {
                   if(parameter_position == current_parameter_position || using_named_parameters) {
-                    auto label = parameter_it->second.get<std::string>("label", "");
+                    auto label = parameter.string_or("label", "");
                     auto insert = label;
                     if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
                       autocomplete->rows.emplace_back(std::move(label));
-                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, LanguageProtocol::Documentation(parameter_it->second), {}, {}});
+                      autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, LanguageProtocol::Documentation(parameter.child_optional("documentation")), {}, {}});
                     }
                   }
                   parameter_position++;
@@ -1673,56 +1664,50 @@ void Source::LanguageProtocolView::setup_autocomplete() {
       }
       else {
         dispatcher.post([this, line, line_index, &result_processed] {
-          write_request("textDocument/completion", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed](const boost::property_tree::ptree &result, bool error) {
+          write_request("textDocument/completion", to_string({make_position(line, get_line_pos(line, line_index))}), [this, &result_processed](JSON &&result, bool error) {
             if(!error) {
-              bool is_incomplete = result.get<bool>("isIncomplete", false);
-              boost::property_tree::ptree::const_iterator begin, end;
-              if(auto items = result.get_child_optional("items")) {
-                begin = items->begin();
-                end = items->end();
-              }
-              else {
-                begin = result.begin();
-                end = result.end();
-              }
+              bool is_incomplete = result.boolean_or("isIncomplete", false);
+              auto items = result.array_or_empty();
+              if(items.empty())
+                items = result.array_or_empty("items");
               std::string prefix;
               {
                 LockGuard lock(autocomplete->prefix_mutex);
                 prefix = autocomplete->prefix;
               }
-              for(auto it = begin; it != end; ++it) {
-                auto label = it->second.get<std::string>("label", "");
+              for(auto &item : items) {
+                auto label = item.string_or("label", "");
                 if(starts_with(label, prefix)) {
-                  auto detail = it->second.get<std::string>("detail", "");
-                  LanguageProtocol::Documentation documentation(it->second);
-
-                  boost::property_tree::ptree ptree;
-                  if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js)) // Workaround for typescript-language-server (is_js)
-                    ptree = it->second;
+                  auto detail = item.string_or("detail", "");
+                  LanguageProtocol::Documentation documentation(item.child_optional("documentation"));
 
                   std::vector<LanguageProtocol::TextEdit> additional_text_edits;
-                  auto additional_text_edits_pt = it->second.get_child_optional("additionalTextEdits");
-                  if(additional_text_edits_pt) {
-                    try {
-                      for(auto text_edit_it = additional_text_edits_pt->begin(); text_edit_it != additional_text_edits_pt->end(); ++text_edit_it)
-                        additional_text_edits.emplace_back(text_edit_it->second);
-                    }
-                    catch(...) {
-                      additional_text_edits.clear();
-                    }
+                  try {
+                    for(auto &text_edit : item.array_or_empty("additionalTextEdits"))
+                      additional_text_edits.emplace_back(text_edit);
+                  }
+                  catch(...) {
+                    additional_text_edits.clear();
                   }
 
-                  auto insert = it->second.get<std::string>("insertText", "");
-                  if(insert.empty())
-                    insert = it->second.get<std::string>("textEdit.newText", "");
+                  auto insert = item.string_or("insertText", "");
+                  if(insert.empty()) {
+                    if(auto text_edit = item.object_optional("textEdit"))
+                      insert = text_edit->string_or("newText", "");
+                  }
                   if(insert.empty())
                     insert = label;
                   if(!insert.empty()) {
-                    auto kind = it->second.get<int>("kind", 0);
+                    auto kind = item.integer_or("kind", 0);
                     if(kind >= 2 && kind <= 4 && insert.find('(') == std::string::npos) // If kind is method, function or constructor, but parentheses are missing
                       insert += "(${1:})";
+
+                    std::shared_ptr<JSON> item_object;
+                    if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js)) // Workaround for typescript-language-server (is_js)
+                      item_object = std::make_shared<JSON>(JSON::make_owner(std::move(item)));
+
                     autocomplete->rows.emplace_back(std::move(label));
-                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(ptree), std::move(additional_text_edits)});
+                    autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), std::move(detail), std::move(documentation), std::move(item_object), std::move(additional_text_edits)});
                   }
                 }
               }
@@ -1754,6 +1739,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
   autocomplete->on_hide = [this] {
     autocomplete_rows.clear();
+    ++set_tooltip_count;
   };
 
   autocomplete->on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
@@ -1819,61 +1805,81 @@ void Source::LanguageProtocolView::setup_autocomplete() {
   };
 
   autocomplete->set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
-    auto autocomplete = autocomplete_rows[index];
-    if(capabilities.completion_resolve && autocomplete.detail.empty() && autocomplete.documentation.value.empty() && !autocomplete.ptree.empty()) {
-      std::stringstream ss;
-      for(auto it = autocomplete.ptree.begin(); it != autocomplete.ptree.end(); ++it) {
-        ss << (it != autocomplete.ptree.begin() ? ",\"" : "\"") << JSON::escape_string(it->first) << "\":";
-        JSON::write(ss, it->second, false, not_string_keys);
-      }
-      std::promise<void> result_processed;
-      write_request("completionItem/resolve", ss.str(), [&result_processed, &autocomplete](const boost::property_tree::ptree &result, bool error) {
-        if(!error) {
-          autocomplete.detail = result.get<std::string>("detail", "");
-          autocomplete.documentation = LanguageProtocol::Documentation(result);
-        }
-        result_processed.set_value();
-      });
-      result_processed.get_future().get();
-    }
-    if(autocomplete.detail.empty() && autocomplete.documentation.value.empty())
-      return nullptr;
+    size_t last_count = ++set_tooltip_count;
+    auto &autocomplete_row = autocomplete_rows[index];
 
-    return [this, autocomplete = std::move(autocomplete)](Tooltip &tooltip) mutable {
-      if(language_id == "python") // Python might support markdown in the future
-        tooltip.insert_docstring(autocomplete.documentation.value);
+    const static auto insert_documentation = [](Source::LanguageProtocolView *view, Tooltip &tooltip, const std::string &detail, const LanguageProtocol::Documentation &documentation) {
+      if(view->language_id == "python") // Python might support markdown in the future
+        tooltip.insert_docstring(documentation.value);
       else {
-        if(!autocomplete.detail.empty()) {
-          tooltip.insert_code(autocomplete.detail, language);
+        if(!detail.empty()) {
+          tooltip.insert_code(detail, view->language);
           tooltip.remove_trailing_newlines();
         }
-        if(!autocomplete.documentation.value.empty()) {
+        if(!documentation.value.empty()) {
           if(tooltip.buffer->size() > 0)
             tooltip.buffer->insert_at_cursor("\n\n");
-          if(autocomplete.documentation.kind == "plaintext" || autocomplete.documentation.kind.empty())
-            tooltip.insert_with_links_tagged(autocomplete.documentation.value);
-          else if(autocomplete.documentation.kind == "markdown")
-            tooltip.insert_markdown(autocomplete.documentation.value);
+          if(documentation.kind == "plaintext" || documentation.kind.empty())
+            tooltip.insert_with_links_tagged(documentation.value);
+          else if(documentation.kind == "markdown")
+            tooltip.insert_markdown(documentation.value);
           else
-            tooltip.insert_code(autocomplete.documentation.value, autocomplete.documentation.kind);
+            tooltip.insert_code(documentation.value, documentation.kind);
         }
       }
+    };
+
+    if(capabilities.completion_resolve && autocomplete_row.detail.empty() && autocomplete_row.documentation.value.empty() && autocomplete_row.item_object) {
+      std::stringstream ss;
+      bool first = true;
+      for(auto &child : autocomplete_row.item_object->children_or_empty()) {
+        ss << (!first ? ",\"" : "\"") << JSON::escape_string(child.first) << "\":" << child.second;
+        first = false;
+      }
+      write_request("completionItem/resolve", ss.str(), [this, last_count](JSON &&result, bool error) {
+        if(!error) {
+          if(last_count != set_tooltip_count)
+            return;
+          auto detail = result.string_or("detail", "");
+          auto documentation = LanguageProtocol::Documentation(result.child_optional("documentation"));
+          if(detail.empty() && documentation.value.empty())
+            return;
+          dispatcher.post([this, last_count, detail = std::move(detail), documentation = std::move(documentation)] {
+            if(last_count != set_tooltip_count)
+              return;
+            autocomplete->tooltips.clear();
+            auto iter = CompletionDialog::get()->start_mark->get_iter();
+            autocomplete->tooltips.emplace_back(this, iter, iter, [this, detail = std::move(detail), documentation = std::move(documentation)](Tooltip &tooltip) {
+              insert_documentation(this, tooltip, detail, documentation);
+            });
+            autocomplete->tooltips.show(true);
+          });
+        }
+      });
+      return nullptr;
+    }
+    if(autocomplete_row.detail.empty() && autocomplete_row.documentation.value.empty())
+      return nullptr;
+
+    return [this, &autocomplete_row](Tooltip &tooltip) mutable {
+      insert_documentation(this, tooltip, autocomplete_row.detail, autocomplete_row.documentation);
     };
   };
 }
 
 void Source::LanguageProtocolView::update_diagnostics_async(std::vector<LanguageProtocol::Diagnostic> &&diagnostics) {
-  update_diagnostics_async_count++;
-  size_t last_count = update_diagnostics_async_count;
+  size_t last_count = ++update_diagnostics_async_count;
   if(capabilities.code_action && !diagnostics.empty()) {
     dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
       if(last_count != update_diagnostics_async_count)
         return;
-      std::stringstream diagnostics_ss;
-      for(auto it = diagnostics.begin(); it != diagnostics.end(); ++it) {
-        if(it != diagnostics.begin())
-          diagnostics_ss << ",";
-        JSON::write(diagnostics_ss, it->ptree, false, not_string_keys);
+      std::stringstream ss;
+      bool first = true;
+      for(auto &diagnostic : diagnostics) {
+        if(!first)
+          ss << ',';
+        ss << *diagnostic.object;
+        first = false;
       }
       std::pair<std::string, std::string> range;
       if(diagnostics.size() == 1) // Use diagnostic range if only one diagnostic, otherwise use whole buffer
@@ -1883,31 +1889,30 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         auto end = get_buffer()->end();
         range = make_range({start.get_line(), get_line_pos(start)}, {end.get_line(), get_line_pos(end)});
       }
-      std::vector<std::pair<std::string, std::string>> params = {range, {"context", '{' + to_string({{"diagnostics", '[' + diagnostics_ss.str() + ']'}, {"only", "[\"quickfix\"]"}}) + '}'}};
+      std::vector<std::pair<std::string, std::string>> params = {range, {"context", '{' + to_string({{"diagnostics", '[' + ss.str() + ']'}, {"only", "[\"quickfix\"]"}}) + '}'}};
       thread_pool.push([this, diagnostics = std::move(diagnostics), params = std::move(params), last_count]() mutable {
         if(last_count != update_diagnostics_async_count)
           return;
         std::promise<void> result_processed;
-        write_request("textDocument/codeAction", to_string(params), [this, &result_processed, &diagnostics, last_count](const boost::property_tree::ptree &result, bool error) {
+        write_request("textDocument/codeAction", to_string(params), [this, &result_processed, &diagnostics, last_count](JSON &&result, bool error) {
           if(!error && last_count == update_diagnostics_async_count) {
             try {
-              for(auto it = result.begin(); it != result.end(); ++it) {
-                auto kind = it->second.get<std::string>("kind", "");
+              for(auto &code_action : result.array_or_empty()) {
+                auto kind = code_action.string_or("kind", "");
                 if(kind == "quickfix" || kind.empty()) { // Workaround for typescript-language-server (kind.empty())
-                  auto title = it->second.get<std::string>("title");
+                  auto title = code_action.string("title");
                   std::vector<LanguageProtocol::Diagnostic> quickfix_diagnostics;
-                  if(auto diagnostics_pt = it->second.get_child_optional("diagnostics")) {
-                    for(auto it = diagnostics_pt->begin(); it != diagnostics_pt->end(); ++it)
-                      quickfix_diagnostics.emplace_back(it->second);
+                  for(auto &diagnostic : code_action.array_or_empty("diagnostics"))
+                    quickfix_diagnostics.emplace_back(std::move(diagnostic));
+                  auto edit = code_action.object_optional("edit");
+                  if(!edit) {
+                    if(auto arguments = code_action.array_optional("arguments")) {
+                      if(!arguments->empty())
+                        edit = std::move((*arguments)[0]);
+                    }
                   }
-                  auto edit_pt = it->second.get_child_optional("edit");
-                  if(!edit_pt) {
-                    auto arguments = it->second.get_child_optional("arguments"); // Workaround for typescript-language-server (arguments)
-                    if(arguments && arguments->begin() != arguments->end())
-                      edit_pt = arguments->begin()->second;
-                  }
-                  if(edit_pt) {
-                    LanguageProtocol::WorkspaceEdit workspace_edit(*edit_pt, file_path);
+                  if(edit) {
+                    LanguageProtocol::WorkspaceEdit workspace_edit(*edit, file_path);
                     for(auto &document_edit : workspace_edit.document_edits) {
                       for(auto &text_edit : document_edit.text_edits) {
                         if(!quickfix_diagnostics.empty()) {
@@ -1916,8 +1921,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                               if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
                                 auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                                 pair.first->second.emplace(
-                                    std::move(text_edit.new_text),
-                                    std::move(document_edit.file),
+                                    text_edit.new_text,
+                                    document_edit.file,
                                     std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
                                                                    Offset(text_edit.range.end.line, text_edit.range.end.character)));
                                 break;
@@ -1930,8 +1935,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                             if(text_edit.range.start.line == diagnostic.range.start.line) {
                               auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                               pair.first->second.emplace(
-                                  std::move(text_edit.new_text),
-                                  std::move(document_edit.file),
+                                  text_edit.new_text,
+                                  document_edit.file,
                                   std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
                                                                  Offset(text_edit.range.end.line, text_edit.range.end.character)));
                               break;
@@ -1952,7 +1957,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
         result_processed.get_future().get();
         dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
           if(last_count == update_diagnostics_async_count) {
-            last_diagnostics = diagnostics;
+            if(capabilities.type_coverage)
+              last_diagnostics = diagnostics;
             update_diagnostics(std::move(diagnostics));
           }
         });
@@ -1962,7 +1968,8 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
   else {
     dispatcher.post([this, diagnostics = std::move(diagnostics), last_count]() mutable {
       if(last_count == update_diagnostics_async_count) {
-        last_diagnostics = diagnostics;
+        if(capabilities.type_coverage)
+          last_diagnostics = diagnostics;
         update_diagnostics(std::move(diagnostics));
       }
     });
@@ -2071,7 +2078,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/hover", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, offset, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/hover", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, offset, current_request](JSON &&result, bool error) {
     if(!error) {
       // hover result structure vary significantly from the different language servers
       struct Content {
@@ -2079,39 +2086,39 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
         std::string kind;
       };
       std::list<Content> contents;
-      auto contents_pt = result.get_child_optional("contents");
+      auto contents_pt = result.child_optional("contents");
       if(!contents_pt)
         return;
-      auto value = contents_pt->get_value<std::string>("");
-      if(!value.empty())
-        contents.emplace_back(Content{value, "markdown"});
-      else {
-        auto value_pt = contents_pt->get_optional<std::string>("value");
-        if(value_pt) {
-          auto kind = contents_pt->get<std::string>("kind", "");
+      if(auto string = contents_pt->string_optional())
+        contents.emplace_back(Content{std::move(*string), "markdown"});
+      else if(auto object = contents_pt->object_optional()) {
+        auto value = object->string_or("value", "");
+        if(!value.empty()) {
+          auto kind = object->string_or("kind", "");
           if(kind.empty())
-            kind = contents_pt->get<std::string>("language", "");
-          contents.emplace_back(Content{*value_pt, kind});
+            kind = object->string_or("language", "");
+          contents.emplace_front(Content{std::move(value), std::move(kind)});
         }
-        else {
-          bool first_value = true;
-          for(auto it = contents_pt->begin(); it != contents_pt->end(); ++it) {
-            auto value = it->second.get<std::string>("value", "");
+      }
+      else if(auto array = contents_pt->array_optional()) {
+        bool first_value_in_object = true;
+        for(auto &object_or_string : *array) {
+          if(auto object = object_or_string.object_optional()) {
+            auto value = object_or_string.string_or("value", "");
             if(!value.empty()) {
-              auto kind = it->second.get<std::string>("kind", "");
+              auto kind = object_or_string.string_or("kind", "");
               if(kind.empty())
-                kind = it->second.get<std::string>("language", "");
-              if(first_value) // Place first value, which most likely is type information, to front (workaround for flow-bin's language server)
-                contents.emplace_front(Content{value, kind});
+                kind = object_or_string.string_or("language", "");
+              if(first_value_in_object) // Place first value, which most likely is type information, to front (workaround for flow-bin's language server)
+                contents.emplace_front(Content{std::move(value), std::move(kind)});
               else
-                contents.emplace_back(Content{value, kind});
-              first_value = false;
+                contents.emplace_back(Content{std::move(value), std::move(kind)});
+              first_value_in_object = false;
             }
-            else {
-              value = it->second.get_value<std::string>("");
-              if(!value.empty())
-                contents.emplace_back(Content{value, "markdown"});
-            }
+          }
+          else if(auto string = object_or_string.string_optional()) {
+            if(!string->empty())
+              contents.emplace_back(Content{std::move(*string), "markdown"});
           }
         }
       }
@@ -2221,13 +2228,12 @@ void Source::LanguageProtocolView::apply_similar_symbol_tag() {
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, current_request](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/documentHighlight", to_string({make_position(iter.get_line(), get_line_pos(iter)), {"context", "{\"includeDeclaration\":true}"}}), [this, current_request](JSON &&result, bool error) {
     if(!error) {
       std::vector<LanguageProtocol::Range> ranges;
-      for(auto it = result.begin(); it != result.end(); ++it) {
+      for(auto &location : result.array_or_empty()) {
         try {
-          if(capabilities.document_highlight || it->second.get<std::string>("uri") == uri)
-            ranges.emplace_back(it->second.get_child("range"));
+          ranges.emplace_back(location.object("range"));
         }
         catch(...) {
         }
@@ -2250,15 +2256,17 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
   static int request_count = 0;
   request_count++;
   auto current_request = request_count;
-  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, current_request, line = iter.get_line(), line_offset = iter.get_line_offset()](const boost::property_tree::ptree &result, bool error) {
-    if(!error && !result.empty()) {
-      dispatcher.post([this, current_request, line, line_offset] {
-        if(current_request != request_count || !clickable_tag_applied)
-          return;
-        get_buffer()->remove_tag(clickable_tag, get_buffer()->begin(), get_buffer()->end());
-        auto range = get_token_iters(get_iter_at_line_offset(line, line_offset));
-        get_buffer()->apply_tag(clickable_tag, range.first, range.second);
-      });
+  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [this, current_request, line = iter.get_line(), line_offset = iter.get_line_offset()](JSON &&result, bool error) {
+    if(!error) {
+      if(result.array_optional() || result.object_optional()) {
+        dispatcher.post([this, current_request, line, line_offset] {
+          if(current_request != request_count || !clickable_tag_applied)
+            return;
+          get_buffer()->remove_tag(clickable_tag, get_buffer()->begin(), get_buffer()->end());
+          auto range = get_token_iters(get_iter_at_line_offset(line, line_offset));
+          get_buffer()->apply_tag(clickable_tag, range.first, range.second);
+        });
+      }
     }
   });
 }
@@ -2266,11 +2274,16 @@ void Source::LanguageProtocolView::apply_clickable_tag(const Gtk::TextIter &iter
 Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/definition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](JSON &&result, bool error) {
     if(!error) {
-      for(auto it = result.begin(); it != result.end(); ++it) {
+      auto locations = result.array_or_empty();
+      if(locations.empty()) {
+        if(auto object = result.object_optional())
+          locations.emplace_back(std::move(*object));
+      }
+      for(auto &location_object : locations) {
         try {
-          LanguageProtocol::Location location(it->second);
+          LanguageProtocol::Location location(location_object);
           offset->file_path = std::move(location.file);
           offset->line = location.range.start.line;
           offset->index = location.range.start.character;
@@ -2289,11 +2302,16 @@ Source::Offset Source::LanguageProtocolView::get_declaration(const Gtk::TextIter
 Source::Offset Source::LanguageProtocolView::get_type_declaration(const Gtk::TextIter &iter) {
   auto offset = std::make_shared<Offset>();
   std::promise<void> result_processed;
-  write_request("textDocument/typeDefinition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/typeDefinition", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offset, &result_processed](JSON &&result, bool error) {
     if(!error) {
-      for(auto it = result.begin(); it != result.end(); ++it) {
+      auto locations = result.array_or_empty();
+      if(locations.empty()) {
+        if(auto object = result.object_optional())
+          locations.emplace_back(std::move(*object));
+      }
+      for(auto &location_object : locations) {
         try {
-          LanguageProtocol::Location location(it->second);
+          LanguageProtocol::Location location(location_object);
           offset->file_path = std::move(location.file);
           offset->line = location.range.start.line;
           offset->index = location.range.start.character;
@@ -2312,11 +2330,16 @@ Source::Offset Source::LanguageProtocolView::get_type_declaration(const Gtk::Tex
 std::vector<Source::Offset> Source::LanguageProtocolView::get_implementations(const Gtk::TextIter &iter) {
   auto offsets = std::make_shared<std::vector<Offset>>();
   std::promise<void> result_processed;
-  write_request("textDocument/implementation", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offsets, &result_processed](const boost::property_tree::ptree &result, bool error) {
+  write_request("textDocument/implementation", to_string({make_position(iter.get_line(), get_line_pos(iter))}), [offsets, &result_processed](JSON &&result, bool error) {
     if(!error) {
-      for(auto it = result.begin(); it != result.end(); ++it) {
+      auto locations = result.array_or_empty();
+      if(locations.empty()) {
+        if(auto object = result.object_optional())
+          locations.emplace_back(std::move(*object));
+      }
+      for(auto &location_object : locations) {
         try {
-          LanguageProtocol::Location location(it->second);
+          LanguageProtocol::Location location(location_object);
           offsets->emplace_back(location.range.start.line, location.range.start.character, location.file);
         }
         catch(...) {
@@ -2337,7 +2360,7 @@ boost::optional<char> Source::LanguageProtocolView::get_named_parameter_symbol()
 
 void Source::LanguageProtocolView::update_type_coverage() {
   if(capabilities.type_coverage) {
-    write_request("textDocument/typeCoverage", {}, [this](const boost::property_tree::ptree &result, bool error) {
+    write_request("textDocument/typeCoverage", {}, [this](JSON &&result, bool error) {
       if(error) {
         if(update_type_coverage_retries > 0) { // Retry typeCoverage request, since these requests can fail while waiting for language server to start
           dispatcher.post([this] {
@@ -2356,10 +2379,9 @@ void Source::LanguageProtocolView::update_type_coverage() {
       update_type_coverage_retries = 0;
 
       std::vector<LanguageProtocol::Range> ranges;
-      auto uncoveredRanges = result.get_child("uncoveredRanges", boost::property_tree::ptree());
-      for(auto it = uncoveredRanges.begin(); it != uncoveredRanges.end(); ++it) {
+      for(auto &uncovered_range : result.array_or_empty("uncoveredRanges")) {
         try {
-          ranges.emplace_back(it->second.get_child("range"));
+          ranges.emplace_back(uncovered_range.object("range"));
         }
         catch(...) {
         }

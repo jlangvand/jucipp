@@ -1,9 +1,9 @@
 #include "project_build.hpp"
 #include "config.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
 #include <boost/algorithm/string.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <regex>
 
 std::unique_ptr<Project::Build> Project::Build::create(const boost::filesystem::path &path) {
@@ -199,10 +199,9 @@ bool Project::MesonBuild::is_valid() {
   auto default_path = get_default_path();
   if(default_path.empty())
     return true;
-  boost::property_tree::ptree pt;
   try {
-    boost::property_tree::json_parser::read_json((default_path / "meson-info" / "meson-info.json").string(), pt);
-    return boost::filesystem::path(pt.get<std::string>("directories.source")) == project_path;
+    JSON info(default_path / "meson-info" / "meson-info.json");
+    return boost::filesystem::path(info.object("directories").string("source")) == project_path;
   }
   catch(...) {
   }

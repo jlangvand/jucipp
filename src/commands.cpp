@@ -1,8 +1,8 @@
 #include "commands.hpp"
 #include "config.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
-#include <boost/property_tree/json_parser.hpp>
 
 void Commands::load() {
   auto commands_file = Config::get().home_juci_path / "commands.json";
@@ -27,10 +27,9 @@ void Commands::load() {
 
   commands.clear();
   try {
-    boost::property_tree::ptree pt;
-    boost::property_tree::json_parser::read_json(commands_file.string(), pt);
-    for(auto command_it = pt.begin(); command_it != pt.end(); ++command_it) {
-      auto key_string = command_it->second.get<std::string>("key");
+    JSON commands_json(commands_file);
+    for(auto &command : commands_json.array()) {
+      auto key_string = command.string("key");
       guint key = 0;
       GdkModifierType modifier = static_cast<GdkModifierType>(0);
       if(!key_string.empty()) {
@@ -38,13 +37,13 @@ void Commands::load() {
         if(key == 0 && modifier == 0)
           Terminal::get().async_print("\e[31mError\e[m: could not parse key string: " + key_string + "\n", true);
       }
-      auto path = command_it->second.get<std::string>("path", "");
+      auto path = command.string_or("path", "");
       boost::optional<std::regex> regex;
       if(!path.empty())
         regex = std::regex(path, std::regex::optimize);
       commands.emplace_back(Command{key, modifier, std::move(regex),
-                                    command_it->second.get<std::string>("compile", ""), command_it->second.get<std::string>("run"),
-                                    command_it->second.get<bool>("debug", false), command_it->second.get<std::string>("debug_remote_host", "")});
+                                    command.string_or("compile", ""), command.string("run"),
+                                    command.boolean_or("debug", false), command.string_or("debug_remote_host", "")});
     }
   }
   catch(const std::exception &e) {

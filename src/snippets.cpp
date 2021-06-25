@@ -1,8 +1,8 @@
 #include "snippets.hpp"
 #include "config.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
-#include <boost/property_tree/json_parser.hpp>
 
 void Snippets::load() {
   auto snippets_file = Config::get().home_juci_path / "snippets.json";
@@ -23,12 +23,11 @@ void Snippets::load() {
 
   snippets.clear();
   try {
-    boost::property_tree::ptree pt;
-    boost::property_tree::json_parser::read_json(snippets_file.string(), pt);
-    for(auto language_it = pt.begin(); language_it != pt.end(); ++language_it) {
-      snippets.emplace_back(std::regex(language_it->first), std::vector<Snippet>());
-      for(auto snippet_it = language_it->second.begin(); snippet_it != language_it->second.end(); ++snippet_it) {
-        auto key_string = snippet_it->second.get<std::string>("key", "");
+    JSON languages(snippets_file);
+    for(auto &language : languages.children()) {
+      snippets.emplace_back(std::regex(language.first), std::vector<Snippet>());
+      for(auto &snippet : language.second.array()) {
+        auto key_string = snippet.string_or("key", "");
         guint key = 0;
         GdkModifierType modifier = static_cast<GdkModifierType>(0);
         if(!key_string.empty()) {
@@ -36,7 +35,7 @@ void Snippets::load() {
           if(key == 0 && modifier == 0)
             Terminal::get().async_print("\e[31mError\e[m: could not parse key string: " + key_string + "\n", true);
         }
-        snippets.back().second.emplace_back(Snippet{snippet_it->second.get<std::string>("prefix", ""), key, modifier, snippet_it->second.get<std::string>("body"), snippet_it->second.get<std::string>("description", "")});
+        snippets.back().second.emplace_back(Snippet{snippet.string_or("prefix", ""), key, modifier, snippet.string("body"), snippet.string_or("description", "")});
       }
     }
   }

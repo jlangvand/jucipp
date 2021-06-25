@@ -98,6 +98,8 @@ See [custom styling](docs/custom_styling.md).
   need to install)
 - [tiny-process-library](http://gitlab.com/eidheim/tiny-process-library/) (downloaded directly with
   git --recursive, no need to install)
+- [JSON for Modern C++](https://github.com/nlohmann/json) (included in repository, no need to
+  install)
 
 ## Documentation
 

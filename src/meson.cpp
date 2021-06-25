@@ -3,10 +3,10 @@
 #include "config.hpp"
 #include "dialog.hpp"
 #include "filesystem.hpp"
+#include "json.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <boost/optional.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <future>
 #include <regex>
 
@@ -156,18 +156,17 @@ boost::filesystem::path Meson::get_executable(const boost::filesystem::path &bui
   }
 
   if(best_match_executable.empty()) { // Newer Meson outputs intro-targets.json that can be used to find executable
-    boost::property_tree::ptree pt;
     try {
-      boost::property_tree::json_parser::read_json((build_path / "meson-info" / "intro-targets.json").string(), pt);
-      for(auto &target : pt) {
-        if(target.second.get<std::string>("type") == "executable") {
-          auto filenames = target.second.get_child("filename");
+      JSON targets(build_path / "meson-info" / "intro-targets.json");
+      for(auto &target : targets.array()) {
+        if(target.string("type") == "executable") {
+          auto filenames = target.array("filename");
           if(filenames.empty()) // No executable file found
             break;
-          auto executable = filesystem::get_normal_path(filenames.begin()->second.get<std::string>(""));
-          for(auto &target_source : target.second.get_child("target_sources")) {
-            for(auto &source : target_source.second.get_child("sources")) {
-              auto source_file = filesystem::get_normal_path(source.second.get<std::string>(""));
+          auto executable = filesystem::get_normal_path(filenames.begin()->string());
+          for(auto &target_source : target.array("target_sources")) {
+            for(auto &source : target_source.array("sources")) {
+              auto source_file = filesystem::get_normal_path(source.string());
               if(source_file == file_path)
                 return executable;
               auto source_file_directory = source_file.parent_path();

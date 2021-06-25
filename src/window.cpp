@@ -153,7 +153,7 @@ Window::Window() {
   });
 
   about.set_logo_icon_name("juci");
-  about.set_version(Config::get().version);
+  about.set_version(JUCI_VERSION);
   about.set_authors({"(in order of appearance)",
                      "Ted Johan Kristoffersen",
                      "Jørgen Lien Sellæg",
@@ -2257,124 +2257,118 @@ void Window::rename_token_entry() {
 
 void Window::save_session() {
   try {
-    boost::property_tree::ptree root_pt;
-    root_pt.put("folder", Directories::get().path.string());
+    auto last_session = JSON();
+    last_session.set("folder", Directories::get().path.string());
 
-    boost::property_tree::ptree files_pt;
+    auto files = JSON(JSON::StructureType::array);
     for(auto &notebook_view : Notebook::get().get_notebook_views()) {
-      boost::property_tree::ptree file_pt;
-      file_pt.put("path", notebook_view.second->file_path.string());
-      file_pt.put("notebook", notebook_view.first);
+      auto file = JSON();
+      file.set("path", notebook_view.second->file_path.string());
+      file.set("notebook", notebook_view.first);
       auto iter = notebook_view.second->get_buffer()->get_insert()->get_iter();
-      file_pt.put("line", iter.get_line());
-      file_pt.put("line_offset", iter.get_line_offset());
-      files_pt.push_back(std::make_pair("", file_pt));
+      file.set("line", iter.get_line());
+      file.set("line_offset", iter.get_line_offset());
+      files.emplace_back(std::move(file));
     }
-    root_pt.add_child("files", files_pt);
+    last_session.set("files", std::move(files));
 
-    boost::property_tree::ptree current_file_pt;
-    if(auto view = Notebook::get().get_current_view()) {
-      current_file_pt.put("path", view->file_path.string());
-      auto iter = view->get_buffer()->get_insert()->get_iter();
-      current_file_pt.put("line", iter.get_line());
-      current_file_pt.put("line_offset", iter.get_line_offset());
-    }
     std::string current_path;
     if(auto view = Notebook::get().get_current_view())
       current_path = view->file_path.string();
-    root_pt.put("current_file", current_path);
+    last_session.set("current_file", current_path);
 
-    boost::property_tree::ptree run_arguments_pt;
+    auto run_arguments = JSON(JSON::StructureType::array);
     for(auto &run_argument : Project::run_arguments) {
       if(run_argument.second.empty())
         continue;
       if(boost::filesystem::exists(run_argument.first) && boost::filesystem::is_directory(run_argument.first)) {
-        boost::property_tree::ptree run_argument_pt;
-        run_argument_pt.put("path", run_argument.first);
-        run_argument_pt.put("arguments", run_argument.second);
-        run_arguments_pt.push_back(std::make_pair("", run_argument_pt));
+        auto run_argument_object = JSON();
+        run_argument_object.set("path", run_argument.first);
+        run_argument_object.set("arguments", run_argument.second);
+        run_arguments.emplace_back(std::move(run_argument_object));
       }
     }
-    root_pt.add_child("run_arguments", run_arguments_pt);
+    last_session.set("run_arguments", std::move(run_arguments));
 
-    boost::property_tree::ptree debug_run_arguments_pt;
+    auto debug_run_arguments = JSON(JSON::StructureType::array);
     for(auto &debug_run_argument : Project::debug_run_arguments) {
       if(debug_run_argument.second.arguments.empty() && !debug_run_argument.second.remote_enabled && debug_run_argument.second.remote_host_port.empty())
         continue;
       if(boost::filesystem::exists(debug_run_argument.first) && boost::filesystem::is_directory(debug_run_argument.first)) {
-        boost::property_tree::ptree debug_run_argument_pt;
-        debug_run_argument_pt.put("path", debug_run_argument.first);
-        debug_run_argument_pt.put("arguments", debug_run_argument.second.arguments);
-        debug_run_argument_pt.put("remote_enabled", debug_run_argument.second.remote_enabled);
-        debug_run_argument_pt.put("remote_host_port", debug_run_argument.second.remote_host_port);
-        debug_run_arguments_pt.push_back(std::make_pair("", debug_run_argument_pt));
+        auto debug_run_argument_object = JSON();
+        debug_run_argument_object.set("path", debug_run_argument.first);
+        debug_run_argument_object.set("arguments", debug_run_argument.second.arguments);
+        debug_run_argument_object.set("remote_enabled", debug_run_argument.second.remote_enabled);
+        debug_run_argument_object.set("remote_host_port", debug_run_argument.second.remote_host_port);
+        debug_run_arguments.emplace_back(std::move(debug_run_argument_object));
       }
     }
-    root_pt.add_child("debug_run_arguments", debug_run_arguments_pt);
+    last_session.set("debug_run_arguments", std::move(debug_run_arguments));
 
     int width, height;
     get_size(width, height);
-    boost::property_tree::ptree window_pt;
-    window_pt.put("width", width);
-    window_pt.put("height", height);
-    root_pt.add_child("window", window_pt);
+    auto window = JSON();
+    window.set("width", width);
+    window.set("height", height);
+    last_session.set("window", std::move(window));
 
-    auto path = Config::get().home_juci_path / "last_session.json";
-    std::ofstream output(path.string(), std::ios::binary);
-    if(output) {
-      JSON::write(output, root_pt);
-      output << '\n';
-    }
-    else
-      Terminal::get().print("\e[31mError\e[m: could not write session file: " + filesystem::get_short_path(path).string() + "\n", true);
+    last_session.to_file(Config::get().home_juci_path / "last_session.json", 2);
   }
-  catch(...) {
+  catch(const std::exception &e) {
+    std::cerr << "Error writing session file: " << e.what();
   }
 }
 
-void Window::load_session(std::vector<boost::filesystem::path> &directories, std::vector<std::pair<boost::filesystem::path, size_t>> &files, std::vector<std::pair<int, int>> &file_offsets, std::string &current_file, bool read_directories_and_files) {
+void Window::load_session(std::vector<boost::filesystem::path> &directories, std::vector<std::pair<boost::filesystem::path, size_t>> &files, std::vector<std::pair<int, int>> &file_offsets, boost::filesystem::path &current_file, bool read_directories_and_files) {
+  int default_width = 800, default_height = 600;
   try {
-    boost::property_tree::ptree root_pt;
-    boost::property_tree::read_json((Config::get().home_juci_path / "last_session.json").string(), root_pt);
+    auto last_session_file = Config::get().home_juci_path / "last_session.json";
+    if(!boost::filesystem::exists(last_session_file)) {
+      set_default_size(default_width, default_height);
+      return;
+    }
+    JSON last_session(last_session_file);
     if(read_directories_and_files) {
-      auto folder = root_pt.get<std::string>("folder");
+      auto folder = boost::filesystem::path(last_session.string_or("folder", ""));
       if(!folder.empty() && boost::filesystem::exists(folder) && boost::filesystem::is_directory(folder))
         directories.emplace_back(folder);
 
-      for(auto &file_pt : root_pt.get_child("files")) {
-        auto file = file_pt.second.get<std::string>("path");
-        auto notebook = file_pt.second.get<size_t>("notebook");
-        auto line = file_pt.second.get<int>("line");
-        auto line_offset = file_pt.second.get<int>("line_offset");
+      for(auto &file_object : last_session.array_or_empty("files")) {
+        auto file = boost::filesystem::path(file_object.string_or("path", ""));
+        auto notebook = file_object.integer_or("notebook", 0, JSON::ParseOptions::accept_string);
+        auto line = file_object.integer_or("line", 0, JSON::ParseOptions::accept_string);
+        auto line_offset = file_object.integer_or("line_offset", 0, JSON::ParseOptions::accept_string);
         if(!file.empty() && boost::filesystem::exists(file) && !boost::filesystem::is_directory(file)) {
           files.emplace_back(file, notebook);
           file_offsets.emplace_back(line, line_offset);
         }
       }
-
-      current_file = root_pt.get<std::string>("current_file");
+      current_file = boost::filesystem::path(last_session.string_or("current_file", ""));
     }
 
-    for(auto &run_argument : root_pt.get_child(("run_arguments"))) {
-      auto path = run_argument.second.get<std::string>("path");
+    for(auto &run_argument : last_session.array_or_empty("run_arguments")) {
+      auto path = boost::filesystem::path(run_argument.string_or("path", ""));
       boost::system::error_code ec;
-      if(boost::filesystem::exists(path, ec) && boost::filesystem::is_directory(path, ec))
-        Project::run_arguments.emplace(path, run_argument.second.get<std::string>("arguments"));
+      if(!path.empty() && boost::filesystem::exists(path, ec) && boost::filesystem::is_directory(path, ec))
+        Project::run_arguments.emplace(path.string(), run_argument.string_or("arguments", ""));
     }
 
-    for(auto &debug_run_argument : root_pt.get_child(("debug_run_arguments"))) {
-      auto path = debug_run_argument.second.get<std::string>("path");
+    for(auto &debug_run_argument : last_session.array_or_empty("debug_run_arguments")) {
+      auto path = boost::filesystem::path(debug_run_argument.string_or("path", ""));
       boost::system::error_code ec;
-      if(boost::filesystem::exists(path, ec) && boost::filesystem::is_directory(path, ec))
-        Project::debug_run_arguments.emplace(path, Project::DebugRunArguments{debug_run_argument.second.get<std::string>("arguments"),
-                                                                              debug_run_argument.second.get<bool>("remote_enabled"),
-                                                                              debug_run_argument.second.get<std::string>("remote_host_port")});
+      if(!path.empty() && boost::filesystem::exists(path, ec) && boost::filesystem::is_directory(path, ec))
+        Project::debug_run_arguments.emplace(path.string(), Project::DebugRunArguments{debug_run_argument.string_or("arguments", ""),
+                                                                                       debug_run_argument.boolean_or("remote_enabled", false, JSON::ParseOptions::accept_string),
+                                                                                       debug_run_argument.string_or("remote_host_port", "")});
     }
 
-    auto window_pt = root_pt.get_child("window");
-    set_default_size(window_pt.get<int>("width"), window_pt.get<int>("height"));
+    if(auto window = last_session.object_optional("window"))
+      set_default_size(window->integer_or("width", default_width, JSON::ParseOptions::accept_string), window->integer_or("height", default_height, JSON::ParseOptions::accept_string));
+    else
+      set_default_size(default_width, default_height);
   }
-  catch(...) {
-    set_default_size(800, 600);
+  catch(const std::exception &e) {
+    set_default_size(default_width, default_height);
+    std::cerr << "Error reading session file: " << e.what();
   }
 }

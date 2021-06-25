@@ -1,6 +1,7 @@
 #include "json.hpp"
 #include <boost/filesystem.hpp>
 #include <iostream>
+#include <sstream>
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -26,36 +27,16 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "initialize")
+      JSON object(ss);
+      if(object.string("method") != "initialize")
         return 1;
 
       std::string result = R"({
+  "id": 0,
   "jsonrpc": "2.0",
-  "id": "0",
   "result": {
     "capabilities": {
-      "textDocumentSync": {
-        "openClose": "true",
-        "change": "2",
-        "save": ""
-      },
-      "selectionRangeProvider": "true",
-      "hoverProvider": "true",
-      "completionProvider": {
-        "triggerCharacters": [":", ".", "'"]
-      },
-      "signatureHelpProvider": {
-        "triggerCharacters": ["(", ","]
-      },
-      "definitionProvider": "true",
-      "typeDefinitionProvider": "true",
-      "implementationProvider": "true",
-      "referencesProvider": "true",
-      "documentHighlightProvider": "true",
-      "documentSymbolProvider": "true",
-      "workspaceSymbolProvider": "true",
+      "callHierarchyProvider": true,
       "codeActionProvider": {
         "codeActionKinds": [
           "",
@@ -65,45 +46,75 @@ int main() {
           "refactor.inline",
           "refactor.rewrite"
         ],
-        "resolveProvider": "true"
+        "resolveProvider": true
       },
       "codeLensProvider": {
-        "resolveProvider": "true"
+        "resolveProvider": true
       },
-      "documentFormattingProvider": "true",
+      "completionProvider": {
+        "triggerCharacters": [
+          ":",
+          ".",
+          "'"
+        ]
+      },
+      "definitionProvider": true,
+      "documentFormattingProvider": true,
+      "documentHighlightProvider": true,
       "documentOnTypeFormattingProvider": {
         "firstTriggerCharacter": "=",
-        "moreTriggerCharacter": [".", ">", "{"]
+        "moreTriggerCharacter": [
+          ".",
+          ">",
+          "{"
+        ]
       },
+      "documentSymbolProvider": true,
+      "experimental": {
+        "joinLines": true,
+        "onEnter": true,
+        "parentModule": true,
+        "runnables": {
+          "kinds": [
+            "cargo"
+          ]
+        },
+        "ssr": true,
+        "workspaceSymbolScopeKindFiltering": true
+      },
+      "foldingRangeProvider": true,
+      "hoverProvider": true,
+      "implementationProvider": true,
+      "referencesProvider": true,
       "renameProvider": {
-        "prepareProvider": "true"
+        "prepareProvider": true
       },
-      "foldingRangeProvider": "true",
-      "workspace": {
-        "fileOperations": {
-          "willRename": {
-            "filters": [
-              {
-                "scheme": "file",
-                "pattern": {
-                  "glob": "**/*.rs",
-                  "matches": "file"
-                }
-              },
-              {
-                "scheme": "file",
-                "pattern": {
-                  "glob": "**",
-                  "matches": "folder"
-                }
-              }
-            ]
-          }
-        }
-      },
-      "callHierarchyProvider": "true",
+      "selectionRangeProvider": true,
       "semanticTokensProvider": {
+        "full": {
+          "delta": true
+        },
         "legend": {
+          "tokenModifiers": [
+            "documentation",
+            "declaration",
+            "definition",
+            "static",
+            "abstract",
+            "deprecated",
+            "readonly",
+            "constant",
+            "controlFlow",
+            "injected",
+            "mutable",
+            "consuming",
+            "async",
+            "unsafe",
+            "attribute",
+            "trait",
+            "callable",
+            "intraDocLink"
+          ],
           "tokenTypes": [
             "comment",
             "keyword",
@@ -153,43 +164,45 @@ int main() {
             "typeAlias",
             "union",
             "unresolvedReference"
-          ],
-          "tokenModifiers": [
-            "documentation",
-            "declaration",
-            "definition",
-            "static",
-            "abstract",
-            "deprecated",
-            "readonly",
-            "constant",
-            "controlFlow",
-            "injected",
-            "mutable",
-            "consuming",
-            "async",
-            "unsafe",
-            "attribute",
-            "trait",
-            "callable",
-            "intraDocLink"
           ]
         },
-        "range": "true",
-        "full": {
-          "delta": "true"
+        "range": true
+      },
+      "signatureHelpProvider": {
+        "triggerCharacters": [
+          "(",
+          ","
+        ]
+      },
+      "textDocumentSync": {
+        "change": 2,
+        "openClose": true,
+        "save": {}
+      },
+      "typeDefinitionProvider": true,
+      "workspace": {
+        "fileOperations": {
+          "willRename": {
+            "filters": [
+              {
+                "pattern": {
+                  "glob": "**/*.rs",
+                  "matches": "file"
+                },
+                "scheme": "file"
+              },
+              {
+                "pattern": {
+                  "glob": "**",
+                  "matches": "folder"
+                },
+                "scheme": "file"
+              }
+            ]
+          }
         }
       },
-      "experimental": {
-        "joinLines": "true",
-        "ssr": "true",
-        "onEnter": "true",
-        "parentModule": "true",
-        "runnables": {
-          "kinds": ["cargo"]
-        },
-        "workspaceSymbolScopeKindFiltering": "true"
-      }
+      "workspaceSymbolProvider": true
     },
     "serverInfo": {
       "name": "rust-analyzer",
@@ -211,9 +224,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "initialized")
+      JSON object(ss);
+      if(object.string("method") != "initialized")
         return 1;
     }
 
@@ -226,9 +238,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/didOpen")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/didOpen")
         return 1;
     }
 
@@ -241,9 +252,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/didChange")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/didChange")
         return 1;
     }
 
@@ -256,24 +266,23 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/formatting")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/formatting")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "1",
+  "id": 1,
   "result": [
     {
       "range": {
         "start": {
-          "line": "0",
-          "character": "0"
+          "line": 0,
+          "character": 0
         },
         "end": {
-          "line": "0",
-          "character": "1"
+          "line": 0,
+          "character": 1
         }
       },
       "newText": ""
@@ -294,9 +303,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/didChange")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/didChange")
         return 1;
     }
 
@@ -309,25 +317,24 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/definition")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/definition")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "2",
+  "id": 2,
   "result": [
     {
       "uri": "file://main.rs",
       "range": {
         "start": {
-          "line": "0",
-          "character": "3"
+          "line": 0,
+          "character": 3
         },
         "end": {
-          "line": "0",
-          "character": "7"
+          "line": 0,
+          "character": 7
         }
       }
     }
@@ -347,25 +354,24 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/typeDefinition")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/typeDefinition")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "3",
+  "id": 3,
   "result": [
     {
       "uri": "file://main.rs",
       "range": {
         "start": {
-          "line": "0",
-          "character": "4"
+          "line": 0,
+          "character": 4
         },
         "end": {
-          "line": "0",
-          "character": "7"
+          "line": 0,
+          "character": 7
         }
       }
     }
@@ -385,25 +391,24 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/implementation")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/implementation")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "4",
+  "id": 4,
   "result": [
     {
       "uri": "file://main.rs",
       "range": {
         "start": {
-          "line": "0",
-          "character": "0"
+          "line": 0,
+          "character": 0
         },
         "end": {
-          "line": "0",
-          "character": "1"
+          "line": 0,
+          "character": 1
         }
       }
     },
@@ -411,12 +416,12 @@ int main() {
       "uri": "file://main.rs",
       "range": {
         "start": {
-          "line": "1",
-          "character": "0"
+          "line": 1,
+          "character": 0
         },
         "end": {
-          "line": "1",
-          "character": "1"
+          "line": 1,
+          "character": 1
         }
       }
     }
@@ -436,26 +441,25 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/references")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/references")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "5",
+  "id": 5,
   "result": [
     {
       "uri": "file://)" + JSON::escape_string(file_path.string()) +
                            R"(",
       "range": {
         "start": {
-          "line": "2",
-          "character": "19"
+          "line": 2,
+          "character": 19
         },
         "end": {
-          "line": "2",
-          "character": "20"
+          "line": 2,
+          "character": 20
         }
       }
     },
@@ -464,12 +468,12 @@ int main() {
                            R"(",
       "range": {
         "start": {
-          "line": "1",
-          "character": "8"
+          "line": 1,
+          "character": 8
         },
         "end": {
-          "line": "1",
-          "character": "9"
+          "line": 1,
+          "character": 9
         }
       }
     }
@@ -489,30 +493,29 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/documentSymbol")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/documentSymbol")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "6",
+  "id": 6,
   "result": [
     {
       "name": "main",
-      "kind": "12",
+      "kind": 12,
       "tags": "",
-      "deprecated": "false",
+      "deprecated": false,
       "location": {
         "uri": "file://main.rs",
         "range": {
           "start": {
-            "line": "0",
-            "character": "0"
+            "line": 0,
+            "character": 0
           },
           "end": {
-            "line": "3",
-            "character": "1"
+            "line": 3,
+            "character": 1
           }
         }
       }
@@ -533,9 +536,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "textDocument/didClose")
+      JSON object(ss);
+      if(object.string("method") != "textDocument/didClose")
         return 1;
     }
 
@@ -548,14 +550,13 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "shutdown")
+      JSON object(ss);
+      if(object.string("method") != "shutdown")
         return 1;
 
       std::string result = R"({
   "jsonrpc": "2.0",
-  "id": "7",
+  "id": 7,
   "result": {}
 })";
       std::cout << "Content-Length: " << result.size() << "\r\n\r\n"
@@ -571,9 +572,8 @@ int main() {
       buffer.resize(size);
       std::cin.read(&buffer[0], size);
       std::stringstream ss(buffer);
-      boost::property_tree::ptree pt;
-      boost::property_tree::json_parser::read_json(ss, pt);
-      if(pt.get<std::string>("method") != "exit")
+      JSON object(ss);
+      if(object.string("method") != "exit")
         return 1;
     }
   }

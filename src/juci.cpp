@@ -53,7 +53,7 @@ int Application::on_command_line(const Glib::RefPtr<Gio::ApplicationCommandLine>
 
 void Application::on_activate() {
   std::vector<std::pair<int, int>> file_offsets;
-  std::string current_file;
+  boost::filesystem::path current_file;
   Window::get().load_session(directories, files, file_offsets, current_file, directories.empty() && files.empty());
 
   Window::get().add_widgets();

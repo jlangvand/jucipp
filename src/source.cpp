@@ -5,12 +5,12 @@
 #include "filesystem.hpp"
 #include "git.hpp"
 #include "info.hpp"
+#include "json.hpp"
 #include "menu.hpp"
 #include "selection_dialog.hpp"
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <algorithm>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/spirit/home/qi/char.hpp>
 #include <boost/spirit/home/qi/operator.hpp>
 #include <boost/spirit/home/qi/string.hpp>
@@ -764,11 +764,9 @@ void Source::View::setup_format_style(bool is_generic_view) {
             break;
           auto package_json = search_path / "package.json";
           if(boost::filesystem::exists(package_json, ec)) {
-            boost::property_tree::ptree pt;
             try {
-              boost::property_tree::json_parser::read_json(package_json.string(), pt);
-              auto child = pt.get_child("prettier");
-              break;
+              if(JSON(package_json).child_optional("prettier"))
+                break;
             }
             catch(...) {
             }

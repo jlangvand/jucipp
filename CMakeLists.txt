@@ -135,6 +135,7 @@ include_directories(
   ${LIBCLANG_INCLUDE_DIRS}
   ${ASPELL_INCLUDE_DIR}
   ${LIBGIT2_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}/lib/json/include
 )
 
 add_subdirectory("src")

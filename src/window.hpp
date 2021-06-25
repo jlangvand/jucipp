@@ -14,7 +14,7 @@ public:
   }
   void add_widgets();
   void save_session();
-  void load_session(std::vector<boost::filesystem::path> &directories, std::vector<std::pair<boost::filesystem::path, size_t>> &files, std::vector<std::pair<int, int>> &file_offsets, std::string &current_file, bool read_directories_and_files);
+  void load_session(std::vector<boost::filesystem::path> &directories, std::vector<std::pair<boost::filesystem::path, size_t>> &files, std::vector<std::pair<int, int>> &file_offsets, boost::filesystem::path &current_file, bool read_directories_and_files);
 
 protected:
   bool on_key_press_event(GdkEventKey *event) override;

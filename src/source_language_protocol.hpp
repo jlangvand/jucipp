@@ -1,11 +1,11 @@
 #pragma once
 #include "autocomplete.hpp"
+#include "json.hpp"
 #include "mutex.hpp"
 #include "process.hpp"
 #include "source.hpp"
 #include <atomic>
 #include <boost/optional.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <list>
 #include <map>
 #include <set>
@@ -16,23 +16,23 @@ namespace Source {
 }
 
 namespace LanguageProtocol {
-  class Offset {
+  class Position {
   public:
-    Offset(const boost::property_tree::ptree &pt);
+    Position(const JSON &position);
     int line, character;
 
-    bool operator<(const Offset &rhs) const {
+    bool operator<(const Position &rhs) const {
       return line < rhs.line || (line == rhs.line && character < rhs.character);
     }
-    bool operator==(const Offset &rhs) const {
+    bool operator==(const Position &rhs) const {
       return line == rhs.line && character == rhs.character;
     }
   };
 
   class Range {
   public:
-    Range(const boost::property_tree::ptree &pt);
-    Offset start, end;
+    Range(const JSON &range);
+    Position start, end;
 
     bool operator<(const Range &rhs) const {
       return start < rhs.start || (start == rhs.start && end < rhs.end);
@@ -44,7 +44,7 @@ namespace LanguageProtocol {
 
   class Location {
   public:
-    Location(const boost::property_tree::ptree &pt, std::string file_ = {});
+    Location(const JSON &location, std::string file_ = {});
     Location(std::string _file, Range _range) : file(std::move(_file)), range(std::move(_range)) {}
     std::string file;
     Range range;
@@ -59,8 +59,8 @@ namespace LanguageProtocol {
 
   class Documentation {
   public:
-    Documentation(const boost::property_tree::ptree &pt);
-    Documentation(std::string value) : value(std::move(value)) {}
+    Documentation(const boost::optional<JSON> &documentation);
+    Documentation(std::string value = {}) : value(std::move(value)) {}
     std::string value;
     std::string kind;
   };
@@ -69,12 +69,12 @@ namespace LanguageProtocol {
   public:
     class RelatedInformation {
     public:
-      RelatedInformation(const boost::property_tree::ptree &pt);
+      RelatedInformation(const JSON &related_information);
       std::string message;
       Location location;
     };
 
-    Diagnostic(const boost::property_tree::ptree &pt);
+    Diagnostic(JSON &&diagnostic);
     std::string message;
     Range range;
     /// 1: error, 2: warning, 3: information, 4: hint
@@ -82,19 +82,20 @@ namespace LanguageProtocol {
     std::string code;
     std::vector<RelatedInformation> related_informations;
     std::map<std::string, std::set<Source::FixIt>> quickfixes;
-    boost::property_tree::ptree ptree;
+    /// Diagnostic object for textDocument/codeAction on new diagnostics
+    std::shared_ptr<JSON> object;
   };
 
   class TextEdit {
   public:
-    TextEdit(const boost::property_tree::ptree &pt, std::string new_text_ = {});
+    TextEdit(const JSON &text_edit, std::string new_text_ = {});
     Range range;
     std::string new_text;
   };
 
   class TextDocumentEdit {
   public:
-    TextDocumentEdit(const boost::property_tree::ptree &pt);
+    TextDocumentEdit(const JSON &text_document_edit);
     TextDocumentEdit(std::string file, std::vector<TextEdit> text_edits);
 
     std::string file;
@@ -104,7 +105,7 @@ namespace LanguageProtocol {
   class WorkspaceEdit {
   public:
     WorkspaceEdit() = default;
-    WorkspaceEdit(const boost::property_tree::ptree &pt, boost::filesystem::path file_path);
+    WorkspaceEdit(const JSON &workspace_edit, boost::filesystem::path file_path);
     std::vector<TextDocumentEdit> document_edits;
   };
 
@@ -161,7 +162,7 @@ namespace LanguageProtocol {
 
     size_t message_id GUARDED_BY(read_write_mutex) = 0;
 
-    std::map<size_t, std::pair<Source::LanguageProtocolView *, std::function<void(const boost::property_tree::ptree &, bool error)>>> handlers GUARDED_BY(read_write_mutex);
+    std::map<size_t, std::pair<Source::LanguageProtocolView *, std::function<void(JSON &&result, bool error)>>> handlers GUARDED_BY(read_write_mutex);
 
     Mutex timeout_threads_mutex;
     std::vector<std::thread> timeout_threads GUARDED_BY(timeout_threads_mutex);
@@ -176,11 +177,11 @@ namespace LanguageProtocol {
     void close(Source::LanguageProtocolView *view);
 
     void parse_server_message();
-    void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function = nullptr);
+    void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(JSON &&result, bool)> &&function = nullptr);
     void write_response(size_t id, const std::string &result);
     void write_notification(const std::string &method, const std::string &params = {});
-    void handle_server_notification(const std::string &method, const boost::property_tree::ptree &params);
-    void handle_server_request(size_t id, const std::string &method, const boost::property_tree::ptree &params);
+    void handle_server_notification(const std::string &method, JSON &&params);
+    void handle_server_request(size_t id, const std::string &method, JSON &&params);
 
     std::function<void(int exit_status)> on_exit_status;
   };
@@ -208,7 +209,7 @@ namespace Source {
     std::string to_string(const std::pair<std::string, std::string> &param);
     std::string to_string(const std::vector<std::pair<std::string, std::string>> &params);
     /// Helper method for calling client->write_request
-    void write_request(const std::string &method, const std::string &params, std::function<void(const boost::property_tree::ptree &, bool)> &&function);
+    void write_request(const std::string &method, const std::string &params, std::function<void(JSON &&result, bool)> &&function);
     /// Helper method for calling client->write_notification
     void write_notification(const std::string &method);
     /// Helper method for calling client->write_notification
@@ -264,7 +265,7 @@ namespace Source {
       std::string detail;
       LanguageProtocol::Documentation documentation;
       /// CompletionItem for completionItem/resolve
-      boost::property_tree::ptree ptree;
+      std::shared_ptr<JSON> item_object;
       std::vector<LanguageProtocol::TextEdit> additional_text_edits;
     };
     std::vector<AutocompleteRow> autocomplete_rows;
@@ -280,6 +281,10 @@ namespace Source {
     /// for instance '=' for Python
     boost::optional<char> get_named_parameter_symbol();
 
+    /// Used when calling completionItem/resolve. Also increased in autocomplete->on_hide.
+    std::atomic<size_t> set_tooltip_count = {0};
+
+    /// Used by update_type_coverage only (capabilities.type_coverage == true)
     std::vector<LanguageProtocol::Diagnostic> last_diagnostics;
 
     sigc::connection update_type_coverage_connection;
