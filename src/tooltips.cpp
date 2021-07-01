@@ -280,12 +280,25 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
 
   if(!disregard_drawn) {
     if(Tooltips::drawn_tooltips_rectangle.get_width() != 0) {
-      if(rectangle.intersects(Tooltips::drawn_tooltips_rectangle)) {
+      if(rectangle.intersects(Tooltips::drawn_tooltips_rectangle)) { // Put tooltip above other tooltips
         int new_y = Tooltips::drawn_tooltips_rectangle.get_y() - size.second;
         if(new_y >= 0)
           rectangle.set_y(new_y);
-        else
-          rectangle.set_x(Tooltips::drawn_tooltips_rectangle.get_x() + Tooltips::drawn_tooltips_rectangle.get_width() + 2);
+        else { // Put tooltip to the right if the tooltip would be placed above the screen
+          int new_x = Tooltips::drawn_tooltips_rectangle.get_x() + Tooltips::drawn_tooltips_rectangle.get_width() + 2;
+          if(new_x + size.first < Gdk::Screen::get_default()->get_width())
+            rectangle.set_x(new_x);
+          else { // Put tooltip below if the tooltip would be placed outside of the screen on the right side
+            new_y = Tooltips::drawn_tooltips_rectangle.get_y() + Tooltips::drawn_tooltips_rectangle.get_height();
+            int root_x, root_y;
+            if(view) {
+              view->get_window(Gtk::TextWindowType::TEXT_WINDOW_TEXT)->get_root_coords(activation_rectangle.get_x(), activation_rectangle.get_y(), root_x, root_y);
+              if(new_y < root_y + activation_rectangle.get_height())
+                new_y = root_y + activation_rectangle.get_height() + 2;
+            }
+            rectangle.set_y(new_y);
+          }
+        }
       }
       Tooltips::drawn_tooltips_rectangle.join(rectangle);
     }
