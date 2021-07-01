@@ -193,11 +193,23 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
       return false;
     });
 
-    auto layout = Pango::Layout::create(tooltip_text_view->get_pango_context());
-    if(auto tag = code_tag ? code_tag : code_block_tag)
-      layout->set_font_description(tag->property_font_desc());
-    layout->set_text(buffer->get_text());
-    layout->get_pixel_size(size.first, size.second);
+    Gdk::Rectangle rect;
+    auto iter = buffer->begin();
+    tooltip_text_view->get_iter_location(iter, rect);
+    int min_x = rect.get_x();
+    int max_x = rect.get_x() + rect.get_width();
+    int height = 0;
+    while(true) {
+      if(iter.ends_line()) {
+        tooltip_text_view->get_iter_location(iter, rect);
+        max_x = std::max(max_x, rect.get_x() + rect.get_width());
+        height += rect.get_height();
+      }
+      if(iter.is_end())
+        break;
+      iter.forward_char();
+    }
+    size = {max_x - min_x, height};
     size.first += 6;  // 2xpadding
     size.second += 8; // 2xpadding + 2
 
