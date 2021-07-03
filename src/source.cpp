@@ -138,6 +138,7 @@ Source::View::View(const boost::filesystem::path &file_path, const Glib::RefPtr<
 
   similar_symbol_tag = get_buffer()->create_tag();
   similar_symbol_tag->property_weight() = Pango::WEIGHT_ULTRAHEAVY;
+  similar_symbol_tag->property_background_rgba() = Gdk::RGBA("rgba(255, 255, 255, 0.075)");
   clickable_tag = get_buffer()->create_tag();
   clickable_tag->property_underline() = Pango::Underline::UNDERLINE_SINGLE;
   clickable_tag->property_underline_set() = true;
