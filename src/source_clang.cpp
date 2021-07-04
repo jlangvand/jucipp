@@ -1049,7 +1049,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
                     break;
                 }
                 if(kind == clangmm::CompletionChunk_ResultType)
-                  return_text = std::string("  →  ") + chunk_cstr.c_str;
+                  return_text = std::string(" → ") + chunk_cstr.c_str;
                 else
                   text += chunk_cstr.c_str;
               }
@@ -1105,7 +1105,7 @@ Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::pa
     }
 
     std::string row;
-    auto pos = text.find("  →  ");
+    auto pos = text.find(" → ");
     if(pos != std::string::npos)
       row = text.substr(0, pos);
     else
