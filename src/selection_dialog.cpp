@@ -44,6 +44,8 @@ SelectionDialogBase::SelectionDialogBase(Gtk::TextView *text_view, const boost::
 
   window.set_type_hint(Gdk::WindowTypeHint::WINDOW_TYPE_HINT_COMBO);
 
+  window.get_style_context()->add_class("juci_selection_dialog");
+
   search_entry.signal_changed().connect(
       [this] {
         if(on_search_entry_changed)
