@@ -1,4 +1,5 @@
 #include "utility.hpp"
+#include <algorithm>
 #include <cstring>
 
 ScopeGuard::~ScopeGuard() {
@@ -168,4 +169,26 @@ bool ends_with(const std::string &str, const char *test) noexcept {
   if(test_size > str.size())
     return false;
   return str.compare(str.size() - test_size, test_size, test) == 0;
+}
+
+std::string escape(const std::string &input, const std::set<char> &escape_chars) {
+  std::string result;
+  result.reserve(input.size());
+  for(auto &chr : input) {
+    if(escape_chars.find(chr) != escape_chars.end())
+      result += '\\';
+    result += chr;
+  }
+  return result;
+}
+
+std::string to_hex_string(const std::string &input) {
+  std::string result;
+  result.reserve(input.size() * 2);
+  std::string hex_chars = "0123456789abcdef";
+  for(auto &chr : input) {
+    result += hex_chars[static_cast<unsigned char>(chr) >> 4];
+    result += hex_chars[static_cast<unsigned char>(chr) & 0x0f];
+  }
+  return result;
 }

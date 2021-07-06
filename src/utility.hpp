@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <set>
 #include <string>
 
 class ScopeGuard {
@@ -27,3 +28,7 @@ bool starts_with(const std::string &str, size_t pos, const char *test) noexcept;
 
 bool ends_with(const std::string &str, const std::string &test) noexcept;
 bool ends_with(const std::string &str, const char *test) noexcept;
+
+std::string escape(const std::string &input, const std::set<char> &escape_chars);
+
+std::string to_hex_string(const std::string &input);

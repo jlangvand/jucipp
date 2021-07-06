@@ -1999,6 +1999,12 @@ bool Window::on_delete_event(GdkEventAny *event) {
   }
   Terminal::get().kill_async_processes();
 
+  if(Source::View::prettier_background_process) {
+    int exit_status;
+    if(!Source::View::prettier_background_process->try_get_exit_status(exit_status))
+      Source::View::prettier_background_process->kill();
+  }
+
 #ifdef JUCI_ENABLE_DEBUG
   Debug::LLDB::destroy();
 #endif

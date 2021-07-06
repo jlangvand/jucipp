@@ -33,6 +33,8 @@ inline pid_t get_current_process_id() {
 }
 #endif
 
+std::unique_ptr<TinyProcessLib::Process> Source::View::prettier_background_process = {};
+
 Glib::RefPtr<Gsv::LanguageManager> Source::LanguageManager::get_default() {
   static auto instance = Gsv::LanguageManager::create();
   return instance;
@@ -748,7 +750,6 @@ void Source::View::setup_format_style(bool is_generic_view) {
       });
     }
     format_style = [this, is_generic_view](bool continue_without_style_file) {
-      auto command = prettier.string();
       if(!continue_without_style_file) {
         auto search_path = file_path.parent_path();
         while(true) {
@@ -779,63 +780,240 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
       }
 
-      command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string());
-
-      if(get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
-        Gtk::TextIter start, end;
-        get_buffer()->get_selection_bounds(start, end);
-        command += " --range-start " + std::to_string(start.get_offset());
-        command += " --range-end " + std::to_string(end.get_offset());
-      }
-      else
-        command += " --cursor-offset " + std::to_string(get_buffer()->get_insert()->get_iter().get_offset());
-
       size_t num_warnings = 0, num_errors = 0, num_fix_its = 0;
       if(is_generic_view)
         clear_diagnostic_tooltips();
 
-      std::stringstream stdin_stream(get_buffer()->get_text()), stdout_stream, stderr_stream;
-      auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, command, this->file_path.parent_path(), &stderr_stream);
-      if(exit_status == 0) {
-        replace_text(stdout_stream.str());
-        std::string line;
-        std::getline(stderr_stream, line);
-        if(!line.empty() && line != "NaN") {
-          try {
-            auto offset = std::stoi(line);
-            if(offset < get_buffer()->size()) {
-              get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(offset));
+      static auto get_prettier_library = [] {
+        std::string library;
+        TinyProcessLib::Process process(
+            "npm root -g", "",
+            [&library](const char *buffer, size_t length) {
+              library += std::string(buffer, length);
+            },
+            [](const char *, size_t) {});
+        if(process.get_exit_status() == 0) {
+          while(!library.empty() && (library.back() == '\n' || library.back() == '\r'))
+            library.pop_back();
+          library += "/prettier";
+          boost::system::error_code ec;
+          if(boost::filesystem::is_directory(library, ec))
+            return library;
+          else {
+            auto parent_path = prettier.parent_path();
+            if(parent_path.filename() == "bin") {
+              auto path = parent_path.parent_path() / "lib" / "prettier";
+              if(boost::filesystem::is_directory(path, ec))
+                return path.string();
+            }
+            // Try find prettier library installed with homebrew on MacOS
+            boost::filesystem::path path = "/usr/local/opt/prettier/libexec/lib/node_modules/prettier";
+            if(boost::filesystem::is_directory(path, ec))
+              return path.string();
+            path = "/opt/homebrew/opt/prettier/libexec/lib/node_modules/prettier";
+            if(boost::filesystem::is_directory(path, ec))
+              return path.string();
+          }
+        }
+        return std::string();
+      };
+      static auto prettier_library = get_prettier_library();
+
+      auto buffer = get_buffer()->get_text().raw();
+      if(!prettier_library.empty() && buffer.size() < 25000) { // Node.js repl seems to be limited to around 28786 bytes
+        struct Error {
+          std::string message;
+          int line = -1, index = -1;
+        };
+        struct Result {
+          std::string text;
+          int cursor_offset;
+        };
+        static Mutex mutex;
+        static boost::optional<Result> result GUARDED_BY(mutex);
+        static boost::optional<Error> error GUARDED_BY(mutex);
+        {
+          LockGuard lock(mutex);
+          result = {};
+          error = {};
+        }
+        if(prettier_background_process) {
+          int exit_status;
+          if(prettier_background_process->try_get_exit_status(exit_status))
+            prettier_background_process = {};
+        }
+        if(!prettier_background_process) {
+          prettier_background_process = std::make_unique<TinyProcessLib::Process>(
+              "node -e \"const repl = require('repl');repl.start({prompt: '', ignoreUndefined: true, preview: false});\"",
+              "",
+              [](const char *bytes, size_t n) {
+                try {
+                  JSON json(std::string(bytes, n));
+                  LockGuard lock(mutex);
+                  result = Result{json.string("formatted"), static_cast<int>(json.integer_or("cursorOffset", -1))};
+                }
+                catch(const std::exception &e) {
+                  LockGuard lock(mutex);
+                  error = Error{e.what()};
+                  error->message += "\nOutput from prettier: " + std::string(bytes, n);
+                }
+              },
+              [](const char *bytes, size_t n) {
+                size_t i = 0;
+                for(; i < n; ++i) {
+                  if(bytes[i] == '\n')
+                    break;
+                }
+                std::string first_line(bytes, i);
+                std::string message;
+                int line = -1, line_index = -1;
+
+                if(starts_with(first_line, "ConfigError: "))
+                  message = std::string(bytes + 13, n - 13);
+                else if(starts_with(first_line, "ParseError: ")) {
+                  const static std::regex regex(R"(^(.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
+                  std::smatch sm;
+                  first_line.erase(0, 12);
+                  if(std::regex_match(first_line, sm, regex)) {
+                    message = sm[1].str();
+                    try {
+                      line = std::stoi(sm[2].str());
+                      line_index = std::stoi(sm[3].str());
+                    }
+                    catch(...) {
+                      line = -1;
+                      line_index = -1;
+                    }
+                  }
+                  else
+                    message = std::string(bytes + 12, n - 12);
+                }
+                else
+                  message = std::string(bytes, n);
+
+                LockGuard lock(mutex);
+                error = Error{std::move(message), line, line_index};
+              },
+              true, TinyProcessLib::Config{1048576});
+
+          prettier_background_process->write("const prettier = require(\"" + escape(prettier_library, {'"'}) + "\");\n");
+        }
+
+        std::string options = "filepath: \"" + escape(file_path.string(), {'"'}) + "\"";
+        if(get_buffer()->get_has_selection()) { // Cannot be used together with cursorOffset
+          Gtk::TextIter start, end;
+          get_buffer()->get_selection_bounds(start, end);
+          options += ", rangeStart: " + std::to_string(start.get_offset()) + ", rangeEnd: " + std::to_string(end.get_offset());
+        }
+        else
+          options += ", cursorOffset: " + std::to_string(get_buffer()->get_insert()->get_iter().get_offset());
+        prettier_background_process->write("{prettier.clearConfigCache();let _ = prettier.resolveConfig(\"" + escape(file_path.string(), {'"'}) + "\").then(options => {try{let _ = process.stdout.write(JSON.stringify(prettier.formatWithCursor(Buffer.from('");
+        prettier_background_process->write(to_hex_string(buffer));
+        buffer.clear();
+        prettier_background_process->write("', 'hex').toString(), {...options, " + options + "})));}catch(error){let _ = process.stderr.write('ParseError: ' + error.message);}}).catch(error => {let _ = process.stderr.write('ConfigError: ' + error.message);});}\n");
+
+        while(true) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          int exit_status;
+          if(prettier_background_process->try_get_exit_status(exit_status))
+            break;
+          LockGuard lock(mutex);
+          if(result || error)
+            break;
+        }
+        {
+          LockGuard lock(mutex);
+          if(result) {
+            replace_text(result->text);
+            if(result->cursor_offset >= 0 && result->cursor_offset < get_buffer()->size()) {
+              get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(result->cursor_offset));
               hide_tooltips();
             }
           }
-          catch(...) {
-          }
-        }
-      }
-      else if(is_generic_view) {
-        const static std::regex regex(R"(^\[.*error.*\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
-        std::string line;
-        std::getline(stderr_stream, line);
-        std::smatch sm;
-        if(std::regex_match(line, sm, regex)) {
-          try {
-            auto start = get_iter_at_line_offset(std::stoi(sm[2].str()) - 1, std::stoi(sm[3].str()) - 1);
-            ++num_errors;
-            while(start.ends_line() && start.backward_char()) {
-            }
-            auto end = start;
-            end.forward_char();
-            if(start == end)
-              start.backward_char();
+          else if(error) {
+            if(error->line != -1 && error->index != -1) {
+              if(is_generic_view) {
+                auto start = get_iter_at_line_offset(error->line - 1, error->index - 1);
+                ++num_errors;
+                while(start.ends_line() && start.backward_char()) {
+                }
+                auto end = start;
+                end.forward_char();
+                if(start == end)
+                  start.backward_char();
 
-            add_diagnostic_tooltip(start, end, true, [error_message = sm[1].str()](Tooltip &tooltip) {
-              tooltip.insert_with_links_tagged(error_message);
-            });
-          }
-          catch(...) {
+                add_diagnostic_tooltip(start, end, true, [error_message = std::move(error->message)](Tooltip &tooltip) {
+                  tooltip.insert_with_links_tagged(error_message);
+                });
+              }
+            }
+            else
+              Terminal::get().print("\e[31mError (prettier)\e[m: " + error->message + '\n', true);
           }
         }
       }
+      else {
+        auto command = prettier.string();
+        command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string());
+
+        if(get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
+          Gtk::TextIter start, end;
+          get_buffer()->get_selection_bounds(start, end);
+          command += " --range-start " + std::to_string(start.get_offset());
+          command += " --range-end " + std::to_string(end.get_offset());
+        }
+        else
+          command += " --cursor-offset " + std::to_string(get_buffer()->get_insert()->get_iter().get_offset());
+
+        std::stringstream stdin_stream(buffer), stdout_stream, stderr_stream;
+        buffer.clear();
+        auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, command, this->file_path.parent_path(), &stderr_stream);
+        if(exit_status == 0) {
+          replace_text(stdout_stream.str());
+          std::string line;
+          std::getline(stderr_stream, line);
+          if(!line.empty() && line != "NaN") {
+            try {
+              auto offset = std::stoi(line);
+              if(offset < get_buffer()->size()) {
+                get_buffer()->place_cursor(get_buffer()->get_iter_at_offset(offset));
+                hide_tooltips();
+              }
+            }
+            catch(...) {
+            }
+          }
+        }
+        else {
+          const static std::regex regex(R"(^\[.*error.*\] [^:]*: (.*) \(([0-9]*):([0-9]*)\)$)", std::regex::optimize);
+          std::string line;
+          std::getline(stderr_stream, line);
+          std::smatch sm;
+          if(std::regex_match(line, sm, regex)) {
+            if(is_generic_view) {
+              try {
+                auto start = get_iter_at_line_offset(std::stoi(sm[2].str()) - 1, std::stoi(sm[3].str()) - 1);
+                ++num_errors;
+                while(start.ends_line() && start.backward_char()) {
+                }
+                auto end = start;
+                end.forward_char();
+                if(start == end)
+                  start.backward_char();
+
+                add_diagnostic_tooltip(start, end, true, [error_message = sm[1].str()](Tooltip &tooltip) {
+                  tooltip.insert_with_links_tagged(error_message);
+                });
+              }
+              catch(...) {
+              }
+            }
+          }
+          else
+            Terminal::get().print("\e[31mError (prettier)\e[m: " + stderr_stream.str(), true);
+        }
+      }
+
       if(is_generic_view) {
         status_diagnostics = std::make_tuple(num_warnings, num_errors, num_fix_its);
         if(update_status_diagnostics)

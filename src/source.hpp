@@ -1,4 +1,5 @@
 #pragma once
+#include "process.hpp"
 #include "source_diff.hpp"
 #include "source_spellcheck.hpp"
 #include "tooltips.hpp"
@@ -114,6 +115,8 @@ namespace Source {
     bool full_reparse_needed = false;
     virtual void soft_reparse(bool delayed = false) { soft_reparse_needed = false; }
     virtual void full_reparse() { full_reparse_needed = false; }
+
+    static std::unique_ptr<TinyProcessLib::Process> prettier_background_process;
 
   protected:
     std::atomic<bool> parsed = {true};
