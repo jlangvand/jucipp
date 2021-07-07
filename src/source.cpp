@@ -936,9 +936,9 @@ void Source::View::setup_format_style(bool is_generic_view) {
         prettier_background_process->write(to_hex_string(get_buffer()->get_text().raw()));
         prettier_background_process->write("', 'hex').toString(), {...options, " + options + "})));}catch(error){let _ = process.stderr.write('ParseError: ' + error.message);}}).catch(error => {let _ = process.stderr.write('ConfigError: ' + error.message);});}\n");
 
+        int exit_status;
         while(true) {
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          int exit_status;
           if(prettier_background_process->try_get_exit_status(exit_status))
             break;
           LockGuard lock(mutex);
@@ -974,6 +974,8 @@ void Source::View::setup_format_style(bool is_generic_view) {
             else
               Terminal::get().print("\e[31mError (prettier)\e[m: " + error->message + '\n', true);
           }
+          else if(exit_status > 0)
+            Terminal::get().print("\e[31mError (prettier)\e[m: process exited with exit status " + std::to_string(exit_status) + '\n', true);
         }
       }
       else {
