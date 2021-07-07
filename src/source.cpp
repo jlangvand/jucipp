@@ -819,8 +819,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
       };
       static auto prettier_library = get_prettier_library();
 
-      auto buffer = get_buffer()->get_text().raw();
-      if(!prettier_library.empty() && buffer.size() < 25000) { // Node.js repl seems to be limited to around 28786 bytes
+      if(!prettier_library.empty()) {
         struct Error {
           std::string message;
           int line = -1, index = -1;
@@ -847,15 +846,38 @@ void Source::View::setup_format_style(bool is_generic_view) {
               "node -e \"const repl = require('repl');repl.start({prompt: '', ignoreUndefined: true, preview: false});\"",
               "",
               [](const char *bytes, size_t n) {
-                try {
-                  JSON json(std::string(bytes, n));
-                  LockGuard lock(mutex);
-                  result = Result{json.string("formatted"), static_cast<int>(json.integer_or("cursorOffset", -1))};
+                static std::stringstream stdout_buffer;
+                static int curly_count = 0;
+                static bool key_or_value = false;
+                for(size_t i = 0; i < n; ++i) {
+                  if(!key_or_value) {
+                    if(bytes[i] == '{')
+                      ++curly_count;
+                    else if(bytes[i] == '}')
+                      --curly_count;
+                    else if(bytes[i] == '"')
+                      key_or_value = true;
+                  }
+                  else {
+                    if(bytes[i] == '\\')
+                      ++i;
+                    else if(bytes[i] == '"')
+                      key_or_value = false;
+                  }
                 }
-                catch(const std::exception &e) {
-                  LockGuard lock(mutex);
-                  error = Error{e.what()};
-                  error->message += "\nOutput from prettier: " + std::string(bytes, n);
+                stdout_buffer.write(bytes, n);
+                if(curly_count == 0) {
+                  key_or_value = false;
+                  try {
+                    JSON json(stdout_buffer);
+                    LockGuard lock(mutex);
+                    result = Result{json.string("formatted"), static_cast<int>(json.integer_or("cursorOffset", -1))};
+                  }
+                  catch(const std::exception &e) {
+                    LockGuard lock(mutex);
+                    error = Error{std::string(e.what()) + "\nOutput from prettier: " + stdout_buffer.str()};
+                  }
+                  stdout_buffer.clear();
                 }
               },
               [](const char *bytes, size_t n) {
@@ -908,8 +930,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         else
           options += ", cursorOffset: " + std::to_string(get_buffer()->get_insert()->get_iter().get_offset());
         prettier_background_process->write("{prettier.clearConfigCache();let _ = prettier.resolveConfig(\"" + escape(file_path.string(), {'"'}) + "\").then(options => {try{let _ = process.stdout.write(JSON.stringify(prettier.formatWithCursor(Buffer.from('");
-        prettier_background_process->write(to_hex_string(buffer));
-        buffer.clear();
+        prettier_background_process->write(to_hex_string(get_buffer()->get_text().raw()));
         prettier_background_process->write("', 'hex').toString(), {...options, " + options + "})));}catch(error){let _ = process.stderr.write('ParseError: ' + error.message);}}).catch(error => {let _ = process.stderr.write('ConfigError: ' + error.message);});}\n");
 
         while(true) {
@@ -965,8 +986,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         else
           command += " --cursor-offset " + std::to_string(get_buffer()->get_insert()->get_iter().get_offset());
 
-        std::stringstream stdin_stream(buffer), stdout_stream, stderr_stream;
-        buffer.clear();
+        std::stringstream stdin_stream(get_buffer()->get_text().raw()), stdout_stream, stderr_stream;
         auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, command, this->file_path.parent_path(), &stderr_stream);
         if(exit_status == 0) {
           replace_text(stdout_stream.str());
