@@ -867,7 +867,6 @@ void Source::View::setup_format_style(bool is_generic_view) {
                 }
                 stdout_buffer.write(bytes, n);
                 if(curly_count == 0) {
-                  key_or_value = false;
                   try {
                     JSON json(stdout_buffer);
                     LockGuard lock(mutex);
@@ -877,7 +876,8 @@ void Source::View::setup_format_style(bool is_generic_view) {
                     LockGuard lock(mutex);
                     error = Error{std::string(e.what()) + "\nOutput from prettier: " + stdout_buffer.str()};
                   }
-                  stdout_buffer.clear();
+                  stdout_buffer = std::stringstream();
+                  key_or_value = false;
                 }
               },
               [](const char *bytes, size_t n) {
