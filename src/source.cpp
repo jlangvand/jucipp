@@ -836,19 +836,22 @@ void Source::View::setup_format_style(bool is_generic_view) {
           result = {};
           error = {};
         }
+        static std::stringstream stdout_buffer;
+        static int curly_count = 0;
+        static bool key_or_value = false;
         if(prettier_background_process) {
           int exit_status;
           if(prettier_background_process->try_get_exit_status(exit_status))
             prettier_background_process = {};
         }
         if(!prettier_background_process) {
+          stdout_buffer = std::stringstream();
+          curly_count = 0;
+          key_or_value = false;
           prettier_background_process = std::make_unique<TinyProcessLib::Process>(
               "node -e \"const repl = require('repl');repl.start({prompt: '', ignoreUndefined: true, preview: false});\"",
               "",
               [](const char *bytes, size_t n) {
-                static std::stringstream stdout_buffer;
-                static int curly_count = 0;
-                static bool key_or_value = false;
                 for(size_t i = 0; i < n; ++i) {
                   if(!key_or_value) {
                     if(bytes[i] == '{')
