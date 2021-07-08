@@ -1,5 +1,6 @@
 #include "notebook.hpp"
 #include "config.hpp"
+#include "dialog.hpp"
 #include "filesystem.hpp"
 #include "project.hpp"
 #include "selection_dialog.hpp"
@@ -198,12 +199,22 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
               dialog.set_default_response(Gtk::RESPONSE_YES);
               dialog.set_secondary_text("Would you like to install rust-analyzer through rustup?");
               int result = dialog.run();
+              dialog.hide();
               if(result == Gtk::RESPONSE_YES) {
+                bool canceled = false;
+                Dialog::Message message("Installing rust-analyzer", [&canceled] {
+                  canceled = true;
+                });
                 boost::optional<int> exit_status;
-                Terminal::get().async_process(std::string(command), "", [&exit_status](int exit_status_) {
+                auto process = Terminal::get().async_process(std::string(command), "", [&exit_status](int exit_status_) {
                   exit_status = exit_status_;
                 });
+                bool killed = false;
                 while(!exit_status) {
+                  if(canceled && !killed) {
+                    process->kill();
+                    killed = true;
+                  }
                   while(Gtk::Main::events_pending())
                     Gtk::Main::iteration();
                   std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -220,16 +231,17 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
               first = false;
               std::stringstream stdin_stream, stdout_stream;
               if(Terminal::get().process(stdin_stream, stdout_stream, "rustup component list") == 0) {
+                bool rust_analyzer_in_toolchain = false;
                 std::string line;
                 while(std::getline(stdout_stream, line)) {
                   if(starts_with(line, "rust-analyzer")) {
                     if(install_rust_analyzer(std::string("rustup component add rust-src ") + (starts_with(line, "rust-analyzer-preview") ? "rust-analyzer-preview" : "rust-analyzer")))
                       source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument(rust_analyzer.string())));
+                    rust_analyzer_in_toolchain = true;
                     break;
                   }
                 }
-                if(source_views_previous_size == source_views.size() &&
-                   install_rust_analyzer("rustup component add rust-src && rustup toolchain install nightly && rustup component add --toolchain nightly rust-src rust-analyzer-preview"))
+                if(!rust_analyzer_in_toolchain && install_rust_analyzer("rustup component add rust-src && rustup toolchain install nightly && rustup component add --toolchain nightly rust-src rust-analyzer-preview"))
                   source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, "rustup run nightly rust-analyzer"));
               }
             }
