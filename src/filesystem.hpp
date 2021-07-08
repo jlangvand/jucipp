@@ -22,6 +22,8 @@ public:
   static boost::filesystem::path get_home_path() noexcept;
   /// Returns empty path on failure
   static boost::filesystem::path get_rust_sysroot_path() noexcept;
+  /// Returns empty path on failure
+  static boost::filesystem::path get_rust_nightly_sysroot_path() noexcept;
   /// Replaces home path with ~
   static boost::filesystem::path get_short_path(const boost::filesystem::path &path) noexcept;
   /// Replaces ~ with home path (boost::filesystem does not recognize ~)

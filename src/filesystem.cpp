@@ -129,9 +129,12 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
 boost::filesystem::path filesystem::get_rust_sysroot_path() noexcept {
   auto rust_sysroot_path = [] {
     std::string path;
-    TinyProcessLib::Process process("rustc --print sysroot", "", [&path](const char *buffer, size_t length) {
-      path += std::string(buffer, length);
-    });
+    TinyProcessLib::Process process(
+        "rustc --print sysroot", "",
+        [&path](const char *buffer, size_t length) {
+          path += std::string(buffer, length);
+        },
+        [](const char *buffer, size_t n) {});
     if(process.get_exit_status() == 0) {
       while(!path.empty() && (path.back() == '\n' || path.back() == '\r'))
         path.pop_back();
@@ -142,6 +145,15 @@ boost::filesystem::path filesystem::get_rust_sysroot_path() noexcept {
 
   static boost::filesystem::path path = rust_sysroot_path();
   return path;
+}
+
+boost::filesystem::path filesystem::get_rust_nightly_sysroot_path() noexcept {
+  auto path = get_rust_sysroot_path();
+  if(path.empty())
+    return {};
+  auto filename = path.filename().string();
+  auto pos = filename.find('-');
+  return path.parent_path() / (pos != std::string::npos ? "nightly" + filename.substr(pos) : "nightly");
 }
 
 boost::filesystem::path filesystem::get_short_path(const boost::filesystem::path &path) noexcept {

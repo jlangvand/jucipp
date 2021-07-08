@@ -102,7 +102,7 @@ LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const JSON &workspace_edit, boost
 
 LanguageProtocol::Client::Client(boost::filesystem::path root_path_, std::string language_id_, const std::string &language_server) : root_path(std::move(root_path_)), language_id(std::move(language_id_)) {
   process = std::make_unique<TinyProcessLib::Process>(
-      filesystem::escape_argument(language_server), root_path.string(),
+      language_server, root_path.string(),
       [this](const char *bytes, size_t n) {
         server_message_stream.write(bytes, n);
         parse_server_message();
