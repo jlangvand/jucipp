@@ -6,6 +6,10 @@
 #include <iostream>
 #include <sstream>
 
+boost::optional<boost::filesystem::path> filesystem::rust_sysroot_path;
+boost::optional<boost::filesystem::path> filesystem::rust_nightly_sysroot_path;
+boost::optional<std::vector<boost::filesystem::path>> filesystem::executable_search_paths;
+
 //Only use on small files
 std::string filesystem::read(const std::string &path) {
   std::string str;
@@ -82,8 +86,8 @@ std::string filesystem::unescape_argument(const std::string &argument) {
   return unescaped;
 }
 
-boost::filesystem::path filesystem::get_current_path() noexcept {
-  auto current_path = [] {
+const boost::filesystem::path &filesystem::get_current_path() noexcept {
+  auto get_path = [] {
 #ifdef _WIN32
     boost::system::error_code ec;
     auto path = boost::filesystem::current_path(ec);
@@ -104,12 +108,12 @@ boost::filesystem::path filesystem::get_current_path() noexcept {
 #endif
   };
 
-  static boost::filesystem::path path = current_path();
+  static boost::filesystem::path path = get_path();
   return path;
 }
 
-boost::filesystem::path filesystem::get_home_path() noexcept {
-  auto home_path = [] {
+const boost::filesystem::path &filesystem::get_home_path() noexcept {
+  auto get_path = [] {
     std::vector<std::string> environment_variables = {"HOME", "AppData"};
     for(auto &variable : environment_variables) {
       if(auto ptr = std::getenv(variable.c_str())) {
@@ -122,12 +126,12 @@ boost::filesystem::path filesystem::get_home_path() noexcept {
     return boost::filesystem::path();
   };
 
-  static boost::filesystem::path path = home_path();
+  static boost::filesystem::path path = get_path();
   return path;
 }
 
-boost::filesystem::path filesystem::get_rust_sysroot_path() noexcept {
-  auto rust_sysroot_path = [] {
+const boost::filesystem::path &filesystem::get_rust_sysroot_path() noexcept {
+  auto get_path = [] {
     std::string path;
     TinyProcessLib::Process process(
         "rustc --print sysroot", "",
@@ -143,17 +147,32 @@ boost::filesystem::path filesystem::get_rust_sysroot_path() noexcept {
     return boost::filesystem::path();
   };
 
-  static boost::filesystem::path path = rust_sysroot_path();
-  return path;
+  if(!rust_sysroot_path)
+    rust_sysroot_path = get_path();
+  return *rust_sysroot_path;
 }
 
 boost::filesystem::path filesystem::get_rust_nightly_sysroot_path() noexcept {
-  auto path = get_rust_sysroot_path();
-  if(path.empty())
-    return {};
-  auto filename = path.filename().string();
-  auto pos = filename.find('-');
-  return path.parent_path() / (pos != std::string::npos ? "nightly" + filename.substr(pos) : "nightly");
+  auto get_path = [] {
+    std::string path;
+    TinyProcessLib::Process process(
+        // Slightly complicated since "RUSTUP_TOOLCHAIN=nightly rustc --print sysroot" actually installs nightly toolchain if missing...
+        "rustup toolchain list|grep nightly > /dev/null && RUSTUP_TOOLCHAIN=nightly rustc --print sysroot", "",
+        [&path](const char *buffer, size_t length) {
+          path += std::string(buffer, length);
+        },
+        [](const char *buffer, size_t n) {});
+    if(process.get_exit_status() == 0) {
+      while(!path.empty() && (path.back() == '\n' || path.back() == '\r'))
+        path.pop_back();
+      return boost::filesystem::path(path);
+    }
+    return boost::filesystem::path();
+  };
+
+  if(!rust_nightly_sysroot_path)
+    rust_nightly_sysroot_path = get_path();
+  return *rust_nightly_sysroot_path;
 }
 
 boost::filesystem::path filesystem::get_short_path(const boost::filesystem::path &path) noexcept {
@@ -299,10 +318,13 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
 
 // Based on https://stackoverflow.com/a/11295568
 const std::vector<boost::filesystem::path> &filesystem::get_executable_search_paths() {
-  auto executable_search_paths = [] {
+  auto get_paths = [] {
     std::vector<boost::filesystem::path> paths;
 
-    const std::string env = getenv("PATH");
+    auto c_env = std::getenv("PATH");
+    if(!c_env)
+      return paths;
+    const std::string env = c_env;
     const char delimiter = ':';
 
     size_t previous = 0;
@@ -316,8 +338,9 @@ const std::vector<boost::filesystem::path> &filesystem::get_executable_search_pa
     return paths;
   };
 
-  static std::vector<boost::filesystem::path> paths = executable_search_paths();
-  return paths;
+  if(!executable_search_paths)
+    executable_search_paths = get_paths();
+  return *executable_search_paths;
 }
 
 boost::filesystem::path filesystem::find_executable(const std::string &executable_name) {

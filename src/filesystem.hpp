@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
 #include <string>
 #include <vector>
 
@@ -17,13 +18,17 @@ public:
   static std::string unescape_argument(const std::string &argument);
 
   /// Does not resolve symbolic links. Returns empty path on failure.
-  static boost::filesystem::path get_current_path() noexcept;
+  static const boost::filesystem::path &get_current_path() noexcept;
   /// Returns empty path on failure
-  static boost::filesystem::path get_home_path() noexcept;
+  static const boost::filesystem::path &get_home_path() noexcept;
   /// Returns empty path on failure
-  static boost::filesystem::path get_rust_sysroot_path() noexcept;
+  static const boost::filesystem::path &get_rust_sysroot_path() noexcept;
+  /// Set to {} to reset get_rust_sysroot_path
+  static boost::optional<boost::filesystem::path> rust_sysroot_path;
   /// Returns empty path on failure
   static boost::filesystem::path get_rust_nightly_sysroot_path() noexcept;
+  /// Set to {} to reset get_rust_sysroot_path
+  static boost::optional<boost::filesystem::path> rust_nightly_sysroot_path;
   /// Replaces home path with ~
   static boost::filesystem::path get_short_path(const boost::filesystem::path &path) noexcept;
   /// Replaces ~ with home path (boost::filesystem does not recognize ~)
@@ -43,6 +48,8 @@ public:
   static boost::filesystem::path get_executable(const boost::filesystem::path &executable_name) noexcept;
 
   static const std::vector<boost::filesystem::path> &get_executable_search_paths();
+  /// Set to {} to reset get_executable_search_paths
+  static boost::optional<std::vector<boost::filesystem::path>> executable_search_paths;
 
   /// Returns full executable path if found, or empty path otherwise.
   static boost::filesystem::path find_executable(const std::string &executable_name);

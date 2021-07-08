@@ -81,9 +81,7 @@ ln -s `which pyls` /usr/local/bin/python-language-server
 Install language server:
 
 ```sh
-rustup component add rust-src
-rustup toolchain install nightly
-rustup component add --toolchain nightly rust-src rust-analyzer-preview
+rustup toolchain install nightly --component rust-analyzer-preview
 ```
 
 - Additional setup within a Rust project:

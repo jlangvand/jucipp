@@ -381,9 +381,9 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(c_main_path);
         Directories::get().update();
-        Terminal::get().print("C project ");
+        Terminal::get().print("\e[32mSuccess\e[m: created C project ");
         Terminal::get().print(project_name, true);
-        Terminal::get().print(" \e[32mcreated\e[m\n");
+        Terminal::get().print("\n");
       }
       else
         Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
@@ -438,19 +438,20 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(cpp_main_path);
         Directories::get().update();
-        Terminal::get().print("C++ project ");
+        Terminal::get().print("\e[32mSuccess\e[m: created C++ project ");
         Terminal::get().print(project_name, true);
-        Terminal::get().print(" \e[32mcreated\e[m\n");
+        Terminal::get().print("\n");
       }
       else
         Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
     }
   });
   menu.add_action("file_new_project_rust", []() {
-    auto sysroot = filesystem::get_rust_sysroot_path();
-    if(sysroot.empty()) {
-      Terminal::get().print("\e[31mError\e[m: could not find Rust. You can install Rust by running the following command in a terminal:\n\n");
-      Terminal::get().print("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh\n\n");
+    if(filesystem::find_executable("rustup").empty())
+      Notebook::get().install_rust();
+    if(filesystem::find_executable("rustup").empty()) {
+      Terminal::get().print("\e[33mWarning\e[m: could not find Rust.\n");
+      Terminal::get().print("For installation instructions please visit: https://gitlab.com/cppit/jucipp/-/blob/master/docs/language_servers.md#rust.\n");
       Terminal::get().print("You will need to restart juCi++ after installing Rust.\n");
       return;
     }
@@ -467,9 +468,9 @@ void Window::set_menu_actions() {
         Directories::get().open(project_path);
         Notebook::get().open(project_path / "src" / "main.rs");
         Directories::get().update();
-        Terminal::get().print("Rust project ");
-        Terminal::get().print(project_path.filename().string(), true);
-        Terminal::get().print(" \e[32mcreated\e[m\n");
+        Terminal::get().print("\e[32mSuccess\e[m: created Rust project ");
+        Terminal::get().print(project_name, true);
+        Terminal::get().print("\n");
       }
       else
         Terminal::get().print("\e[31mError\e[m: could not create project " + filesystem::get_short_path(project_path).string() + "\n", true);
