@@ -460,7 +460,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
   }
   std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(message_id++) + ",\"method\":\"" + method + "\"" + (params.empty() ? "" : ",\"params\":{" + params + '}') + '}');
   if(Config::get().log.language_server)
-    std::cout << "Language client: " << content << std::endl;
+    std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
   if(!process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content)) {
     Terminal::get().async_print("\e[31mError\e[m: could not write to language server. Please close and reopen all project files.\n", true);
     auto id_it = handlers.find(message_id - 1);
@@ -478,7 +478,7 @@ void LanguageProtocol::Client::write_response(size_t id, const std::string &resu
   LockGuard lock(read_write_mutex);
   std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":{" + result + "}}");
   if(Config::get().log.language_server)
-    std::cout << "Language client: " << content << std::endl;
+    std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
@@ -486,7 +486,7 @@ void LanguageProtocol::Client::write_notification(const std::string &method, con
   LockGuard lock(read_write_mutex);
   std::string content("{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\",\"params\":{" + params + "}}");
   if(Config::get().log.language_server)
-    std::cout << "Language client: " << content << std::endl;
+    std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
