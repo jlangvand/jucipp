@@ -311,30 +311,38 @@ bool SelectionDialog::on_key_press(GdkEventKey *event) {
   }
   else if(show_search_entry) {
 #ifdef __APPLE__ //OS X bug most likely: Gtk::Entry will not work if window is of type POPUP
-    int search_entry_length = search_entry.get_text_length();
-    if(event->keyval == GDK_KEY_dead_tilde) {
-      search_entry.insert_text("~", 1, search_entry_length);
-      return true;
-    }
-    else if(event->keyval == GDK_KEY_dead_circumflex) {
-      search_entry.insert_text("^", 1, search_entry_length);
-      return true;
-    }
-    else if(event->is_modifier)
+    if(event->is_modifier)
       return true;
     else if(event->keyval == GDK_KEY_BackSpace) {
+      int start_pos, end_pos;
+      if(search_entry.get_selection_bounds(start_pos, end_pos)) {
+        search_entry.delete_selection();
+        return true;
+      }
       auto length = search_entry.get_text_length();
       if(length > 0)
         search_entry.delete_text(length - 1, length);
       return true;
     }
+    else if(event->keyval == GDK_KEY_v && event->state & GDK_META_MASK) {
+      search_entry.paste_clipboard();
+      return true;
+    }
+    else if(event->keyval == GDK_KEY_c && event->state & GDK_META_MASK) {
+      search_entry.copy_clipboard();
+      return true;
+    }
+    else if(event->keyval == GDK_KEY_x && event->state & GDK_META_MASK) {
+      search_entry.cut_clipboard();
+      return true;
+    }
+    else if(event->keyval == GDK_KEY_a && event->state & GDK_META_MASK) {
+      search_entry.select_region(0, -1);
+      return true;
+    }
     else {
-      gunichar unicode = gdk_keyval_to_unicode(event->keyval);
-      if(unicode >= 32 && unicode != 126) {
-        auto ustr = Glib::ustring(1, unicode);
-        search_entry.insert_text(ustr, ustr.bytes(), search_entry_length);
-        return true;
-      }
+      search_entry.on_key_press_event(event);
+      return true;
     }
 #else
     search_entry.on_key_press_event(event);
