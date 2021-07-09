@@ -71,17 +71,20 @@ Notebook::Notebook() : Gtk::Paned(), notebooks(2) {
 
   if(filesystem::find_executable("rustup").empty()) {
     // PATH might not be set (for instance after installation)
+#ifdef _WIN32
+    boost::filesystem::path cargo_bin;
+    if(auto userprofile = std::getenv("USERPROFILE"))
+      cargo_bin = boost::filesystem::path(userprofile) / ".cargo" / "bin";
+    const char delimiter = ';';
+#else
     auto cargo_bin = filesystem::get_home_path() / ".cargo" / "bin";
+    const char delimiter = ':';
+#endif
     boost::system::error_code ec;
-    if(boost::filesystem::is_directory(cargo_bin, ec)) {
+    if(!cargo_bin.empty() && boost::filesystem::is_directory(cargo_bin, ec)) {
       std::string env;
       if(auto c_env = std::getenv("PATH"))
         env = c_env;
-#ifdef _WIN32
-      const char delimiter = ';';
-#else
-      const char delimiter = ':';
-#endif
       Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
       filesystem::rust_sysroot_path = {};
       filesystem::rust_nightly_sysroot_path = {};
@@ -205,7 +208,11 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
         // Try find rust-analyzer installed with rustup
         auto sysroot = filesystem::get_rust_sysroot_path();
         if(!sysroot.empty()) {
+#ifdef _WIN32
+          auto rust_analyzer = sysroot / "bin" / "rust-analyzer.exe";
+#else
           auto rust_analyzer = sysroot / "bin" / "rust-analyzer";
+#endif
           boost::system::error_code ec;
           if(boost::filesystem::exists(rust_analyzer, ec))
             source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument(rust_analyzer.string())));
@@ -213,7 +220,11 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
             // Workaround while rust-analyzer is in nightly toolchain only
             auto nightly_sysroot = filesystem::get_rust_nightly_sysroot_path();
             if(!nightly_sysroot.empty()) {
+#ifdef _WIN32
+              auto nightly_rust_analyzer = nightly_sysroot / "bin" / "rust-analyzer.exe";
+#else
               auto nightly_rust_analyzer = nightly_sysroot / "bin" / "rust-analyzer";
+#endif
               boost::system::error_code ec;
               if(boost::filesystem::exists(nightly_rust_analyzer, ec))
                 source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument(nightly_rust_analyzer.string())));
@@ -624,11 +635,7 @@ void Notebook::install_rust() {
         canceled = true;
       });
       boost::optional<int> exit_status;
-#ifdef _WIN32
-      std::string command = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | RUSTUP_HOME=$HOME/.rustup CARGO_HOME=$HOME/.cargo sh -s -- -y";
-#else
       std::string command = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y";
-#endif
       Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
       auto process = Terminal::get().async_process(command, "", [&exit_status](int exit_status_) {
         exit_status = exit_status_;
@@ -648,13 +655,17 @@ void Notebook::install_rust() {
           std::string env;
           if(auto c_env = std::getenv("PATH"))
             env = c_env;
-          auto cargo_bin = filesystem::get_home_path() / ".cargo" / "bin";
 #ifdef _WIN32
+          boost::filesystem::path cargo_bin;
+          if(auto userprofile = std::getenv("USERPROFILE"))
+            cargo_bin = boost::filesystem::path(userprofile) / ".cargo" / "bin";
           const char delimiter = ';';
 #else
+          auto cargo_bin = filesystem::get_home_path() / ".cargo" / "bin";
           const char delimiter = ':';
 #endif
-          Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
+          if(!cargo_bin.empty())
+            Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
         }
         filesystem::rust_sysroot_path = {};
         filesystem::rust_nightly_sysroot_path = {};
