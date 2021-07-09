@@ -77,7 +77,12 @@ Notebook::Notebook() : Gtk::Paned(), notebooks(2) {
       std::string env;
       if(auto c_env = std::getenv("PATH"))
         env = c_env;
-      Glib::setenv("PATH", !env.empty() ? env + ':' + cargo_bin.string() : cargo_bin.string());
+#ifdef _WIN32
+      const char delimiter = ';';
+#else
+      const char delimiter = ':';
+#endif
+      Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
       filesystem::rust_sysroot_path = {};
       filesystem::rust_nightly_sysroot_path = {};
       filesystem::executable_search_paths = {};
@@ -619,8 +624,11 @@ void Notebook::install_rust() {
         canceled = true;
       });
       boost::optional<int> exit_status;
-
+#ifdef _WIN32
+      std::string command = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | RUSTUP_HOME=$HOME/.rustup CARGO_HOME=$HOME/.cargo sh -s -- -y";
+#else
       std::string command = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y";
+#endif
       Terminal::get().print("\e[2mRunning: " + command + "\e[m\n");
       auto process = Terminal::get().async_process(command, "", [&exit_status](int exit_status_) {
         exit_status = exit_status_;
@@ -641,7 +649,12 @@ void Notebook::install_rust() {
           if(auto c_env = std::getenv("PATH"))
             env = c_env;
           auto cargo_bin = filesystem::get_home_path() / ".cargo" / "bin";
-          Glib::setenv("PATH", !env.empty() ? env + ':' + cargo_bin.string() : cargo_bin.string());
+#ifdef _WIN32
+          const char delimiter = ';';
+#else
+          const char delimiter = ':';
+#endif
+          Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
         }
         filesystem::rust_sysroot_path = {};
         filesystem::rust_nightly_sysroot_path = {};

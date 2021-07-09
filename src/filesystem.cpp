@@ -325,7 +325,11 @@ const std::vector<boost::filesystem::path> &filesystem::get_executable_search_pa
     if(!c_env)
       return paths;
     const std::string env = c_env;
+#ifdef _WIN32
+    const char delimiter = ';';
+#else
     const char delimiter = ':';
+#endif
 
     size_t previous = 0;
     size_t pos;
@@ -346,7 +350,11 @@ const std::vector<boost::filesystem::path> &filesystem::get_executable_search_pa
 boost::filesystem::path filesystem::find_executable(const std::string &executable_name) {
   for(auto &path : get_executable_search_paths()) {
     boost::system::error_code ec;
+#ifdef _WIN32
+    auto executable_path = path / (executable_name + ".exe");
+#else
     auto executable_path = path / executable_name;
+#endif
     if(boost::filesystem::exists(executable_path, ec))
       return executable_path;
   }
