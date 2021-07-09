@@ -18,13 +18,15 @@ int main() {
   {
     auto paths = filesystem::get_executable_search_paths();
     g_assert(!paths.empty());
+    size_t count = 0;
     for(auto &path : paths) {
       g_assert(!path.empty());
-      if(path.string() != "C:\\msys64\\usr\\local\\bin") { // Workaround for MSYS2
-        g_assert(boost::filesystem::exists(path));
+      if(boost::filesystem::exists(path)) {
         g_assert(boost::filesystem::is_directory(path));
+        ++count;
       }
     }
+    g_assert(count > 0);
   }
 
   {
