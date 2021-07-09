@@ -208,25 +208,15 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
         // Try find rust-analyzer installed with rustup
         auto sysroot = filesystem::get_rust_sysroot_path();
         if(!sysroot.empty()) {
-#ifdef _WIN32
-          auto rust_analyzer = sysroot / "bin" / "rust-analyzer.exe";
-#else
           auto rust_analyzer = sysroot / "bin" / "rust-analyzer";
-#endif
-          boost::system::error_code ec;
-          if(boost::filesystem::exists(rust_analyzer, ec))
+          if(filesystem::is_executable(rust_analyzer))
             source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument(rust_analyzer.string())));
           else {
             // Workaround while rust-analyzer is in nightly toolchain only
             auto nightly_sysroot = filesystem::get_rust_nightly_sysroot_path();
             if(!nightly_sysroot.empty()) {
-#ifdef _WIN32
-              auto nightly_rust_analyzer = nightly_sysroot / "bin" / "rust-analyzer.exe";
-#else
               auto nightly_rust_analyzer = nightly_sysroot / "bin" / "rust-analyzer";
-#endif
-              boost::system::error_code ec;
-              if(boost::filesystem::exists(nightly_rust_analyzer, ec))
+              if(filesystem::is_executable(nightly_rust_analyzer))
                 source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument(nightly_rust_analyzer.string())));
             }
           }

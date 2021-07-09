@@ -20,10 +20,10 @@ int main() {
     g_assert(!paths.empty());
     for(auto &path : paths) {
       g_assert(!path.empty());
-#ifndef _WIN32
-      g_assert(boost::filesystem::exists(path));
-      g_assert(boost::filesystem::is_directory(path));
-#endif
+      if(path.string() != "C:\\msys64\\usr\\local\\bin") { // Workaround for MSYS2
+        g_assert(boost::filesystem::exists(path));
+        g_assert(boost::filesystem::is_directory(path));
+      }
     }
   }
 
@@ -118,5 +118,19 @@ int main() {
     auto uri = filesystem::get_uri_from_path(path);
     g_assert(uri == "file:///ro%20ot/te%20st%C3%A6%C3%B8%C3%A5.txt");
     g_assert(path == filesystem::get_path_from_uri(uri));
+  }
+
+  {
+    g_assert(!filesystem::is_executable(filesystem::get_home_path()));
+    g_assert(!filesystem::is_executable(filesystem::get_current_path()));
+    g_assert(!filesystem::is_executable(tests_path));
+#ifdef _WIN32
+    g_assert(filesystem::is_executable(tests_path / ".." / "LICENSE"));
+#else
+    g_assert(!filesystem::is_executable(tests_path / ".." / "LICENSE"));
+#endif
+    auto ls = filesystem::find_executable("ls");
+    g_assert(!ls.empty());
+    g_assert(filesystem::is_executable(ls));
   }
 }

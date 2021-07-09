@@ -36,7 +36,7 @@ bool filesystem::write(const std::string &path, const std::string &new_content) 
   return true;
 }
 
-std::string filesystem::escape_argument(const std::string &argument) {
+std::string filesystem::escape_argument(const std::string &argument) noexcept {
   auto escaped = argument;
   for(size_t pos = 0; pos < escaped.size(); ++pos) {
     if(escaped[pos] == ' ' || escaped[pos] == '(' || escaped[pos] == ')' || escaped[pos] == '\'' || escaped[pos] == '"') {
@@ -47,7 +47,7 @@ std::string filesystem::escape_argument(const std::string &argument) {
   return escaped;
 }
 
-std::string filesystem::unescape_argument(const std::string &argument) {
+std::string filesystem::unescape_argument(const std::string &argument) noexcept {
   auto unescaped = argument;
 
   if(unescaped.size() >= 2) {
@@ -204,13 +204,13 @@ boost::filesystem::path filesystem::get_long_path(const boost::filesystem::path 
 #endif
 }
 
-bool filesystem::file_in_path(const boost::filesystem::path &file_path, const boost::filesystem::path &path) {
+bool filesystem::file_in_path(const boost::filesystem::path &file_path, const boost::filesystem::path &path) noexcept {
   if(std::distance(file_path.begin(), file_path.end()) < std::distance(path.begin(), path.end()))
     return false;
   return std::equal(path.begin(), path.end(), file_path.begin());
 }
 
-boost::filesystem::path filesystem::find_file_in_path_parents(const std::string &file_name, const boost::filesystem::path &path) {
+boost::filesystem::path filesystem::find_file_in_path_parents(const std::string &file_name, const boost::filesystem::path &path) noexcept {
   auto current_path = path;
   boost::system::error_code ec;
   while(true) {
@@ -283,7 +283,7 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
 
   try {
     for(auto &path : bin_paths) {
-      if(boost::filesystem::exists(path / executable_name))
+      if(is_executable(path / executable_name))
         return executable_name;
     }
 
@@ -317,7 +317,7 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
 }
 
 // Based on https://stackoverflow.com/a/11295568
-const std::vector<boost::filesystem::path> &filesystem::get_executable_search_paths() {
+const std::vector<boost::filesystem::path> &filesystem::get_executable_search_paths() noexcept {
   auto get_paths = [] {
     std::vector<boost::filesystem::path> paths;
 
@@ -347,21 +347,16 @@ const std::vector<boost::filesystem::path> &filesystem::get_executable_search_pa
   return *executable_search_paths;
 }
 
-boost::filesystem::path filesystem::find_executable(const std::string &executable_name) {
+boost::filesystem::path filesystem::find_executable(const std::string &executable_name) noexcept {
   for(auto &path : get_executable_search_paths()) {
-    boost::system::error_code ec;
-#ifdef _WIN32
-    auto executable_path = path / (executable_name + ".exe");
-#else
     auto executable_path = path / executable_name;
-#endif
-    if(boost::filesystem::exists(executable_path, ec))
+    if(is_executable(executable_path))
       return executable_path;
   }
   return boost::filesystem::path();
 }
 
-std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) {
+std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) noexcept {
   std::string uri{"file://"};
 
   static auto hex_chars = "0123456789ABCDEF";
@@ -378,7 +373,7 @@ std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) {
   return uri;
 }
 
-boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) {
+boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) noexcept {
   std::string encoded;
 
   if(starts_with(uri, "file://"))
@@ -403,11 +398,26 @@ boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) {
   return unencoded;
 }
 
-boost::filesystem::path filesystem::get_canonical_path(const boost::filesystem::path &path) {
+boost::filesystem::path filesystem::get_canonical_path(const boost::filesystem::path &path) noexcept {
   try {
     return boost::filesystem::canonical(path);
   }
   catch(...) {
     return path;
   }
+}
+
+bool filesystem::is_executable(const boost::filesystem::path &path) noexcept {
+  if(path.empty())
+    return false;
+  boost::system::error_code ec;
+#ifdef _WIN32
+  // Cannot for sure identify executable files in MSYS2
+  if(boost::filesystem::exists(path, ec))
+    return !boost::filesystem::is_directory(path, ec);
+  auto filename = path.filename().string() + ".exe";
+  return boost::filesystem::exists(path.has_parent_path() ? path.parent_path() / filename : filename, ec);
+#else
+  return boost::filesystem::exists(path, ec) && !boost::filesystem::is_directory(path, ec) && boost::filesystem::status(path, ec).permissions() & (boost::filesystem::perms::owner_exe | boost::filesystem::perms::group_exe | boost::filesystem::perms::others_exe);
+#endif
 }

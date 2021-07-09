@@ -14,8 +14,8 @@ public:
   static bool write(const std::string &path) { return write(path, ""); };
   static bool write(const boost::filesystem::path &path) { return write(path, ""); };
 
-  static std::string escape_argument(const std::string &argument);
-  static std::string unescape_argument(const std::string &argument);
+  static std::string escape_argument(const std::string &argument) noexcept;
+  static std::string unescape_argument(const std::string &argument) noexcept;
 
   /// Does not resolve symbolic links. Returns empty path on failure.
   static const boost::filesystem::path &get_current_path() noexcept;
@@ -34,8 +34,8 @@ public:
   /// Replaces ~ with home path (boost::filesystem does not recognize ~)
   static boost::filesystem::path get_long_path(const boost::filesystem::path &path) noexcept;
 
-  static bool file_in_path(const boost::filesystem::path &file_path, const boost::filesystem::path &path);
-  static boost::filesystem::path find_file_in_path_parents(const std::string &file_name, const boost::filesystem::path &path);
+  static bool file_in_path(const boost::filesystem::path &file_path, const boost::filesystem::path &path) noexcept;
+  static boost::filesystem::path find_file_in_path_parents(const std::string &file_name, const boost::filesystem::path &path) noexcept;
 
   /// Return path with dot, dot-dot and directory separator elements removed
   static boost::filesystem::path get_normal_path(const boost::filesystem::path &path) noexcept;
@@ -47,18 +47,21 @@ public:
   /// Return executable with latest version in filename on systems that is lacking executable_name symbolic link
   static boost::filesystem::path get_executable(const boost::filesystem::path &executable_name) noexcept;
 
-  static const std::vector<boost::filesystem::path> &get_executable_search_paths();
+  static const std::vector<boost::filesystem::path> &get_executable_search_paths() noexcept;
   /// Set to {} to reset get_executable_search_paths
   static boost::optional<std::vector<boost::filesystem::path>> executable_search_paths;
 
   /// Returns full executable path if found, or empty path otherwise.
-  static boost::filesystem::path find_executable(const std::string &executable_name);
+  static boost::filesystem::path find_executable(const std::string &executable_name) noexcept;
 
   /// Get uri from path
-  static std::string get_uri_from_path(const boost::filesystem::path &path);
+  static std::string get_uri_from_path(const boost::filesystem::path &path) noexcept;
   /// Get path from file uri
-  static boost::filesystem::path get_path_from_uri(const std::string &uri);
+  static boost::filesystem::path get_path_from_uri(const std::string &uri) noexcept;
 
   /// Returns path on error. Do not use boost::filesystem::canonical_path since it is bugged when current_folder() fails.
-  static boost::filesystem::path get_canonical_path(const boost::filesystem::path &path);
+  static boost::filesystem::path get_canonical_path(const boost::filesystem::path &path) noexcept;
+
+  /// Platform independent check if path is executable
+  static bool is_executable(const boost::filesystem::path &path) noexcept;
 };
