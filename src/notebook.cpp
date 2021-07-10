@@ -73,7 +73,7 @@ Notebook::Notebook() : Gtk::Paned(), notebooks(2) {
     // PATH might not be set (for instance after installation)
 #ifdef _WIN32
     boost::filesystem::path cargo_bin;
-    if(auto userprofile = std::getenv("USERPROFILE"))
+    if(auto userprofile = std::getenv("USERPROFILE")) // rustup uses this environment variable on MSYS2 as well
       cargo_bin = boost::filesystem::path(userprofile) / ".cargo" / "bin";
     const char delimiter = ';';
 #else
@@ -642,20 +642,21 @@ void Notebook::install_rust() {
       }
       if(exit_status == 0) {
         if(filesystem::find_executable("rustup").empty()) {
-          std::string env;
-          if(auto c_env = std::getenv("PATH"))
-            env = c_env;
 #ifdef _WIN32
           boost::filesystem::path cargo_bin;
-          if(auto userprofile = std::getenv("USERPROFILE"))
+          if(auto userprofile = std::getenv("USERPROFILE")) // rustup uses this environment variable on MSYS2 as well
             cargo_bin = boost::filesystem::path(userprofile) / ".cargo" / "bin";
           const char delimiter = ';';
 #else
           auto cargo_bin = filesystem::get_home_path() / ".cargo" / "bin";
           const char delimiter = ':';
 #endif
-          if(!cargo_bin.empty())
+          if(!cargo_bin.empty()) {
+            std::string env;
+            if(auto c_env = std::getenv("PATH"))
+              env = c_env;
             Glib::setenv("PATH", !env.empty() ? env + delimiter + cargo_bin.string() : cargo_bin.string());
+          }
         }
         filesystem::rust_sysroot_path = {};
         filesystem::rust_nightly_sysroot_path = {};
