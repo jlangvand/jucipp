@@ -143,4 +143,19 @@ int main() {
   g_assert(!starts_with(empty, 0, test));
   g_assert(!ends_with(empty, test.c_str()));
   g_assert(!ends_with(empty, test));
+
+  {
+    g_assert(escape("", {}) == "");
+    std::string test("^t'e\"st$");
+    g_assert(escape(test, {'\"'}) == "^t'e\\\"st$");
+    g_assert(escape(test, {'\''}) == "^t\\'e\"st$");
+    g_assert(escape(test, {'\'', '"', '$'}) == "^t\\'e\\\"st\\$");
+    g_assert(escape(test, {'^', '$'}) == "\\^t'e\"st\\$");
+  }
+  {
+    g_assert(to_hex_string("") == "");
+    g_assert(to_hex_string("\n") == "0a");
+    g_assert(to_hex_string("\n!") == "0a21");
+    g_assert(to_hex_string("\n!z") == "0a217a");
+  }
 }
