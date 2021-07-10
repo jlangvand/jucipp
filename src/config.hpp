@@ -144,4 +144,12 @@ private:
   void add_missing_nodes(JSON &cfg, const JSON &default_cfg);
   void remove_deprecated_nodes(JSON &cfg, const JSON &default_cfg);
   void read(const JSON &cfg);
+
+  /// If you add or remove nodes from the default_config, increase the juci
+  /// version number (JUCI_VERSION) in ../CMakeLists.txt to automatically apply
+  /// the changes to user's ~/.juci/config/config.json files
+  std::string default_config();
+  const char *juci_light_style();
+  const char *juci_dark_style();
+  const char *juci_dark_blue_style();
 };

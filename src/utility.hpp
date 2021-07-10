@@ -32,3 +32,6 @@ bool ends_with(const std::string &str, const char *test) noexcept;
 std::string escape(const std::string &input, const std::set<char> &escape_chars);
 
 std::string to_hex_string(const std::string &input);
+
+/// Returns -1 if lhs is smaller than rhs, 0 if equal, and 1 if lhs is larger than rhs
+int version_compare(const std::string &lhs, const std::string &rhs);

@@ -158,4 +158,26 @@ int main() {
     g_assert(to_hex_string("\n!") == "0a21");
     g_assert(to_hex_string("\n!z") == "0a217a");
   }
+  {
+    g_assert(version_compare("", "") == 0);
+    g_assert(version_compare("1.2.3", "") == 1);
+    g_assert(version_compare("", "1.2.3") == -1);
+    g_assert(version_compare("1.2.3", "1.2.3") == 0);
+    g_assert(version_compare("1.2.3", "1.2.4") == -1);
+    g_assert(version_compare("1.2.4", "1.2.3") == 1);
+    g_assert(version_compare("1.2.3", "1.3.3") == -1);
+    g_assert(version_compare("1.3.3", "1.2.3") == 1);
+    g_assert(version_compare("1.2.3", "2.2.3") == -1);
+    g_assert(version_compare("2.2.3", "1.2.3") == 1);
+    g_assert(version_compare("3.12", "3.12.1") == -1);
+    g_assert(version_compare("3.12.2", "3.12") == 1);
+    g_assert(version_compare("1.2.3", "1.20.3") == -1);
+    g_assert(version_compare("1.20.3", "1.2.3") == 1);
+    g_assert(version_compare("1.2.3", "1.2.3.1") == -1);
+    g_assert(version_compare("1.2.3", "1.2.10") == -1);
+    g_assert(version_compare("10.2.3", "1.2.3") == 1);
+    g_assert(version_compare("1.2.3a", "1.2.3b") == -1);
+    g_assert(version_compare("1.2.3x", "1.2.3z") == -1);
+    g_assert(version_compare("1.2.3a", "1.2.3z") == -1);
+  }
 }

@@ -279,35 +279,38 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
   return executable_name;
 #endif
 
-  static std::vector<boost::filesystem::path> bin_paths = {"/usr/bin", "/usr/local/bin"};
-
   try {
-    for(auto &path : bin_paths) {
+    for(auto &path : get_executable_search_paths()) {
       if(is_executable(path / executable_name))
         return executable_name;
     }
 
     auto &executable_name_str = executable_name.string();
-    for(auto &path : bin_paths) {
-      boost::filesystem::path executable;
-      for(boost::filesystem::directory_iterator it(path), end; it != end; ++it) {
-        auto it_path = it->path();
-        auto it_path_filename_str = it_path.filename().string();
-        if(starts_with(it_path_filename_str, executable_name_str)) {
-          if(it_path > executable &&
-             ((it_path_filename_str.size() > executable_name_str.size() &&
-               it_path_filename_str[executable_name_str.size()] >= '0' &&
-               it_path_filename_str[executable_name_str.size()] <= '9') ||
-              (it_path_filename_str.size() > executable_name_str.size() + 1 &&
-               it_path_filename_str[executable_name_str.size()] == '-' &&
-               it_path_filename_str[executable_name_str.size() + 1] >= '0' &&
-               it_path_filename_str[executable_name_str.size() + 1] <= '9')) &&
-             !boost::filesystem::is_directory(it_path))
-            executable = it_path;
+    for(auto &folder : get_executable_search_paths()) {
+      boost::filesystem::path latest_executable;
+      std::string latest_version;
+      for(boost::filesystem::directory_iterator it(folder), end; it != end; ++it) {
+        const auto &file = it->path();
+        auto filename = file.filename().string();
+        if(starts_with(filename, executable_name_str)) {
+          if(filename.size() > executable_name_str.size() && filename[executable_name_str.size()] >= '0' && filename[executable_name_str.size()] <= '9' && is_executable(file)) {
+            auto version = filename.substr(executable_name_str.size());
+            if(version_compare(version, latest_version) > 0) {
+              latest_executable = file;
+              latest_version = version;
+            }
+          }
+          else if(filename.size() > executable_name_str.size() + 1 && filename[executable_name_str.size()] == '-' && filename[executable_name_str.size() + 1] >= '0' && filename[executable_name_str.size() + 1] <= '9' && is_executable(file)) {
+            auto version = filename.substr(executable_name_str.size() + 1);
+            if(version_compare(version, latest_version) > 0) {
+              latest_executable = file;
+              latest_version = version;
+            }
+          }
         }
       }
-      if(!executable.empty())
-        return executable;
+      if(!latest_executable.empty())
+        return latest_executable;
     }
   }
   catch(...) {

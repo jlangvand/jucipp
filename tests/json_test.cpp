@@ -1,4 +1,4 @@
-#include "files.hpp"
+#include "config.hpp"
 #include "json.hpp"
 #include <glib.h>
 #include <iomanip>
@@ -45,7 +45,7 @@ int main() {
   }
 
   {
-    JSON j(default_config_file);
+    JSON j(Config::get().default_config());
     g_assert(!j.string("version").empty());
   }
 

@@ -1,6 +1,7 @@
 #include "utility.hpp"
 #include <algorithm>
 #include <cstring>
+#include <vector>
 
 ScopeGuard::~ScopeGuard() {
   if(on_exit)
@@ -191,4 +192,43 @@ std::string to_hex_string(const std::string &input) {
     result += hex_chars[static_cast<unsigned char>(chr) & 0x0f];
   }
   return result;
+}
+
+int version_compare(const std::string &lhs, const std::string &rhs) {
+  static auto get_parts = [](const std::string &str) {
+    std::vector<int> result;
+    std::string tmp;
+    for(auto &chr : str) {
+      if(chr >= '0' && chr <= '9')
+        tmp += chr;
+      else if(chr == '.') {
+        if(!tmp.empty()) {
+          try {
+            result.emplace_back(std::stoi(tmp));
+          }
+          catch(...) {
+          }
+          tmp.clear();
+        }
+      }
+      else
+        tmp += std::to_string(static_cast<unsigned char>(chr)); // Convert for instance letters to numbers
+    }
+    if(!tmp.empty()) {
+      try {
+        result.emplace_back(std::stoi(tmp));
+      }
+      catch(...) {
+      }
+      tmp.clear();
+    }
+    return result;
+  };
+  auto lhs_parts = get_parts(lhs);
+  auto rhs_parts = get_parts(rhs);
+  if(std::equal(lhs_parts.begin(), lhs_parts.end(), rhs_parts.begin(), rhs_parts.end()))
+    return 0;
+  if(std::lexicographical_compare(lhs_parts.begin(), lhs_parts.end(), rhs_parts.begin(), rhs_parts.end()))
+    return -1;
+  return 1;
 }

@@ -3,6 +3,7 @@ set(JUCI_SHARED_FILES
   autocomplete.cpp
   cmake.cpp
   commands.cpp
+  config.cpp
   compile_commands.cpp
   ctags.cpp
   dispatcher.cpp
@@ -44,7 +45,6 @@ target_link_libraries(juci_shared
 )
 
 set(JUCI_FILES
-  config.cpp
   dialog.cpp
   directories.cpp
   entrybox.cpp

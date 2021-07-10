@@ -37,14 +37,14 @@ public:
   static bool file_in_path(const boost::filesystem::path &file_path, const boost::filesystem::path &path) noexcept;
   static boost::filesystem::path find_file_in_path_parents(const std::string &file_name, const boost::filesystem::path &path) noexcept;
 
-  /// Return path with dot, dot-dot and directory separator elements removed
+  /// Returns path with dot, dot-dot and directory separator elements removed
   static boost::filesystem::path get_normal_path(const boost::filesystem::path &path) noexcept;
 
   static boost::filesystem::path get_relative_path(const boost::filesystem::path &path, const boost::filesystem::path &base) noexcept;
 
   static boost::filesystem::path get_absolute_path(const boost::filesystem::path &path, const boost::filesystem::path &base) noexcept;
 
-  /// Return executable with latest version in filename on systems that is lacking executable_name symbolic link
+  /// Returns executable name with latest version in filename on systems that is lacking executable_name symbolic link
   static boost::filesystem::path get_executable(const boost::filesystem::path &executable_name) noexcept;
 
   static const std::vector<boost::filesystem::path> &get_executable_search_paths() noexcept;

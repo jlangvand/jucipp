@@ -9,7 +9,6 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 include_directories(${CMAKE_SOURCE_DIR}/lib/tiny-process-library)
 
 add_library(test_stubs OBJECT
-  stubs/config.cpp
   stubs/dialog.cpp
   stubs/directories.cpp
   stubs/info.cpp

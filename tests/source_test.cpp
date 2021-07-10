@@ -46,7 +46,7 @@ int main() {
     size_t found = 0;
     auto style_scheme_manager = Source::StyleSchemeManager::get_default();
     for(auto &search_path : style_scheme_manager->get_search_path()) {
-      if(search_path == "styles") // found added style
+      if(search_path == Config::get().home_juci_path / "styles") // found added style
         ++found;
     }
     g_assert(found == 1);

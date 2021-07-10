@@ -123,6 +123,14 @@ int main() {
   }
 
   {
+    auto ls = filesystem::get_executable("ls");
+    g_assert(ls == "ls");
+
+    auto non_existing_executable = filesystem::get_executable("non_existing_executable");
+    g_assert(non_existing_executable == "non_existing_executable");
+  }
+
+  {
     g_assert(!filesystem::is_executable(filesystem::get_home_path()));
     g_assert(!filesystem::is_executable(filesystem::get_current_path()));
     g_assert(!filesystem::is_executable(tests_path));
