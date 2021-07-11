@@ -491,8 +491,16 @@ bool Source::SpellCheckView::is_word_iter(const Gtk::TextIter &iter) {
     return false;
   if(Glib::Unicode::isalpha(*iter))
     return true;
-  if(*iter == '\'')
+  if(*iter == '\'') {
+    if(string_tag && iter.has_tag(string_tag)) {
+      auto start = iter;
+      if(!start.begins_tag(string_tag))
+        start.backward_to_tag_toggle(string_tag);
+      if(*start == '\'')
+        return false;
+    }
     return !is_code_iter(iter);
+  }
   return false;
 }
 
