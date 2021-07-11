@@ -373,6 +373,11 @@ std::string filesystem::get_uri_from_path(const boost::filesystem::path &path) n
       uri += chr;
   }
 
+#ifdef _WIN32
+  if(uri.size() > 9 && ((uri[7] >= 'a' && uri[7] <= 'z') || (uri[7] >= 'A' && uri[7] <= 'Z')) && uri[8] == ':' && uri[9] == '/')
+    uri.insert(7, "/");
+#endif
+
   return uri;
 }
 
@@ -397,6 +402,13 @@ boost::filesystem::path filesystem::get_path_from_uri(const std::string &uri) no
     else
       unencoded += encoded[i];
   }
+
+#ifdef _WIN32
+  if(unencoded.size() > 3 && unencoded[0] == '/' && ((unencoded[1] >= 'a' && unencoded[1] <= 'z') || (unencoded[1] >= 'A' && unencoded[1] <= 'Z')) && unencoded[2] == ':' && unencoded[3] == '/') {
+    unencoded.erase(0, 1);
+    unencoded[0] = std::toupper(unencoded[0]);
+  }
+#endif
 
   return unencoded;
 }

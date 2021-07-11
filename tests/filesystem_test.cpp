@@ -122,6 +122,16 @@ int main() {
     g_assert(path == filesystem::get_path_from_uri(uri));
   }
 
+#ifdef _WIN32
+  {
+    std::string uri = "file:///c:/Users/test";
+    g_assert(filesystem::get_path_from_uri(uri) == "C:/Users/test");
+
+    boost::filesystem::path path = "C:/Users/test";
+    g_assert(filesystem::get_uri_from_path(path) == "file:///C:/Users/test");
+  }
+#endif
+
   {
     auto ls = filesystem::get_executable("ls");
     g_assert(ls == "ls");
