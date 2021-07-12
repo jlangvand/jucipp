@@ -223,7 +223,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
         }
         if(source_views_previous_size == source_views.size()) {
           // Install rust-analyzer
-          auto install_rust_analyzer = [this](const std::string &command) {
+          auto install_rust_analyzer = [this](const std::string &command, bool &show_dialog) {
             Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust language server", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
             dialog.set_default_response(Gtk::RESPONSE_YES);
             dialog.set_secondary_text("Rust language server not found. Would you like to install rust-analyzer?");
@@ -245,6 +245,7 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
                 if(canceled && !killed) {
                   process->kill();
                   killed = true;
+                  show_dialog = true; // Show dialog again
                 }
                 while(Gtk::Main::events_pending())
                   Gtk::Main::iteration();
@@ -257,9 +258,9 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
             }
             return false;
           };
-          static bool first = true;
-          if(first) {
-            first = false;
+          static bool show_dialog = true;
+          if(show_dialog) {
+            show_dialog = false;
             std::stringstream stdin_stream, stdout_stream;
             // Workaround while rust-analyzer is called rust-analyzer-preview instead of rust-analyzer
             if(Terminal::get().process(stdin_stream, stdout_stream, "rustup component list") == 0) {
@@ -267,14 +268,14 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
               std::string line;
               while(std::getline(stdout_stream, line)) {
                 if(starts_with(line, "rust-analyzer")) {
-                  if(install_rust_analyzer(std::string("rustup component add ") + (starts_with(line, "rust-analyzer-preview") ? "rust-analyzer-preview" : "rust-analyzer")))
+                  if(install_rust_analyzer(std::string("rustup component add ") + (starts_with(line, "rust-analyzer-preview") ? "rust-analyzer-preview" : "rust-analyzer"), show_dialog))
                     source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument((filesystem::get_rust_sysroot_path() / "bin" / "rust-analyzer").string())));
                   rust_analyzer_in_toolchain = true;
                   break;
                 }
               }
               // Workaround while rust-analyzer is in nightly toolchain only
-              if(!rust_analyzer_in_toolchain && install_rust_analyzer("rustup toolchain install nightly --component rust-analyzer-preview")) {
+              if(!rust_analyzer_in_toolchain && install_rust_analyzer("rustup toolchain install nightly --component rust-analyzer-preview", show_dialog)) {
                 filesystem::rust_nightly_sysroot_path = {};
                 source_views.emplace_back(new Source::LanguageProtocolView(file_path, language, language_protocol_language_id, filesystem::escape_argument((filesystem::get_rust_nightly_sysroot_path() / "bin" / "rust-analyzer").string())));
               }
@@ -611,9 +612,9 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
 }
 
 void Notebook::install_rust() {
-  static bool first = true;
-  if(first) {
-    first = false;
+  static bool show_dialog = true;
+  if(show_dialog) {
+    show_dialog = false;
     Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
     dialog.set_default_response(Gtk::RESPONSE_YES);
     dialog.set_secondary_text("Rust not found. Would you like to install Rust?");
@@ -635,6 +636,7 @@ void Notebook::install_rust() {
         if(canceled && !killed) {
           process->kill();
           killed = true;
+          show_dialog = true; // Show dialog again
         }
         while(Gtk::Main::events_pending())
           Gtk::Main::iteration();
