@@ -36,9 +36,9 @@ Window::Window() {
   if(screen->get_rgba_visual())
     border_radius_style = "border-radius: 5px; ";
 #if GTK_VERSION_GE(3, 20)
-  std::string notebook_style(".juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
+  std::string notebook_style(".juci_notebook {background: @theme_base_color;} .juci_notebook tab {border-radius: 5px 5px 0 0; padding: 0 4px; margin: 0;}");
 #else
-  std::string notebook_style(".juci_notebook {-GtkNotebook-tab-overlap: 0px;} .juci_notebook tab {border-radius: 5px 5px 0 0; padding: 4px 4px;}");
+  std::string notebook_style(".juci_notebook {background: @theme_base_color; -GtkNotebook-tab-overlap: 0px;} .juci_notebook tab {border-radius: 5px 5px 0 0; padding: 4px 4px;}");
 #endif
   provider->load_from_data(R"(
     .juci_directories *:selected {border-left-color: inherit; color: inherit; background-color: rgba(128, 128, 128 , 0.2); background-image: inherit;}
@@ -50,6 +50,10 @@ Window::Window() {
     .juci_tooltip_window {background-color: transparent;}
     .juci_tooltip_box {)" + border_radius_style +
                            R"(padding: 3px;}
+    .juci_message_window {background-color: transparent;}
+    .juci_message_box {)" +
+                           border_radius_style +
+                           R"(background: @theme_bg_color; padding: 3px;}
   )");
   get_style_context()->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 

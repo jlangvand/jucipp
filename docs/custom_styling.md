@@ -38,6 +38,10 @@ was made with the following ~/.config/gtk-3.0/gtk.css:
   background: transparent;
 }
 
+.juci_notebook {
+  background: transparent;
+}
+
 .juci_notebook :not(slider) {
   background-color: rgba(255, 255, 255, 0.8);
 }

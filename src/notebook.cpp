@@ -224,9 +224,13 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
         if(source_views_previous_size == source_views.size()) {
           // Install rust-analyzer
           auto install_rust_analyzer = [this](const std::string &command, bool &show_dialog) {
-            Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust language server", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+            Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust language server?", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+            Gtk::Image image;
+            image.set_from_icon_name("dialog-question", Gtk::BuiltinIconSize::ICON_SIZE_DIALOG);
+            dialog.set_image(image);
             dialog.set_default_response(Gtk::RESPONSE_YES);
             dialog.set_secondary_text("Rust language server not found. Would you like to install rust-analyzer?");
+            dialog.show_all();
             int result = dialog.run();
             dialog.hide();
             if(result == Gtk::RESPONSE_YES) {
@@ -615,9 +619,13 @@ void Notebook::install_rust() {
   static bool show_dialog = true;
   if(show_dialog) {
     show_dialog = false;
-    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Install Rust?", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+    Gtk::Image image;
+    image.set_from_icon_name("dialog-question", Gtk::BuiltinIconSize::ICON_SIZE_DIALOG);
+    dialog.set_image(image);
     dialog.set_default_response(Gtk::RESPONSE_YES);
     dialog.set_secondary_text("Rust not found. Would you like to install Rust?");
+    dialog.show_all();
     int result = dialog.run();
     dialog.hide();
     if(result == Gtk::RESPONSE_YES) {
@@ -925,9 +933,13 @@ void Notebook::set_current_view(Source::View *view) {
 }
 
 bool Notebook::save_modified_dialog(size_t index) {
-  Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Save file!", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+  Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Save file?", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+  Gtk::Image image;
+  image.set_from_icon_name("document-save", Gtk::BuiltinIconSize::ICON_SIZE_DIALOG);
+  dialog.set_image(image);
   dialog.set_default_response(Gtk::RESPONSE_YES);
-  dialog.set_secondary_text("Do you want to save: " + get_view(index)->file_path.string() + " ?");
+  dialog.set_secondary_text("Do you want to save " + filesystem::get_short_path(get_view(index)->file_path).string() + "?");
+  dialog.show_all();
   int result = dialog.run();
   if(result == Gtk::RESPONSE_YES) {
     return save(index);

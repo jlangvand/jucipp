@@ -13,11 +13,21 @@ Dialog::Message::Message(const std::string &text, std::function<void()> &&on_can
   set_type_hint(Gdk::WindowTypeHint::WINDOW_TYPE_HINT_NOTIFICATION);
   property_decorated() = false;
   set_skip_taskbar_hint(true);
+  auto visual = get_screen()->get_rgba_visual();
+  if(visual)
+    gtk_widget_set_visual(reinterpret_cast<GtkWidget *>(gobj()), visual->gobj());
+  get_style_context()->add_class("juci_message_window");
 
-  auto box = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_VERTICAL));
+  auto vbox = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_VERTICAL));
+  vbox->get_style_context()->add_class("juci_message_box");
+  auto hbox = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_HORIZONTAL));
+  auto image = Gtk::manage(new Gtk::Image());
+  image->set_from_icon_name("dialog-information", Gtk::BuiltinIconSize::ICON_SIZE_BUTTON);
+  hbox->pack_start(*image, Gtk::PackOptions::PACK_SHRINK);
   auto label = Gtk::manage(new Gtk::Label(text));
-  label->set_padding(10, 10);
-  box->pack_start(*label);
+  label->set_padding(7, 7);
+  hbox->pack_start(*label);
+  vbox->pack_start(*hbox);
   if(on_cancel) {
     auto cancel_button = Gtk::manage(new Gtk::Button("Cancel"));
     cancel_button->signal_clicked().connect([label, on_cancel = std::move(on_cancel)] {
@@ -25,12 +35,11 @@ Dialog::Message::Message(const std::string &text, std::function<void()> &&on_can
       if(on_cancel)
         on_cancel();
     });
-    box->pack_start(*cancel_button);
+    vbox->pack_start(*cancel_button);
   }
   if(show_progress_bar)
-    box->pack_start(progress_bar);
-  add(*box);
-
+    vbox->pack_start(progress_bar);
+  add(*vbox);
   show_all_children();
   show_now();
 

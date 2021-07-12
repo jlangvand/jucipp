@@ -431,9 +431,13 @@ Directories::Directories() : Gtk::ListViewText(1) {
   menu_item_delete.signal_activate().connect([this] {
     if(menu_popup_row_path.empty())
       return;
-    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Delete!", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(get_toplevel()), "Delete?", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+    Gtk::Image image;
+    image.set_from_icon_name("dialog-warning", Gtk::BuiltinIconSize::ICON_SIZE_DIALOG);
+    dialog.set_image(image);
     dialog.set_default_response(Gtk::RESPONSE_NO);
     dialog.set_secondary_text("Are you sure you want to delete " + filesystem::get_short_path(menu_popup_row_path).string() + "?");
+    dialog.show_all();
     int result = dialog.run();
     if(result == Gtk::RESPONSE_YES) {
       boost::system::error_code ec;

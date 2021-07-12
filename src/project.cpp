@@ -778,17 +778,21 @@ void Project::Clang::recreate_build() {
   bool has_debug_build = !debug_build_path.empty() && boost::filesystem::exists(debug_build_path, ec);
 
   if(has_default_build || has_debug_build) {
-    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(Notebook::get().get_toplevel()), "Recreate Build", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
-    dialog.set_default_response(Gtk::RESPONSE_NO);
+    Gtk::MessageDialog dialog(*static_cast<Gtk::Window *>(Notebook::get().get_toplevel()), "Recreate Build?", false, Gtk::MESSAGE_QUESTION, Gtk::BUTTONS_YES_NO);
+    Gtk::Image image;
+    image.set_from_icon_name("dialog-question", Gtk::BuiltinIconSize::ICON_SIZE_DIALOG);
+    dialog.set_image(image);
+    dialog.set_default_response(Gtk::RESPONSE_YES);
     std::string message = "Are you sure you want to recreate ";
     if(has_default_build)
-      message += default_build_path.string();
+      message += filesystem::get_short_path(default_build_path).string();
     if(has_debug_build) {
       if(has_default_build)
         message += " and ";
-      message += debug_build_path.string();
+      message += filesystem::get_short_path(debug_build_path).string();
     }
     dialog.set_secondary_text(message + "?");
+    dialog.show_all();
     if(dialog.run() != Gtk::RESPONSE_YES)
       return;
     Usages::Clang::erase_all_caches_for_project(build->project_path, default_build_path);
