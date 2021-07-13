@@ -717,7 +717,7 @@ void Source::View::setup_signals() {
 void Source::View::setup_format_style(bool is_generic_view) {
   static auto prettier = filesystem::find_executable("prettier");
   auto prefer_prettier = is_language({"js", "json", "css", "html", "markdown", "yaml"});
-  if(prettier.empty() && prefer_prettier) {
+  if(prettier.empty() && prefer_prettier && !filesystem::file_in_path(file_path, Config::get().home_juci_path)) {
     static bool shown = false;
     if(!shown) {
       Terminal::get().print("\e[33mWarning\e[m: could not find Prettier code formatter.\n");
