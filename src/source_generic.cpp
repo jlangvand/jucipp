@@ -6,6 +6,7 @@
 #include "terminal.hpp"
 #include "utility.hpp"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 
 Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
   spellcheck_all = true;
@@ -267,7 +268,9 @@ void Source::GenericView::setup_autocomplete() {
              starts_with(buffer_word.first, prefix) &&
              keywords.find(buffer_word.first) == keywords.end()) {
             autocomplete.rows.emplace_back(buffer_word.first);
-            autocomplete_insert.emplace_back(buffer_word.first);
+            auto insert = buffer_word.first;
+            boost::replace_all(insert, "$", "\\$");
+            autocomplete_insert.emplace_back(insert);
             autocomplete_comment.emplace_back("");
           }
         }
@@ -296,14 +299,12 @@ void Source::GenericView::setup_autocomplete() {
   };
 
   autocomplete.on_select = [this](unsigned int index, const std::string &text, bool hide_window) {
-    const auto &insert = hide_window ? autocomplete_insert[index] : text;
-
     get_buffer()->erase(CompletionDialog::get()->start_mark->get_iter(), get_buffer()->get_insert()->get_iter());
 
     if(hide_window)
-      insert_snippet(CompletionDialog::get()->start_mark->get_iter(), insert);
+      insert_snippet(CompletionDialog::get()->start_mark->get_iter(), autocomplete_insert[index]);
     else
-      get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
+      get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), text);
   };
 
   autocomplete.set_tooltip_buffer = [this](unsigned int index) -> std::function<void(Tooltip & tooltip)> {
