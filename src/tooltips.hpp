@@ -3,7 +3,6 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
-#include <gtksourceviewmm.h>
 #include <list>
 #include <set>
 #include <string>
@@ -76,7 +75,7 @@ public:
   void clear() { tooltip_list.clear(); };
 
   template <typename... Ts>
-  void emplace_back(Ts &&... params) {
+  void emplace_back(Ts &&...params) {
     tooltip_list.emplace_back(std::forward<Ts>(params)...);
   }
 

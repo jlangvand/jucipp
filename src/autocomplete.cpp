@@ -1,7 +1,7 @@
 #include "autocomplete.hpp"
 #include "selection_dialog.hpp"
 
-Autocomplete::Autocomplete(Gsv::View *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word)
+Autocomplete::Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word)
     : view(view), interactive_completion(interactive_completion), pass_buffer_and_strip_word(pass_buffer_and_strip_word) {
   view->get_buffer()->signal_changed().connect([this, &last_keyval] {
     if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {
@@ -65,7 +65,7 @@ void Autocomplete::run() {
     if(pass_buffer_and_strip_word) {
       auto pos = iter.get_offset() - 1;
       buffer = view->get_buffer()->get_text();
-      while(pos >= 0 && Source::BaseView::is_token_char(buffer[pos])) {
+      while(pos >= 0 && view->is_token_char(buffer[pos])) {
         buffer.replace(pos, 1, " ");
         line_index--;
         pos--;

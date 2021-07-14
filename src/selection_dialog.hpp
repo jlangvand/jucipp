@@ -38,7 +38,7 @@ class SelectionDialogBase {
   };
 
 public:
-  SelectionDialogBase(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup);
+  SelectionDialogBase(Source::BaseView *view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup);
   virtual ~SelectionDialogBase() {}
   void add_row(const std::string &row);
   void erase_rows();
@@ -59,7 +59,7 @@ public:
 protected:
   void cursor_changed();
 
-  Gtk::TextView *text_view;
+  Source::BaseView *view;
   Gtk::Window window;
   Gtk::Box vbox;
   Gtk::ScrolledWindow scrolled_window;
@@ -71,14 +71,14 @@ protected:
 };
 
 class SelectionDialog : public SelectionDialogBase {
-  SelectionDialog(Gtk::TextView *text_view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup);
+  SelectionDialog(Source::BaseView *view, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry, bool use_markup);
   static std::unique_ptr<SelectionDialog> instance;
 
 public:
   bool on_key_press(GdkEventKey *event);
 
-  static void create(Gtk::TextView *text_view, bool show_search_entry = true, bool use_markup = false) {
-    instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(text_view, text_view->get_buffer()->get_insert()->get_iter(), show_search_entry, use_markup));
+  static void create(Source::BaseView *view, bool show_search_entry = true, bool use_markup = false) {
+    instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(view, view->get_buffer()->get_insert()->get_iter(), show_search_entry, use_markup));
   }
   static void create(bool show_search_entry = true, bool use_markup = false) {
     instance = std::unique_ptr<SelectionDialog>(new SelectionDialog(nullptr, {}, show_search_entry, use_markup));
@@ -87,15 +87,15 @@ public:
 };
 
 class CompletionDialog : public SelectionDialogBase {
-  CompletionDialog(Gtk::TextView *text_view, const Gtk::TextIter &start_iter);
+  CompletionDialog(Source::BaseView *view, const Gtk::TextIter &start_iter);
   static std::unique_ptr<CompletionDialog> instance;
 
 public:
   bool on_key_release(GdkEventKey *event);
   bool on_key_press(GdkEventKey *event);
 
-  static void create(Gtk::TextView *text_view, const Gtk::TextIter &start_iter) {
-    instance = std::unique_ptr<CompletionDialog>(new CompletionDialog(text_view, start_iter));
+  static void create(Source::BaseView *view, const Gtk::TextIter &start_iter) {
+    instance = std::unique_ptr<CompletionDialog>(new CompletionDialog(view, start_iter));
   }
   static std::unique_ptr<CompletionDialog> &get() { return instance; }
 

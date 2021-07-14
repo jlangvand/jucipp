@@ -7,7 +7,7 @@
 #include <thread>
 
 class Autocomplete {
-  Gsv::View *view;
+  Source::BaseView *view;
   bool &interactive_completion;
   /// If view buffer should be passed to add_rows. Empty buffer is passed if not.
   /// Also, some utilities, like libclang, require that autocomplete is started at the beginning of a word.
@@ -39,7 +39,7 @@ public:
   std::function<std::unique_ptr<LockGuard>()> get_parse_lock = [] { return nullptr; };
   std::function<void()> stop_parse = [] {};
 
-  std::function<bool(guint last_keyval)> is_continue_key = [](guint keyval) { return Source::BaseView::is_token_char(gdk_keyval_to_unicode(keyval)); };
+  std::function<bool(guint last_keyval)> is_continue_key = [this](guint keyval) { return view->is_token_char(gdk_keyval_to_unicode(keyval)); };
   std::function<bool(guint last_keyval)> is_restart_key = [](guint) { return false; };
   std::function<bool()> run_check = [] { return false; };
 
@@ -58,7 +58,7 @@ public:
 
   std::function<std::function<void(Tooltip &tooltip)>(unsigned int)> set_tooltip_buffer = [](unsigned int index) { return nullptr; };
 
-  Autocomplete(Gsv::View *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
+  Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
 
   void run();
   void stop();

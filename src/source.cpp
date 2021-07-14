@@ -1218,7 +1218,7 @@ void Source::View::extend_selection() {
 
   // It is impossible to identify <> used for templates by syntax alone, but
   // this function works in most cases.
-  auto is_template_arguments = [](Gtk::TextIter start, Gtk::TextIter end) {
+  auto is_template_arguments = [this](Gtk::TextIter start, Gtk::TextIter end) {
     if(*start != '<' || *end != '>' || start.get_line() != end.get_line())
       return false;
     auto prev = start;
@@ -2080,7 +2080,7 @@ void Source::View::show_or_hide() {
               else if(std::none_of(starts_with_symbols.begin(), starts_with_symbols.end(), [&text](const std::string &symbol) {
                         return starts_with(text, symbol);
                       }) &&
-                      std::none_of(exact_tokens.begin(), exact_tokens.end(), [&text](const std::string &token) {
+                      std::none_of(exact_tokens.begin(), exact_tokens.end(), [this, &text](const std::string &token) {
                         return starts_with(text, token) && (text.size() <= token.size() || !is_token_char(text[token.size()]));
                       })) {
                 end = get_buffer()->get_iter_at_line(end.get_line());

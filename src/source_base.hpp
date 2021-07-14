@@ -171,7 +171,7 @@ namespace Source {
     Gtk::TextIter get_tabs_end_iter();
 
   public:
-    static bool is_token_char(gunichar chr);
+    virtual bool is_token_char(gunichar chr);
 
   protected:
     std::pair<Gtk::TextIter, Gtk::TextIter> get_token_iters(Gtk::TextIter iter);
