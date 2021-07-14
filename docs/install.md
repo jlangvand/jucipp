@@ -139,8 +139,7 @@ On FreeBSD, latest release of juCi++ is available through the port: jucipp.
 Install dependencies:
 
 ```sh
-brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 zlib libxml2
-brew install --HEAD universal-ctags/universal-ctags/universal-ctags # Recommended Ctags package
+brew install cmake pkg-config boost gtksourceviewmm3 gnome-icon-theme aspell llvm clang-format libgit2 zlib libxml2 universal-ctags
 ```
 
 Mojave users might need to install headers:
