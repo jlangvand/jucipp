@@ -310,8 +310,6 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
           if(!rust_installed)
             Terminal::get().print("You will need to restart juCi++ after installing Rust.\n");
           shown.emplace(language_id);
-
-          shown.emplace(language_id);
         }
         else if(language_id == "go") {
           Terminal::get().print("\e[33mWarning\e[m: could not find Go language server.\n");
