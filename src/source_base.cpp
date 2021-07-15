@@ -860,7 +860,8 @@ Gtk::TextIter Source::BaseView::get_tabs_end_iter() {
 }
 
 bool Source::BaseView::is_token_char(gunichar chr) {
-  return (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || chr >= 128;
+  return (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || chr >= 128 ||
+         (language_id == "css" && chr == '-');
 }
 
 std::pair<Gtk::TextIter, Gtk::TextIter> Source::BaseView::get_token_iters(Gtk::TextIter iter) {

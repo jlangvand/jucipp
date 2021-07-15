@@ -11,8 +11,6 @@ namespace Source {
     GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
     ~GenericView();
 
-    bool is_token_char(gunichar chr) override;
-
   private:
     void parse_language_file(bool &has_context_class, const boost::property_tree::ptree &pt);
 

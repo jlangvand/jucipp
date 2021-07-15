@@ -52,10 +52,6 @@ Source::GenericView::~GenericView() {
     autocomplete.thread.join();
 }
 
-bool Source::GenericView::is_token_char(gunichar chr) {
-  return Source::BaseView::is_token_char(chr) || (language_id == "css" && chr == '-');
-}
-
 void Source::GenericView::parse_language_file(bool &has_context_class, const boost::property_tree::ptree &pt) {
   bool case_insensitive = false;
   for(auto &node : pt) {

@@ -99,7 +99,7 @@ Ctags::Location Ctags::get_location(const std::string &line_, bool add_markup, b
   location.symbol = line.substr(0, symbol_end);
   if(9 < location.symbol.size() && location.symbol[8] == ' ' && starts_with(location.symbol, "operator")) {
     auto &chr = location.symbol[9];
-    if(!((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || static_cast<unsigned char>(chr) >= 128))
+    if(!((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || static_cast<unsigned char>(chr) >= 128))
       location.symbol.erase(8, 1);
   }
 
@@ -215,7 +215,7 @@ std::vector<std::string> Ctags::get_type_parts(const std::string &type) {
   size_t text_start = std::string::npos;
   for(size_t c = 0; c < type.size(); ++c) {
     auto &chr = type[c];
-    if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || static_cast<unsigned char>(chr) >= 128 || chr == '~') {
+    if((chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || (chr >= '0' && chr <= '9') || chr == '_' || chr == '$' || static_cast<unsigned char>(chr) >= 128 || chr == '~') {
       if(text_start == std::string::npos)
         text_start = c;
     }
