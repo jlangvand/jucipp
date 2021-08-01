@@ -1,8 +1,8 @@
 #include "autocomplete.hpp"
 #include "selection_dialog.hpp"
 
-Autocomplete::Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word)
-    : view(view), interactive_completion(interactive_completion), pass_buffer_and_strip_word(pass_buffer_and_strip_word) {
+Autocomplete::Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word, bool use_thread)
+    : view(view), interactive_completion(interactive_completion), pass_buffer_and_strip_word(pass_buffer_and_strip_word), use_thread(use_thread) {
   view->get_buffer()->signal_changed().connect([this, &last_keyval] {
     if(CompletionDialog::get() && CompletionDialog::get()->is_visible()) {
       cancel_reparse();
@@ -56,7 +56,7 @@ void Autocomplete::run() {
 
     before_add_rows();
 
-    if(thread.joinable())
+    if(use_thread && thread.joinable())
       thread.join();
     auto iter = view->get_buffer()->get_insert()->get_iter();
     auto line = iter.get_line();
@@ -71,7 +71,8 @@ void Autocomplete::run() {
         pos--;
       }
     }
-    thread = std::thread([this, line, line_index, buffer = std::move(buffer)] {
+
+    auto func = [this, line, line_index, buffer = std::move(buffer)] {
       auto lock = get_parse_lock();
       if(!is_processing())
         return;
@@ -84,7 +85,7 @@ void Autocomplete::run() {
         return;
 
       if(success) {
-        dispatcher.post([this]() {
+        auto func = [this]() {
           after_add_rows();
           if(state == State::restarting) {
             state = State::idle;
@@ -118,15 +119,27 @@ void Autocomplete::run() {
             view->get_buffer()->begin_user_action();
             CompletionDialog::get()->show();
           }
-        });
+        };
+        if(use_thread)
+          dispatcher.post(std::move(func));
+        else
+          func();
       }
       else {
-        dispatcher.post([this] {
+        auto func = [this] {
           state = State::canceled;
           on_add_rows_error();
-        });
+        };
+        if(use_thread)
+          dispatcher.post(std::move(func));
+        else
+          func();
       }
-    });
+    };
+    if(use_thread)
+      thread = std::thread(std::move(func));
+    else
+      func();
   }
 
   if(state != State::idle)

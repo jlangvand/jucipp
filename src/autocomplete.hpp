@@ -47,8 +47,7 @@ public:
   std::function<void()> after_add_rows = [] {};
   std::function<void()> on_add_rows_error = [] {};
 
-  /// The handler is not run in the main loop. Should return false on error.
-  /// Column is line byte index.
+  /// The handler is not run in the main loop if use_thread is true. Should return false on error.
   std::function<bool(std::string &buffer, int line, int line_index)> add_rows = [](std::string &, int, int) { return true; };
 
   std::function<void()> on_show = [] {};
@@ -58,11 +57,12 @@ public:
 
   std::function<std::function<void(Tooltip &tooltip)>(unsigned int)> set_tooltip_buffer = [](unsigned int index) { return nullptr; };
 
-  Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word);
+  Autocomplete(Source::BaseView *view, bool &interactive_completion, guint &last_keyval, bool pass_buffer_and_strip_word, bool use_thread);
 
   void run();
   void stop();
 
 private:
   void setup_dialog();
+  bool use_thread;
 };

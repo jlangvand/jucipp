@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
 
-Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
+Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false, false) {
   if(language) {
     auto language_manager = LanguageManager::get_default();
     auto search_paths = language_manager->get_search_path();
@@ -39,12 +39,6 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
   setup_buffer_words();
 
   setup_autocomplete();
-}
-
-Source::GenericView::~GenericView() {
-  autocomplete.state = Autocomplete::State::idle;
-  if(autocomplete.thread.joinable())
-    autocomplete.thread.join();
 }
 
 void Source::GenericView::parse_language_file(const boost::property_tree::ptree &pt) {
@@ -188,11 +182,6 @@ void Source::GenericView::setup_autocomplete() {
     autocomplete.run();
   };
 
-  autocomplete.reparse = [this] {
-    autocomplete_comment.clear();
-    autocomplete_insert.clear();
-  };
-
   autocomplete.run_check = [this]() {
     auto prefix_start = get_buffer()->get_insert()->get_iter();
     auto prefix_end = prefix_start;
@@ -221,19 +210,7 @@ void Source::GenericView::setup_autocomplete() {
     return false;
   };
 
-  autocomplete.before_add_rows = [this] {
-    status_state = "autocomplete...";
-    if(update_status_state)
-      update_status_state(this);
-  };
-
-  autocomplete.after_add_rows = [this] {
-    status_state = "";
-    if(update_status_state)
-      update_status_state(this);
-  };
-
-  autocomplete.add_rows = [this](std::string &buffer, int /*line*/, int /*line_index*/) {
+  autocomplete.add_rows = [this](std::string & /*buffer*/, int /*line*/, int /*line_index*/) {
     if(autocomplete.state == Autocomplete::State::starting) {
       autocomplete_comment.clear();
       autocomplete_insert.clear();

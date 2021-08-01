@@ -1402,7 +1402,7 @@ void Source::LanguageProtocolView::setup_signals() {
 }
 
 void Source::LanguageProtocolView::setup_autocomplete() {
-  autocomplete = std::make_unique<Autocomplete>(this, interactive_completion, last_keyval, false);
+  autocomplete = std::make_unique<Autocomplete>(this, interactive_completion, last_keyval, false, true);
 
   if(!capabilities.completion)
     return;

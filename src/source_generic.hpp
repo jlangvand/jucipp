@@ -9,7 +9,6 @@ namespace Source {
   class GenericView : public View {
   public:
     GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language);
-    ~GenericView();
 
   private:
     void parse_language_file(const boost::property_tree::ptree &pt);

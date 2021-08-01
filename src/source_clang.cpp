@@ -808,7 +808,7 @@ void Source::ClangViewParse::remove_internal_namespaces(std::string &type) {
 
 
 Source::ClangViewAutocomplete::ClangViewAutocomplete(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language)
-    : BaseView(file_path, language), Source::ClangViewParse(file_path, language), autocomplete(this, interactive_completion, last_keyval, true) {
+    : BaseView(file_path, language), Source::ClangViewParse(file_path, language), autocomplete(this, interactive_completion, last_keyval, true, true) {
   non_interactive_completion = [this] {
     if(CompletionDialog::get() && CompletionDialog::get()->is_visible())
       return;
