@@ -180,6 +180,7 @@ int main() {
   {
     auto buffer = view.get_buffer();
     view.is_bracket_language = true;
+    view.spellcheck_all = false;
     std::string source = "test(1, test(10), \"100\");";
     buffer->set_text(source);
     {

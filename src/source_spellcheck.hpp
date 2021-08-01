@@ -23,7 +23,6 @@ namespace Source {
     /// None of the comment characters, for instance //, are code iters.
     /// Otherwise, strings and comments should return false.
     bool is_code_iter(const Gtk::TextIter &iter);
-    bool spellcheck_all = false;
     guint last_keyval = 0;
 
     Glib::RefPtr<Gtk::TextTag> comment_tag;
@@ -31,6 +30,8 @@ namespace Source {
     Glib::RefPtr<Gtk::TextTag> no_spellcheck_tag;
 
   private:
+    bool spellcheck_all = false;
+
     Glib::RefPtr<Gtk::TextTag> spellcheck_error_tag;
 
     sigc::connection signal_tag_added_connection;

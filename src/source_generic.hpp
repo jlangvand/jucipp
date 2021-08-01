@@ -12,7 +12,7 @@ namespace Source {
     ~GenericView();
 
   private:
-    void parse_language_file(bool &has_context_class, const boost::property_tree::ptree &pt);
+    void parse_language_file(const boost::property_tree::ptree &pt);
 
     std::set<std::string> keywords;
 

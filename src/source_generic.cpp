@@ -9,8 +9,6 @@
 #include <boost/algorithm/string.hpp>
 
 Source::GenericView::GenericView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language), View(file_path, language, true), autocomplete(this, interactive_completion, last_keyval, false) {
-  spellcheck_all = true;
-
   if(language) {
     auto language_manager = LanguageManager::get_default();
     auto search_paths = language_manager->get_search_path();
@@ -30,14 +28,11 @@ Source::GenericView::GenericView(const boost::filesystem::path &file_path, const
       boost::property_tree::ptree pt;
       try {
         boost::property_tree::xml_parser::read_xml(language_file.string(), pt);
+        parse_language_file(pt);
       }
       catch(const std::exception &e) {
         Terminal::get().print("\e[31mError\e[m: error parsing language file " + filesystem::get_short_path(language_file).string() + ": " + e.what() + '\n', true);
       }
-      bool has_context_class = false;
-      parse_language_file(has_context_class, pt);
-      if(!has_context_class || language->get_id() == "cmake") // TODO: no longer use the spellcheck_all flag?
-        spellcheck_all = false;
     }
   }
 
@@ -52,7 +47,7 @@ Source::GenericView::~GenericView() {
     autocomplete.thread.join();
 }
 
-void Source::GenericView::parse_language_file(bool &has_context_class, const boost::property_tree::ptree &pt) {
+void Source::GenericView::parse_language_file(const boost::property_tree::ptree &pt) {
   bool case_insensitive = false;
   for(auto &node : pt) {
     if(node.first == "<xmlcomment>") {
@@ -70,14 +65,8 @@ void Source::GenericView::parse_language_file(bool &has_context_class, const boo
         keywords.emplace(data);
       }
     }
-    else if(!has_context_class && node.first == "context") {
-      auto class_attribute = node.second.get<std::string>("<xmlattr>.class", "");
-      auto class_disabled_attribute = node.second.get<std::string>("<xmlattr>.class-disabled", "");
-      if(class_attribute.size() > 0 || class_disabled_attribute.size() > 0)
-        has_context_class = true;
-    }
     try {
-      parse_language_file(has_context_class, node.second);
+      parse_language_file(node.second);
     }
     catch(const std::exception &e) {
     }
