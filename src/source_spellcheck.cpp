@@ -7,9 +7,9 @@
 AspellConfig *Source::SpellCheckView::spellcheck_config = nullptr;
 
 Source::SpellCheckView::SpellCheckView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language) : BaseView(file_path, language) {
-  if(!language ||                      // Spellcheck all words if no spec is found
-     is_language({"markdown", "latex", // Spellcheck all non-symbol words (not only string or comment context classes)
-                  "go"}))              // Go spec does not contain string or comment context classes
+  if(!language ||                                     // Spellcheck all words if no spec is found
+     is_language({"markdown", "latex", "html", "xml", // Spellcheck all non-symbol words (not only string or comment context classes)
+                  "go"}))                             // Go spec does not contain string or comment context classes
     spellcheck_all = true;
 
   if(!spellcheck_config)
