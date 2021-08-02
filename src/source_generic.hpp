@@ -1,7 +1,6 @@
 #pragma once
 
 #include "autocomplete.hpp"
-#include "mutex.hpp"
 #include "source.hpp"
 #include <atomic>
 
@@ -17,9 +16,8 @@ namespace Source {
 
     std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> get_words(const Gtk::TextIter &start, const Gtk::TextIter &end);
 
-    Mutex buffer_words_mutex ACQUIRED_AFTER(autocomplete.prefix_mutex);
-    std::map<std::string, size_t> buffer_words GUARDED_BY(buffer_words_mutex);
-    bool show_prefix_buffer_word GUARDED_BY(buffer_words_mutex) = false; /// To avoid showing the current word if it is unique in document
+    std::map<std::string, size_t> buffer_words;
+    bool show_prefix_buffer_word = false; /// To avoid showing the current word if it is unique in document
     void setup_buffer_words();
 
     Autocomplete autocomplete;

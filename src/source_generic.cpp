@@ -87,7 +87,6 @@ std::vector<std::pair<Gtk::TextIter, Gtk::TextIter>> Source::GenericView::get_wo
 void Source::GenericView::setup_buffer_words() {
   {
     auto words = get_words(get_buffer()->begin(), get_buffer()->end());
-    LockGuard lock(buffer_words_mutex);
     for(auto &word : words) {
       auto result = buffer_words.emplace(get_buffer()->get_text(word.first, word.second), 1);
       if(!result.second)
@@ -105,7 +104,6 @@ void Source::GenericView::setup_buffer_words() {
         if(is_token_char(*iter)) {
           auto word = get_token_iters(iter);
           if(word.second.get_offset() - word.first.get_offset() >= 3) {
-            LockGuard lock(buffer_words_mutex);
             auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
             if(it != buffer_words.end()) {
               if(it->second > 1)
@@ -128,7 +126,6 @@ void Source::GenericView::setup_buffer_words() {
     end.forward_char();
 
     auto words = get_words(start, end);
-    LockGuard lock(buffer_words_mutex);
     for(auto &word : words) {
       auto result = buffer_words.emplace(get_buffer()->get_text(word.first, word.second), 1);
       if(!result.second)
@@ -145,7 +142,6 @@ void Source::GenericView::setup_buffer_words() {
           start.backward_char();
         end.forward_char();
         auto words = get_words(start, end);
-        LockGuard lock(buffer_words_mutex);
         for(auto &word : words) {
           auto it = buffer_words.find(get_buffer()->get_text(word.first, word.second));
           if(it != buffer_words.end()) {
@@ -166,7 +162,6 @@ void Source::GenericView::setup_buffer_words() {
     if(is_token_char(*start)) {
       auto word = get_token_iters(start);
       if(word.second.get_offset() - word.first.get_offset() >= 3) {
-        LockGuard lock(buffer_words_mutex);
         auto result = buffer_words.emplace(get_buffer()->get_text(word.first, word.second), 1);
         if(!result.second)
           ++(result.first->second);
@@ -194,8 +189,7 @@ void Source::GenericView::setup_autocomplete() {
       prefix_start.forward_char();
 
     if((count >= 3 && !(*prefix_start >= '0' && *prefix_start <= '9')) || !interactive_completion) {
-      LockGuard lock1(autocomplete.prefix_mutex);
-      LockGuard lock2(buffer_words_mutex);
+      LockGuard lock(autocomplete.prefix_mutex);
       autocomplete.prefix = get_buffer()->get_text(prefix_start, prefix_end);
 
       if(interactive_completion)
@@ -228,7 +222,6 @@ void Source::GenericView::setup_autocomplete() {
         }
       }
       {
-        LockGuard lock(buffer_words_mutex);
         for(auto &buffer_word : buffer_words) {
           if((show_prefix_buffer_word || buffer_word.first.size() > prefix.size()) &&
              starts_with(buffer_word.first, prefix) &&
