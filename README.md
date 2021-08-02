@@ -4,9 +4,10 @@
 
 In 2015, juCi++ was one of the first IDEs to utilize libclang for improved C/C++ tooling. The
 integrated C/C++ support has since then improved steadily, and support for other languages has been
-made possible through the language server protocol. The main goals of juCi++ is effective resource
-usage, stability, and ease of use. Instead of relying on 3rd party addons, features expected in an
-IDE is instead integrated directly into juCi++.
+made possible through the language server protocol (see
+[setup of tested language servers](docs/language_servers.md)). The main goals of juCi++ is effective
+resource usage, stability, and ease of use. Instead of relying on 3rd party addons, features
+expected in an IDE is instead integrated directly into juCi++.
 
 For effective development, juCi++ is primarily written for Unix/Linux systems. However, Windows
 users can use juCi++ through POSIX compatibility layers such as MSYS2.
@@ -38,7 +39,7 @@ See [installation guide](docs/install.md).
 - Non-C/C++ files are supported through the Language Server Protocol, which is enabled if an
   `[language identifier]-language-server` executable is found. This executable can be a symbolic
   link to one of your installed language server binaries.
-  - For additional instructions, see: [setup of tested language servers](docs/language_servers.md)
+  - For additional instructions, see [setup of tested language servers](docs/language_servers.md)
 - Non-C/C++ projects are also supported, such as JavaScript, Python, Rust, and Go projects
 - Git support through libgit2
 - Find symbol through Ctags ([Universal Ctags](https://github.com/universal-ctags/ctags) is
