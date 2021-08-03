@@ -213,7 +213,10 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
       "dynamicRegistration": false,
       "completionItem": {
         "snippetSupport": true,
-        "documentationFormat": ["markdown", "plaintext"]
+        "documentationFormat": ["markdown", "plaintext"],
+        "resolveSupport": {
+          "properties": ["documentation", "detail"]
+        }
       }
     },
     "hover": {
