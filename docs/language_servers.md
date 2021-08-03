@@ -62,10 +62,10 @@ cp /usr/local/bin/javascript-language-server /usr/local/bin/typescriptreact-lang
 Install language server, and create symbolic link to enable server in juCi++:
 
 ```sh
-pip3 install python-language-server[rope,pycodestyle,yapf]
+pip3 install python-lsp-server[pycodestyle,yapf]
 
 # Usually as root:
-ln -s `which pyls` /usr/local/bin/python-language-server
+ln -s `which pylsp` /usr/local/bin/python-language-server
 ```
 
 - Additional setup within a Python project:

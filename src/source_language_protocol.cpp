@@ -1706,7 +1706,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       insert += "(${1:})";
 
                     std::shared_ptr<JSON> item_object;
-                    if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js)) // Workaround for typescript-language-server (is_js)
+                    if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js || language_id == "python")) // Workaround for typescript-language-server (is_js) and python-lsp-server
                       item_object = std::make_shared<JSON>(JSON::make_owner(std::move(item)));
 
                     autocomplete->rows.emplace_back(std::move(label));
