@@ -241,6 +241,9 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     "publishDiagnostics": { "relatedInformation":true },
     "codeAction": {
       "dynamicRegistration": false,
+      "resolveSupport": {
+        "properties": ["edit"]
+      },
       "codeActionLiteralSupport": {
         "codeActionKind": {
           "valueSet": [
