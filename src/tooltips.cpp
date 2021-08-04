@@ -1452,7 +1452,9 @@ void Tooltip::insert_docstring(const std::string &input_) {
   };
 
   auto is_whitespace_character = [&](size_t i) {
-    return input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r' || input[i] == '\f';
+    const static std::string utf8_space = " "; // Python docstring sometimes uses this...
+    return input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r' || input[i] == '\f' ||
+           ((input[i] == utf8_space[0] && i + 1 < input.size() && input[i + 1] == utf8_space[1]) || (i >= 1 && input[i - 1] == utf8_space[0] && input[i] == utf8_space[1]));
   };
 
   auto insert_header = [&] {
@@ -1613,18 +1615,32 @@ void Tooltip::insert_docstring(const std::string &input_) {
 
   auto insert_code_block = [&] {
     auto i_saved = i;
-    static std::string utf8_space = " ";
-    while(starts_with(input, i, utf8_space))
-      i += utf8_space.size();
-    while(i < input.size() && (input[i] == ' ' || input[i] == '\t'))
+    if(input[i] == '\n' && i >= 3 && input[i - 1] == '\n' && input[i - 2] == ':' && input[i - 3] == ':' && i + 1 < input.size()) {
+      ++i;
+      insert_with_links_tagged(partial.substr(0, partial.size() - 2)); // Remove one ':'
+      partial.clear();
+      buffer->insert_at_cursor("\n\n");
+      auto start = i;
+      for(; i < input.size(); ++i) {
+        if(starts_with(input, i, "\n\n") && i + 2 < input.size() && !is_whitespace_character(i + 2))
+          break;
+      }
+      insert_code(input.substr(start, i - start), "python", true);
+      buffer->insert_at_cursor("\n");
+      return true;
+    }
+    while(i < input.size() && input[i] != '\n' && is_whitespace_character(i))
       ++i;
     if(starts_with(input, i, ">>>")) {
+      i += 3;
       insert_with_links_tagged(partial);
       partial.clear();
-      auto pos = input.find("\n\n", i + 3);
-      insert_code(input.substr(i_saved, pos != std::string::npos ? pos - i_saved : pos), {}, true);
+      for(; i < input.size(); ++i) {
+        if(starts_with(input, i, "\n\n") && i + 2 < input.size() && !is_whitespace_character(i + 2))
+          break;
+      }
+      insert_code(input.substr(i_saved, i - i_saved), "python", true);
       buffer->insert_at_cursor("\n");
-      i = pos != std::string::npos ? pos : input.size() - 1;
       return true;
     }
     i = i_saved;

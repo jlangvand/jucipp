@@ -789,6 +789,18 @@ Section
 >>> test
 test
 
+Example
+  >>> test
+  test
+
+  test
+
+Example::
+
+  test
+
+  test
+
 Subsection
 ----
 
@@ -797,6 +809,18 @@ A `link <https://test.test>`_)");
 Section
 >>> test
 test
+
+Example
+  >>> test
+  test
+
+  test
+
+Example:
+
+  test
+
+  test
 
 Subsection
 
@@ -824,6 +848,14 @@ A link)");
     it.forward_chars(1);
     g_assert(it.starts_tag(tooltip->code_block_tag));
     it.forward_chars(13);
+    g_assert(it.ends_tag(tooltip->code_block_tag));
+    it.forward_chars(10);
+    g_assert(it.starts_tag(tooltip->code_block_tag));
+    it.forward_chars(25);
+    g_assert(it.ends_tag(tooltip->code_block_tag));
+    it.forward_chars(12);
+    g_assert(it.starts_tag(tooltip->code_block_tag));
+    it.forward_chars(14);
     g_assert(it.ends_tag(tooltip->code_block_tag));
     it.forward_chars(2);
     g_assert(it.starts_tag(tooltip->h2_tag));
