@@ -379,7 +379,7 @@ void Window::set_menu_actions() {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(gitignore_path).string() + " already exists\n", true);
         return;
       }
-      if(filesystem::write(build_config_path, build_config) && filesystem::write(c_main_path, "#include <stdio.h>\n\nint main() {\n  printf(\"Hello World!\\n\");\n}\n")) {
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(c_main_path, "#include <stdio.h>\n\nint main() {\n  printf(\"Hello, world!\\n\");\n}\n")) {
         filesystem::write(clang_format_path, "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\n");
         filesystem::write(gitignore_path, "/build\n");
         Directories::get().open(project_path);
@@ -436,7 +436,7 @@ void Window::set_menu_actions() {
         Terminal::get().print("\e[31mError\e[m: " + filesystem::get_short_path(gitignore_path).string() + " already exists\n", true);
         return;
       }
-      if(filesystem::write(build_config_path, build_config) && filesystem::write(cpp_main_path, "#include <iostream>\n\nint main() {\n  std::cout << \"Hello World!\\n\";\n}\n")) {
+      if(filesystem::write(build_config_path, build_config) && filesystem::write(cpp_main_path, "#include <iostream>\n\nint main() {\n  std::cout << \"Hello, world!\\n\";\n}\n")) {
         filesystem::write(clang_format_path, "IndentWidth: 2\nAccessModifierOffset: -2\nUseTab: Never\nColumnLimit: 0\nNamespaceIndentation: All\n");
         filesystem::write(gitignore_path, "/build\n");
         Directories::get().open(project_path);
