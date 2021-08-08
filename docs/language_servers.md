@@ -58,6 +58,7 @@ cp /usr/local/bin/javascript-language-server /usr/local/bin/typescriptreact-lang
 
 - Prerequisites:
   - Python3
+  - In juCi++ preferences, set `project.python_command` to `python3 -u`
 
 Install language server, and create symbolic link to enable server in juCi++:
 
