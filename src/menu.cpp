@@ -157,6 +157,16 @@ const Glib::ustring menu_xml = R"RAW(<interface>
       </section>
       <section>
         <item>
+          <attribute name='label' translatable='yes'>_Find _File</attribute>
+          <attribute name='action'>app.file_find_file</attribute>
+        </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Switch _File _Type</attribute>
+          <attribute name='action'>app.file_switch_file_type</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
           <attribute name='label' translatable='yes'>_Reload _File</attribute>
           <attribute name='action'>app.file_reload_file</attribute>
         </item>
@@ -318,10 +328,6 @@ const Glib::ustring menu_xml = R"RAW(<interface>
         </submenu>
       </section>
       <section>
-        <item>
-          <attribute name='label' translatable='yes'>_Find _File</attribute>
-          <attribute name='action'>app.source_find_file</attribute>
-        </item>
         <item>
           <attribute name='label' translatable='yes'>_Find _Symbol</attribute>
           <attribute name='action'>app.source_find_symbol</attribute>

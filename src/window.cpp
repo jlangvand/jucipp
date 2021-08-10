@@ -943,7 +943,7 @@ void Window::set_menu_actions() {
     EntryBox::get().show();
   });
 
-  menu.add_action("source_find_file", []() {
+  menu.add_action("file_find_file", []() {
     auto view_folder = Project::get_preferably_view_folder();
     auto build = Project::Build::create(view_folder);
     auto exclude_folders = build->get_exclude_folders();
@@ -956,40 +956,37 @@ void Window::set_menu_actions() {
     else
       SelectionDialog::create(true, true);
 
-    std::unordered_set<std::string> buffer_paths;
+    std::unordered_set<std::string> open_files;
     for(auto view : Notebook::get().get_views())
-      buffer_paths.emplace(view->file_path.string());
+      open_files.emplace(view->file_path.string());
 
-    std::vector<boost::filesystem::path> paths;
+    std::vector<boost::filesystem::path> files;
     // populate with all files in search_path
     boost::system::error_code ec;
-    for(boost::filesystem::recursive_directory_iterator iter(view_folder, ec), end; iter != end; iter++) {
-      auto path = iter->path();
+    for(boost::filesystem::recursive_directory_iterator it(view_folder, ec), end; it != end; it++) {
+      auto path = it->path();
       // ignore folders
       if(!boost::filesystem::is_regular_file(path, ec)) {
         auto filename = path.filename();
         if(std::any_of(exclude_folders.begin(), exclude_folders.end(), [&filename](const std::string &exclude_folder) {
              return filename == exclude_folder;
            }))
-          iter.no_push();
+          it.no_push();
         continue;
       }
 
-      // remove project base path
-      auto row_str = filesystem::get_relative_path(path, view_folder).string();
-      if(buffer_paths.count(path.string()))
-        row_str = "<b>" + row_str + "</b>";
-      paths.emplace_back(path);
-      SelectionDialog::get()->add_row(row_str);
+      auto row = filesystem::get_relative_path(path, view_folder).string();
+      SelectionDialog::get()->add_row(open_files.count(path.string()) ? "<b>" + row + "</b>" : row);
+      files.emplace_back(path);
     }
 
-    if(paths.empty()) {
+    if(files.empty()) {
       Info::get().print("No files found in current project");
       return;
     }
 
-    SelectionDialog::get()->on_select = [paths = std::move(paths)](unsigned int index, const std::string &text, bool hide_window) {
-      if(Notebook::get().open(paths[index])) {
+    SelectionDialog::get()->on_select = [files = std::move(files)](unsigned int index, const std::string &text, bool hide_window) {
+      if(Notebook::get().open(files[index])) {
         auto view = Notebook::get().get_current_view();
         view->hide_tooltips();
       }
@@ -997,6 +994,51 @@ void Window::set_menu_actions() {
 
     if(view)
       view->hide_tooltips();
+    SelectionDialog::get()->show();
+  });
+
+  menu.add_action("file_switch_file_type", []() {
+    auto view = Notebook::get().get_current_view();
+    if(!view) {
+      Info::get().print("No source buffers open");
+      return;
+    }
+    std::vector<boost::filesystem::path> files;
+    auto current_stem = view->file_path.stem();
+    boost::system::error_code ec;
+    for(boost::filesystem::directory_iterator it(view->file_path.parent_path(), ec), end; it != end; ++it) {
+      if(boost::filesystem::is_regular_file(it->path(), ec) && it->path().stem() == current_stem && it->path() != view->file_path)
+        files.emplace_back(it->path());
+    }
+    if(files.empty()) {
+      Info::get().print("No other file type found");
+      return;
+    }
+    if(files.size() == 1) {
+      if(Notebook::get().open(files[0])) {
+        auto view = Notebook::get().get_current_view();
+        view->hide_tooltips();
+      }
+      return;
+    }
+
+    std::unordered_set<std::string> open_files;
+    for(auto view : Notebook::get().get_views())
+      open_files.emplace(view->file_path.string());
+
+    SelectionDialog::create(view, true, true);
+    for(auto &file : files) {
+      auto row = file.filename().string();
+      SelectionDialog::get()->add_row(open_files.count(file.string()) ? "<b>" + row + "</b>" : row);
+    }
+
+    SelectionDialog::get()->on_select = [files = std::move(files)](unsigned int index, const std::string &text, bool hide_window) {
+      if(Notebook::get().open(files[index])) {
+        auto view = Notebook::get().get_current_view();
+        view->hide_tooltips();
+      }
+    };
+    view->hide_tooltips();
     SelectionDialog::get()->show();
   });
 
@@ -1676,7 +1718,7 @@ void Window::set_menu_actions() {
   menu.add_action("window_split_source_buffer", [] {
     auto view = Notebook::get().get_current_view();
     if(!view) {
-      Info::get().print("No source buffers found");
+      Info::get().print("No source buffers open");
       return;
     }
 
