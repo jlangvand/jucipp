@@ -298,9 +298,9 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             }
             capabilities.execute_command = static_cast<bool>(object->child_optional("executeCommandProvider"));
             capabilities.type_coverage = static_cast<bool>(object->child_optional("typeCoverageProvider"));
-            if(auto workspace = object->child_optional("workspace")) {
-              if(auto workspace_folders = workspace->child_optional("workspaceFolders"))
-                capabilities.workspace_folders = workspace_folders->boolean_or("supported", false);
+            if(auto workspace = object->object_optional("workspace")) {
+              if(auto workspace_folders = workspace->object_optional("workspaceFolders"))
+                capabilities.workspace_folders = static_cast<bool>(workspace_folders->child_optional("changeNotifications"));
             }
           }
 
@@ -610,6 +610,8 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
     result_processed.get_future().get();
     write_response(id, std::string("\"applied\":") + (applied ? "true" : "false"));
   }
+  else if(method == "workspace/workspaceFolders")
+    write_response(id, "[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}]");
   else if(method == "client/registerCapability") {
     try {
       for(auto &registration : params.array("registrations")) {
