@@ -125,6 +125,7 @@ namespace LanguageProtocol {
     bool references = false;
     bool document_highlight = false;
     bool workspace_symbol = false;
+    bool workspace_folders = false;
     bool document_symbol = false;
     bool document_formatting = false;
     bool document_range_formatting = false;

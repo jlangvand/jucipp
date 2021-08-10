@@ -203,9 +203,10 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
     process_id = process->get_id();
   }
   write_request(
-      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + ",\"rootUri\":\"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + R"(","capabilities": {
+      nullptr, "initialize", "\"processId\":" + std::to_string(process_id) + ",\"rootPath\":\"" + JSON::escape_string(root_path.string()) + "\",\"rootUri\":\"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + R"(","capabilities": {
   "workspace": {
-    "symbol": { "dynamicRegistration": false }
+    "symbol": { "dynamicRegistration": false },
+    "workspaceFolders": true
   },
   "textDocument": {
     "synchronization": { "dynamicRegistration": false, "didSave": true },
@@ -297,6 +298,10 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
             }
             capabilities.execute_command = static_cast<bool>(object->child_optional("executeCommandProvider"));
             capabilities.type_coverage = static_cast<bool>(object->child_optional("typeCoverageProvider"));
+            if(auto workspace = object->child_optional("workspace")) {
+              if(auto workspace_folders = workspace->child_optional("workspaceFolders"))
+                capabilities.workspace_folders = workspace_folders->boolean_or("supported", false);
+            }
           }
 
           // See https://clangd.llvm.org/extensions.html#utf-8-offsets for documentation on offsetEncoding
@@ -304,6 +309,8 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
           // capabilities.use_line_index = result.get<std::string>("offsetEncoding", "") == "utf-8";
 
           write_notification("initialized");
+          if(capabilities.workspace_folders)
+            write_notification("workspace/didChangeWorkspaceFolders", "\"event\":{\"added\":[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}],\"removed\":[]}");
         }
         result_processed.set_value();
       });
@@ -602,6 +609,16 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
     });
     result_processed.get_future().get();
     write_response(id, std::string("\"applied\":") + (applied ? "true" : "false"));
+  }
+  else if(method == "client/registerCapability") {
+    try {
+      for(auto &registration : params.array("registrations")) {
+        if(registration.string("method") == "workspace/didChangeWorkspaceFolders")
+          write_notification("workspace/didChangeWorkspaceFolders", "\"event\":{\"added\":[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}],\"removed\":[]}");
+      }
+    }
+    catch(...) {
+    }
   }
   else
     write_response(id, ""); // TODO: write error instead on unsupported methods
