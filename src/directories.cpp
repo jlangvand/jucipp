@@ -538,6 +538,9 @@ void Directories::open(const boost::filesystem::path &dir_path) {
   directories.clear();
 
   add_or_update_path(path, Gtk::TreeModel::Row(), true);
+
+  if(auto view = Notebook::get().get_current_view())
+    view->update_status_file_path(view);
 }
 
 void Directories::close(const boost::filesystem::path &dir_path) {
@@ -550,6 +553,9 @@ void Directories::close(const boost::filesystem::path &dir_path) {
   }
   else
     remove_path(dir_path);
+
+  if(auto view = Notebook::get().get_current_view())
+    view->update_status_file_path(view);
 }
 
 void Directories::update() {

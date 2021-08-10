@@ -1,6 +1,7 @@
 #include "notebook.hpp"
 #include "config.hpp"
 #include "dialog.hpp"
+#include "directories.hpp"
 #include "filesystem.hpp"
 #include "project.hpp"
 #include "selection_dialog.hpp"
@@ -368,8 +369,12 @@ bool Notebook::open(const boost::filesystem::path &file_path_, Position position
     }
   };
   view->update_status_file_path = [this](Source::BaseView *view) {
-    if(get_current_view() == view)
-      status_file_path.set_text(' ' + filesystem::get_short_path(view->file_path).string());
+    if(get_current_view() == view) {
+      if(!Directories::get().path.empty() && filesystem::file_in_path(view->file_path, Directories::get().path))
+        status_file_path.set_text(' ' + filesystem::get_relative_path(view->file_path, Directories::get().path).string());
+      else
+        status_file_path.set_text(' ' + filesystem::get_short_path(view->file_path).string());
+    }
   };
   view->update_status_branch = [this](Source::BaseView *view) {
     if(get_current_view() == view) {
