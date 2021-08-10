@@ -489,7 +489,7 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
 
 void LanguageProtocol::Client::write_response(size_t id, const std::string &result) {
   LockGuard lock(read_write_mutex);
-  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":{" + result + "}}");
+  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":" + result + "}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
@@ -608,7 +608,7 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
       }
     });
     result_processed.get_future().get();
-    write_response(id, std::string("\"applied\":") + (applied ? "true" : "false"));
+    write_response(id, std::string("{\"applied\":") + (applied ? "true" : "false") + '}');
   }
   else if(method == "workspace/workspaceFolders")
     write_response(id, "[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}]");
@@ -621,9 +621,10 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
     }
     catch(...) {
     }
+    write_response(id, "{}");
   }
   else
-    write_response(id, ""); // TODO: write error instead on unsupported methods
+    write_response(id, "{}"); // TODO: write error instead on unsupported methods
 }
 
 Source::LanguageProtocolView::LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_)
