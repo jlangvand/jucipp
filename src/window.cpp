@@ -569,6 +569,17 @@ void Window::set_menu_actions() {
     }
     Directories::get().close(project_path);
   });
+  menu.add_action("file_close_other_files", []() {
+    auto current_view = Notebook::get().get_current_view();
+    if(!current_view)
+      return;
+    for(size_t c = Notebook::get().size() - 1; c != static_cast<size_t>(-1); --c) {
+      if(Notebook::get().get_view(c) != current_view) {
+        if(!Notebook::get().close(c))
+          return;
+      }
+    }
+  });
 
   menu.add_action("file_print", [this]() {
     if(auto view = Notebook::get().get_current_view()) {

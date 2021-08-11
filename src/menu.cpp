@@ -194,6 +194,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='label' translatable='yes'>_Close _Project</attribute>
           <attribute name='action'>app.file_close_project</attribute>
         </item>
+        <item>
+          <attribute name='label' translatable='yes'>_Close _Other _Files</attribute>
+          <attribute name='action'>app.file_close_other_files</attribute>
+        </item>
       </section>
       <section>
         <item>

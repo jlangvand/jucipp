@@ -359,6 +359,7 @@ std::string Config::default_config() {
     "file_close_file": "<primary>w",
     "file_close_folder": "",
     "file_close_project": "",
+    "file_close_other_files": "",
     "file_print": "",
     "edit_undo": "<primary>z",
     "edit_redo": "<primary><shift>z",
