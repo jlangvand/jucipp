@@ -2381,6 +2381,11 @@ void Window::save_session() {
     search.set("regex", regex_search);
     last_session.set("search", std::move(search));
 
+    auto find_pattern = JSON();
+    find_pattern.set("case_sensitive", find_pattern_case_sensitive);
+    find_pattern.set("extended_regex", find_pattern_extended_regex);
+    last_session.set("find_pattern", std::move(find_pattern));
+
     last_session.to_file(Config::get().home_juci_path / "last_session.json", 2);
   }
   catch(const std::exception &e) {
@@ -2439,6 +2444,10 @@ void Window::load_session(std::vector<boost::filesystem::path> &directories, std
     if(auto search = last_session.object_optional("search")) {
       case_sensitive_search = search->boolean_or("case_sensitive", case_sensitive_search, JSON::ParseOptions::accept_string);
       regex_search = search->boolean_or("regex", regex_search, JSON::ParseOptions::accept_string);
+    }
+    if(auto find_pattern = last_session.object_optional("find_pattern")) {
+      find_pattern_case_sensitive = find_pattern->boolean_or("case_sensitive", find_pattern_case_sensitive, JSON::ParseOptions::accept_string);
+      find_pattern_extended_regex = find_pattern->boolean_or("extended_regex", find_pattern_extended_regex, JSON::ParseOptions::accept_string);
     }
   }
   catch(const std::exception &e) {
