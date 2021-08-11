@@ -2365,6 +2365,11 @@ void Window::save_session() {
     window.set("height", height);
     last_session.set("window", std::move(window));
 
+    auto search = JSON();
+    search.set("case_sensitive", case_sensitive_search);
+    search.set("regex", regex_search);
+    last_session.set("search", std::move(search));
+
     last_session.to_file(Config::get().home_juci_path / "last_session.json", 2);
   }
   catch(const std::exception &e) {
@@ -2419,6 +2424,11 @@ void Window::load_session(std::vector<boost::filesystem::path> &directories, std
       set_default_size(window->integer_or("width", default_width, JSON::ParseOptions::accept_string), window->integer_or("height", default_height, JSON::ParseOptions::accept_string));
     else
       set_default_size(default_width, default_height);
+
+    if(auto search = last_session.object_optional("search")) {
+      case_sensitive_search = search->boolean_or("case_sensitive", case_sensitive_search, JSON::ParseOptions::accept_string);
+      regex_search = search->boolean_or("regex", regex_search, JSON::ParseOptions::accept_string);
+    }
   }
   catch(const std::exception &e) {
     set_default_size(default_width, default_height);
