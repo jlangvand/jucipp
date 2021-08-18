@@ -877,6 +877,12 @@ void Window::set_menu_actions() {
   menu.add_action("source_find_pattern", [this]() {
     EntryBox::get().clear();
 
+    if(focused_view && Config::get().source.search_for_selection) {
+      Gtk::TextIter start, end;
+      if(focused_view->get_buffer()->get_selection_bounds(start, end))
+        last_find_pattern = focused_view->get_buffer()->get_text(start, end);
+    }
+
     EntryBox::get().entries.emplace_back(last_find_pattern, [this](const std::string &pattern_) {
       auto pattern = pattern_; // Store pattern to safely hide entrybox
       EntryBox::get().hide();
@@ -2090,12 +2096,10 @@ void Window::search_and_replace_entry() {
     }
   };
 
-  if(focused_view) {
-    if(Config::get().source.search_for_selection) {
-      Gtk::TextIter start, end;
-      if(focused_view->get_buffer()->get_selection_bounds(start, end))
-        last_search = focused_view->get_buffer()->get_text(start, end);
-    }
+  if(focused_view && Config::get().source.search_for_selection) {
+    Gtk::TextIter start, end;
+    if(focused_view->get_buffer()->get_selection_bounds(start, end))
+      last_search = focused_view->get_buffer()->get_text(start, end);
   }
   EntryBox::get().entries.emplace_back(last_search, [this](const std::string &content) {
     if(focused_view)
