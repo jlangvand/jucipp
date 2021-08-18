@@ -153,7 +153,9 @@ namespace Source {
     /// Iter will not be moved if iter is already a code iter.
     bool forward_to_code(Gtk::TextIter &iter);
     /// Iter will not be moved if iter is already a code iter (not part of comment or string, and not whitespace) or at line start
-    void backward_to_code_or_line_start(Gtk::TextIter &iter);
+    bool backward_to_code_or_line_start(Gtk::TextIter &iter);
+    /// Iter will not be moved if iter is already a code iter (not part of comment or string, and not whitespace) or at line end
+    bool forward_to_code_or_line_end(Gtk::TextIter &iter);
     /// If closing bracket is found, continues until the open bracket.
     /// Returns if open bracket is found that has no corresponding closing bracket.
     /// Else, return at start of line.

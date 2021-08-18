@@ -2177,9 +2177,16 @@ bool Source::View::forward_to_code(Gtk::TextIter &iter) {
   return !iter.is_end();
 }
 
-void Source::View::backward_to_code_or_line_start(Gtk::TextIter &iter) {
-  while(!iter.starts_line() && (!is_code_iter(iter) || *iter == ' ' || *iter == '\t' || iter.ends_line()) && iter.backward_char()) {
+bool Source::View::backward_to_code_or_line_start(Gtk::TextIter &iter) {
+  while(!iter.starts_line() && (*iter == ' ' || *iter == '\t' || iter.ends_line() || !is_code_iter(iter)) && iter.backward_char()) {
   }
+  return !iter.is_start() || is_code_iter(iter);
+}
+
+bool Source::View::forward_to_code_or_line_end(Gtk::TextIter &iter) {
+  while(!iter.ends_line() && (*iter == ' ' || *iter == '\t' || !is_code_iter(iter)) && iter.forward_char()) {
+  }
+  return !iter.is_end();
 }
 
 Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
@@ -2194,7 +2201,7 @@ Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
   if(is_bracket_language) {
     if(*iter == ';' && is_code_iter(iter))
       has_semicolon = true;
-    if(*iter == '{' && is_code_iter(iter)) {
+    else if(*iter == '{' && is_code_iter(iter)) {
       iter.backward_char();
       has_open_curly = true;
     }
@@ -2246,7 +2253,10 @@ Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
         if(!test_iter.starts_line() && *test_iter == ':' && is_code_iter(test_iter))
           continue;
       }
-      // Handle ',', ':', or operators that can be used between two lines, on previous line:
+
+      // Handle ',', ':', or operators that can be used between two lines, on previous line
+
+      // Return if previous line is empty
       auto previous_iter = iter;
       previous_iter.backward_char();
       backward_to_code_or_line_start(previous_iter);
@@ -2272,6 +2282,12 @@ Gtk::TextIter Source::View::get_start_of_expression(Gtk::TextIter iter) {
       }
       if(*previous_iter != ',')
         return iter;
+      else {
+        // Return if , is followed by }, for instance: {\n  1,\n  2,\n}
+        auto next_iter = iter;
+        if(forward_to_code_or_line_end(next_iter) && *next_iter == '}')
+          return iter;
+      }
     }
   } while(iter.backward_char());
 

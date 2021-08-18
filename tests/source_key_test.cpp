@@ -2730,6 +2730,32 @@ int main() {
                                      "");
       g_assert(buffer->get_insert()->get_iter() == buffer->end());
     }
+    {
+      buffer->set_text(R"(function test() {
+  let a = {
+    red: 0.0,
+    green: 0.0,
+    blue: 1.0,
+  };
+}
+)");
+      auto iter = buffer->begin();
+      iter.forward_chars(79);
+      buffer->place_cursor(iter);
+      view.on_key_press_event(&event);
+      g_assert(buffer->get_text() == R"(function test() {
+  let a = {
+    red: 0.0,
+    green: 0.0,
+    blue: 1.0,
+  };
+  
+}
+)");
+      iter = buffer->begin();
+      iter.forward_chars(82);
+      g_assert(buffer->get_insert()->get_iter() == iter);
+    }
   }
   {
     auto language = language_manager->get_language("markdown");
