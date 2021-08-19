@@ -3,6 +3,7 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
+#include <gtkmm.h>
 #include <list>
 #include <set>
 #include <string>
@@ -35,6 +36,7 @@ public:
 
 private:
   std::unique_ptr<Gtk::Window> window;
+  Gtk::ScrolledWindow *scrolled_window = nullptr;
 
   Gsv::View *view;
   std::function<void(Tooltip &)> set_buffer;

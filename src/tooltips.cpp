@@ -213,24 +213,16 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     size.first += 6;  // 2xpadding
     size.second += 8; // 2xpadding + 2
 
-    // Add ScrolledWindow if needed
-    Gtk::Widget *widget = tooltip_text_view;
-    auto screen_width = Gdk::Screen::get_default()->get_width();
-    auto screen_height = Gdk::Screen::get_default()->get_height();
-    if(size.first > screen_width - 6 /* 2xpadding */ || size.second > screen_height - 6 /* 2xpadding */) {
-      auto scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
-      scrolled_window->property_hscrollbar_policy() = size.first > screen_width - 6 ? Gtk::PolicyType::POLICY_AUTOMATIC : Gtk::PolicyType::POLICY_NEVER;
-      scrolled_window->property_vscrollbar_policy() = size.second > screen_height - 6 ? Gtk::PolicyType::POLICY_AUTOMATIC : Gtk::PolicyType::POLICY_NEVER;
-      scrolled_window->add(*tooltip_text_view);
-      scrolled_window->set_size_request(size.first > screen_width - 6 ? screen_width - 6 : -1, size.second > screen_height - 6 ? screen_height - 6 : -1);
-      widget = scrolled_window;
-    }
+    scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
+    scrolled_window->property_hscrollbar_policy() = Gtk::PolicyType::POLICY_NEVER;
+    scrolled_window->property_vscrollbar_policy() = Gtk::PolicyType::POLICY_NEVER;
+    scrolled_window->add(*tooltip_text_view);
 
 #if GTK_VERSION_GE(3, 20)
-    box->add(*widget);
+    box->add(*scrolled_window);
 #else
     auto box2 = Gtk::manage(new Gtk::Box());
-    box2->pack_start(*widget, true, true, 3);
+    box2->pack_start(*scrolled_window, true, true, 3);
     box->pack_start(*box2, true, true, 3);
 #endif
 
@@ -305,6 +297,23 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     else
       Tooltips::drawn_tooltips_rectangle = rectangle;
   }
+
+  auto screen_width = Gdk::Screen::get_default()->get_width();
+  auto screen_height = Gdk::Screen::get_default()->get_height();
+  auto width = rectangle.get_width();
+  if(rectangle.get_x() + width > screen_width) {
+    width -= rectangle.get_x() + width - screen_width;
+    scrolled_window->property_hscrollbar_policy() = Gtk::PolicyType::POLICY_AUTOMATIC;
+  }
+  auto height = rectangle.get_height();
+  if(rectangle.get_y() + height > screen_height) {
+    height -= rectangle.get_y() + height - screen_height;
+    scrolled_window->property_vscrollbar_policy() = Gtk::PolicyType::POLICY_AUTOMATIC;
+  }
+  width -= 6;
+  height -= 8;
+  if(width > 0 && height > 0)
+    scrolled_window->set_size_request(width, height);
 
   if(window->get_realized())
     window->move(rectangle.get_x(), rectangle.get_y());
