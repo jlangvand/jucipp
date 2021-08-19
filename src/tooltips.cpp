@@ -214,6 +214,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     size.second += 8; // 2xpadding + 2
 
     scrolled_window = Gtk::manage(new Gtk::ScrolledWindow());
+    scrolled_window->get_style_context()->add_class("juci_tooltip_scrolledwindow");
     scrolled_window->property_hscrollbar_policy() = Gtk::PolicyType::POLICY_NEVER;
     scrolled_window->property_vscrollbar_policy() = Gtk::PolicyType::POLICY_NEVER;
     scrolled_window->add(*tooltip_text_view);

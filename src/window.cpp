@@ -50,6 +50,7 @@ Window::Window() {
     .juci_tooltip_window {background-color: transparent;}
     .juci_tooltip_box {)" + border_radius_style +
                            R"(padding: 3px;}
+    .juci_tooltip_scrolledwindow undershoot.top, undershoot.right, undershoot.bottom, undershoot.left {background-image: initial;}
     .juci_message_window {background-color: transparent;}
     .juci_message_box {)" +
                            border_radius_style +
