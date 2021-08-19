@@ -285,7 +285,7 @@ boost::filesystem::path filesystem::get_executable(const boost::filesystem::path
         return executable_name;
     }
 
-    auto &executable_name_str = executable_name.string();
+    auto executable_name_str = executable_name.string();
     for(auto &folder : get_executable_search_paths()) {
       boost::filesystem::path latest_executable;
       std::string latest_version;
