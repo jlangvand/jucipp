@@ -544,6 +544,10 @@ const Glib::ustring menu_xml = R"RAW(<interface>
           <attribute name='action'>app.window_toggle_terminal</attribute>
         </item>
         <item>
+          <attribute name='label' translatable='yes'>_Toggle _Status</attribute>
+          <attribute name='action'>app.window_toggle_status</attribute>
+        </item>
+        <item>
           <attribute name='label' translatable='yes'>_Toggle _Menu</attribute>
           <attribute name='action'>app.window_toggle_menu</attribute>
         </item>

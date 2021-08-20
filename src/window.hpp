@@ -23,6 +23,7 @@ protected:
 private:
   Gtk::AboutDialog about;
   Gtk::ScrolledWindow directories_scrolled_window, terminal_scrolled_window;
+  Gtk::Overlay status_overlay;
 
   void configure();
   void set_menu_actions();

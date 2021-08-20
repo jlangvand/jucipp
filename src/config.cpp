@@ -441,6 +441,7 @@ std::string Config::default_config() {
                        R"RAW(
     "window_toggle_directories": "",
     "window_toggle_terminal": "",
+    "window_toggle_status": "",
     "window_toggle_menu": "",
     "window_toggle_tabs": "",
     "window_toggle_zen_mode": "",

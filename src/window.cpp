@@ -1760,6 +1760,9 @@ void Window::set_menu_actions() {
   menu.add_action("window_toggle_terminal", [this] {
     terminal_scrolled_window.set_visible(!terminal_scrolled_window.get_visible());
   });
+  menu.add_action("window_toggle_status", [this] {
+    status_overlay.set_visible(!status_overlay.get_visible());
+  });
   menu.add_action("window_toggle_menu", [this] {
     set_show_menubar(!get_show_menubar());
   });
@@ -1778,10 +1781,12 @@ void Window::set_menu_actions() {
     if(not_zen_mode) {
       directories_scrolled_window.hide();
       terminal_scrolled_window.hide();
+      status_overlay.hide();
     }
     else {
       directories_scrolled_window.show();
       terminal_scrolled_window.show();
+      status_overlay.show();
     }
     set_show_menubar(!not_zen_mode);
   });
@@ -1857,19 +1862,18 @@ void Window::add_widgets() {
   status_right_overlay->add_overlay(Notebook::get().status_diagnostics);
   status_hbox->pack_end(*status_right_overlay);
 
-  auto status_overlay = Gtk::manage(new Gtk::Overlay());
-  status_overlay->get_style_context()->add_class("juci_status_overlay");
-  status_overlay->add(*status_hbox);
+  status_overlay.get_style_context()->add_class("juci_status_overlay");
+  status_overlay.add(*status_hbox);
   auto status_file_info_hbox = Gtk::manage(new Gtk::Box);
   status_file_info_hbox->pack_start(Notebook::get().status_file_path, Gtk::PACK_SHRINK);
   status_file_info_hbox->pack_start(Notebook::get().status_branch, Gtk::PACK_SHRINK);
   status_file_info_hbox->pack_start(Notebook::get().status_location, Gtk::PACK_SHRINK);
-  status_overlay->add_overlay(*status_file_info_hbox);
-  status_overlay->add_overlay(Project::debug_status_label());
+  status_overlay.add_overlay(*status_file_info_hbox);
+  status_overlay.add_overlay(Project::debug_status_label());
 
   auto vbox = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_VERTICAL));
   vbox->pack_start(*hpaned);
-  vbox->pack_start(*status_overlay, Gtk::PACK_SHRINK);
+  vbox->pack_start(status_overlay, Gtk::PACK_SHRINK);
 
   auto overlay_vbox = Gtk::manage(new Gtk::Box(Gtk::Orientation::ORIENTATION_VERTICAL));
   auto overlay_hbox = Gtk::manage(new Gtk::Box());
