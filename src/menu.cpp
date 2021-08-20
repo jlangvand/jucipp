@@ -585,8 +585,12 @@ void Menu::set_keys() {
   auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
 
   for(auto &key : Config::get().menu.keys) {
-    if(key.second.size() > 0 && actions.find(key.first) != actions.end())
-      application->set_accel_for_action("app." + key.first, key.second);
+    if(actions.find(key.first) != actions.end()) {
+      if(!key.second.empty())
+        application->set_accel_for_action("app." + key.first, key.second);
+      else
+        application->unset_accels_for_action("app." + key.first);
+    }
   }
 }
 
