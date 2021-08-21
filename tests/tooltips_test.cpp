@@ -539,6 +539,10 @@ int main() {
     g_assert(tooltip->buffer->get_text() == "@test");
   }
   {
+    auto tooltip = get_doxygen_tooltip("@test", false);
+    g_assert(tooltip->buffer->get_text() == "@test");
+  }
+  {
     auto tooltip = get_doxygen_tooltip("%test", false);
     g_assert(tooltip->buffer->get_text() == "test");
   }
