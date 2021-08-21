@@ -10,7 +10,7 @@ stages:
   stage: test
   script:
     - mkdir build && cd build
-    - CXXFLAGS=-Werror cmake -DBUILD_TESTING=1 ..
+    - CXXFLAGS="-Werror -D_GLIBCXX_ASSERTIONS" cmake -DBUILD_TESTING=1 ..
     - make -j$(nproc)
     - broadwayd & CTEST_OUTPUT_ON_FAILURE=1 make test
 

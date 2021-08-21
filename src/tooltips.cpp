@@ -1311,9 +1311,11 @@ void Tooltip::insert_doxygen(const std::string &input_, bool remove_delimiters) 
       }
       else {
         auto i2 = i_saved;
-        --i2;
-        while(i2 > 0 && (input[i2] == ' ' || input[i2] == '\t'))
+        if(i2 > 0) {
           --i2;
+          while(i2 > 0 && (input[i2] == ' ' || input[i2] == '\t'))
+            --i2;
+        }
         if(input[i2] == '\n' || i2 == 0)
           markdown += "\n\n";
         if(input[i_saved] == '\\')
