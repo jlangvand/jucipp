@@ -572,17 +572,11 @@ const Glib::ustring menu_xml = R"RAW(<interface>
 )RAW";
 
 void Menu::add_action(const std::string &name, const std::function<void()> &action) {
-  auto g_application = g_application_get_default();
-  auto gio_application = Glib::wrap(g_application, true);
-  auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-
-  actions[name] = application->add_action(name, action);
+  actions[name] = Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->add_action(name, action);
 }
 
 void Menu::set_keys() {
-  auto g_application = g_application_get_default();
-  auto gio_application = Glib::wrap(g_application, true);
-  auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
+  auto application = Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default());
 
   for(auto &key : Config::get().menu.keys) {
     if(actions.find(key.first) != actions.end()) {

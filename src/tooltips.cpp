@@ -48,10 +48,7 @@ void Tooltip::show(bool disregard_drawn, const std::function<void()> &on_motion)
     //init window
     window = std::make_unique<Gtk::Window>(Gtk::WindowType::WINDOW_POPUP);
 
-    auto g_application = g_application_get_default();
-    auto gio_application = Glib::wrap(g_application, true);
-    auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-    if(auto active_window = application->get_active_window())
+    if(auto active_window = Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->get_active_window())
       window->set_transient_for(*active_window);
 
     window->set_type_hint(Gdk::WindowTypeHint::WINDOW_TYPE_HINT_TOOLTIP);

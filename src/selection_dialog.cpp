@@ -37,10 +37,7 @@ void SelectionDialogBase::ListViewText::clear() {
 
 SelectionDialogBase::SelectionDialogBase(Source::BaseView *view_, const boost::optional<Gtk::TextIter> &start_iter, bool show_search_entry_, bool use_markup)
     : start_mark(start_iter ? Source::Mark(*start_iter) : Source::Mark()), view(view_), window(Gtk::WindowType::WINDOW_POPUP), vbox(Gtk::Orientation::ORIENTATION_VERTICAL), list_view_text(use_markup), show_search_entry(show_search_entry_) {
-  auto g_application = g_application_get_default();
-  auto gio_application = Glib::wrap(g_application, true);
-  auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-  window.set_transient_for(*application->get_active_window());
+  window.set_transient_for(*Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->get_active_window());
 
   window.set_type_hint(Gdk::WindowTypeHint::WINDOW_TYPE_HINT_COMBO);
 
@@ -68,10 +65,7 @@ SelectionDialogBase::SelectionDialogBase(Source::BaseView *view_, const boost::o
   window.add(vbox);
 
   list_view_text.signal_realize().connect([this]() {
-    auto g_application = g_application_get_default();
-    auto gio_application = Glib::wrap(g_application, true);
-    auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-    auto application_window = application->get_active_window();
+    auto application_window = Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->get_active_window();
 
     // Calculate window width and height
     int row_width = 0, padding_height = 0, window_height = 0;

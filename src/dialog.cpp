@@ -3,10 +3,7 @@
 #include <cmath>
 
 Dialog::Message::Message(const std::string &text, std::function<void()> &&on_cancel, bool show_progress_bar) : Gtk::Window(Gtk::WindowType::WINDOW_POPUP) {
-  auto g_application = g_application_get_default();
-  auto gio_application = Glib::wrap(g_application, true);
-  auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-  set_transient_for(*application->get_active_window());
+  set_transient_for(*Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->get_active_window());
 
   set_position(Gtk::WindowPosition::WIN_POS_CENTER_ON_PARENT);
   set_modal(true);
@@ -83,10 +80,7 @@ std::string Dialog::gtk_dialog(const boost::filesystem::path &path, const std::s
   Gtk::FileChooserDialog dialog(title, action);
 #endif
 
-  auto g_application = g_application_get_default();
-  auto gio_application = Glib::wrap(g_application, true);
-  auto application = Glib::RefPtr<Gtk::Application>::cast_static(gio_application);
-  dialog.set_transient_for(*application->get_active_window());
+  dialog.set_transient_for(*Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default())->get_active_window());
   dialog.set_position(Gtk::WindowPosition::WIN_POS_CENTER_ON_PARENT);
 
   if(title == "Save File As")
