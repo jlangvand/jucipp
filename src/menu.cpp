@@ -1,5 +1,6 @@
 #include "menu.hpp"
 #include "config.hpp"
+#include "terminal.hpp"
 #include <iostream>
 #include <string>
 
@@ -578,13 +579,32 @@ void Menu::add_action(const std::string &name, const std::function<void()> &acti
 void Menu::set_keys() {
   auto application = Glib::RefPtr<Gtk::Application>::cast_dynamic(Gtk::Application::get_default());
 
-  for(auto &key : Config::get().menu.keys) {
-    if(actions.find(key.first) != actions.end()) {
-      if(!key.second.empty())
-        application->set_accel_for_action("app." + key.first, key.second);
+  accelerators_with_multiple_actions.clear();
+
+  for(auto &action_and_key : Config::get().menu.keys) {
+    auto it = actions.find(action_and_key.first);
+    if(it != actions.end()) {
+      if(!action_and_key.second.empty()) {
+        application->set_accel_for_action("app." + action_and_key.first, action_and_key.second);
+
+        guint key = 0;
+        GdkModifierType modifier = static_cast<GdkModifierType>(0);
+        gtk_accelerator_parse(action_and_key.second.c_str(), &key, &modifier);
+        if(key == 0 && modifier == 0)
+          Terminal::get().async_print("\e[31mError\e[m: could not parse key string \"" + action_and_key.second + "\" for action " + action_and_key.first + "\n", true);
+        else
+          accelerators_with_multiple_actions[std::make_pair(key, modifier)].emplace_back(it->second);
+      }
       else
-        application->unset_accels_for_action("app." + key.first);
+        application->unset_accels_for_action("app." + action_and_key.first);
     }
+  }
+
+  for(auto it = accelerators_with_multiple_actions.begin(); it != accelerators_with_multiple_actions.end();) {
+    if(it->second.size() < 2)
+      it = accelerators_with_multiple_actions.erase(it);
+    else
+      ++it;
   }
 }
 
@@ -602,7 +622,7 @@ void Menu::build() {
     ptr = Glib::RefPtr<Gio::Menu>::cast_dynamic(object);
     right_click_selected_menu = std::make_unique<Gtk::Menu>(ptr);
   }
-  catch(const Glib::Error &ex) {
-    std::cerr << "building menu failed: " << ex.what();
+  catch(const Glib::Error &e) {
+    std::cerr << "building menu failed: " << e.what();
   }
 }

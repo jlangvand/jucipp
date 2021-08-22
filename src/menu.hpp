@@ -15,6 +15,7 @@ public:
 
   void add_action(const std::string &name, const std::function<void()> &action);
   std::unordered_map<std::string, Glib::RefPtr<Gio::SimpleAction>> actions;
+  std::map<std::pair<guint, GdkModifierType>, std::vector<Glib::RefPtr<Gio::SimpleAction>>> accelerators_with_multiple_actions;
   void set_keys();
 
   void build();

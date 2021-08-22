@@ -1939,7 +1939,7 @@ bool Window::on_key_press_event(GdkEventKey *event) {
   guint keyval_without_state;
   gdk_keymap_translate_keyboard_state(gdk_keymap_get_default(), event->hardware_keycode, (GdkModifierType)0, 0, &keyval_without_state, nullptr, nullptr, nullptr);
   for(auto &command : Commands::get().commands) {
-    if((command.key == event->keyval || command.key == keyval_without_state) && (event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == command.modifier) {
+    if(command.key == keyval_without_state && (event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == command.modifier) {
       auto view = Notebook::get().get_current_view();
       auto view_folder = Project::get_preferably_view_folder();
       auto path = view ? view->file_path : view_folder;
@@ -2021,9 +2021,8 @@ bool Window::on_key_press_event(GdkEventKey *event) {
     }
   }
 
-  if(event->keyval == GDK_KEY_Escape) {
+  if(event->keyval == GDK_KEY_Escape)
     EntryBox::get().hide();
-  }
 #ifdef __APPLE__ //For Apple's Command-left, right, up, down keys
   else if((event->state & GDK_META_MASK) > 0 && (event->state & GDK_MOD1_MASK) == 0) {
     if(event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left) {
@@ -2054,6 +2053,15 @@ bool Window::on_key_press_event(GdkEventKey *event) {
   if(SelectionDialog::get() && SelectionDialog::get()->is_visible()) {
     if(SelectionDialog::get()->on_key_press(event))
       return true;
+  }
+
+  auto it = Menu::get().accelerators_with_multiple_actions.find(std::make_pair(keyval_without_state, static_cast<GdkModifierType>(event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK | GDK_MOD1_MASK | GDK_META_MASK))));
+  if(it != Menu::get().accelerators_with_multiple_actions.end()) {
+    // Copy actions since accelerators_with_multiple_actions might change during activations
+    auto actions = it->second;
+    for(auto &action : actions)
+      action->activate();
+    return true;
   }
 
   return Gtk::ApplicationWindow::on_key_press_event(event);
