@@ -1087,7 +1087,7 @@ std::string Source::BaseView::get_selected_text() {
 
 bool Source::BaseView::on_key_press_event(GdkEventKey *event) {
   // Move cursor one paragraph down
-  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && (event->state & GDK_CONTROL_MASK) > 0) {
+  if((event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down) && (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == GDK_CONTROL_MASK) {
     auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
     auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
     bool empty_line = false;
@@ -1114,7 +1114,7 @@ bool Source::BaseView::on_key_press_event(GdkEventKey *event) {
     return true;
   }
   //Move cursor one paragraph up
-  else if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && (event->state & GDK_CONTROL_MASK) > 0) {
+  else if((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up) && (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_META_MASK)) == GDK_CONTROL_MASK) {
     auto selection_start_iter = get_buffer()->get_selection_bound()->get_iter();
     auto iter = get_buffer()->get_iter_at_line(get_buffer()->get_insert()->get_iter().get_line());
     iter.backward_char();
