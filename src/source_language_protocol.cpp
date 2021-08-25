@@ -1,4 +1,5 @@
 #include "source_language_protocol.hpp"
+#include "directories.hpp"
 #include "filesystem.hpp"
 #include "info.hpp"
 #include "notebook.hpp"
@@ -71,32 +72,42 @@ LanguageProtocol::WorkspaceEdit::WorkspaceEdit(const JSON &workspace_edit, boost
   else
     project_path = file_path.parent_path();
   try {
-    if(auto children = workspace_edit.children_optional("changes")) {
-      for(auto &child : *children) {
-        auto file = filesystem::get_path_from_uri(child.first);
+    if(auto changes = workspace_edit.children_optional("changes")) {
+      for(auto &change : *changes) {
+        auto file = filesystem::get_path_from_uri(change.first);
         if(filesystem::file_in_path(file, project_path)) {
           std::vector<LanguageProtocol::TextEdit> text_edits;
-          for(auto &text_edit : child.second.array())
+          for(auto &text_edit : change.second.array())
             text_edits.emplace_back(text_edit);
-          document_edits.emplace_back(file.string(), std::move(text_edits));
+          document_changes.emplace_back(TextDocumentEdit(file.string(), std::move(text_edits)));
         }
       }
     }
-    else if(auto children = workspace_edit.array_optional("documentChanges")) {
-      for(auto &child : *children) {
-        LanguageProtocol::TextDocumentEdit document_edit(child);
-        if(filesystem::file_in_path(document_edit.file, project_path))
-          document_edits.emplace_back(std::move(document_edit.file), std::move(document_edit.text_edits));
+    else {
+      auto document_changes = workspace_edit.array_or_empty("documentChanges");
+      if(document_changes.empty()) {
+        if(auto child = workspace_edit.object_optional("documentChanges"))
+          document_changes.emplace_back(std::move(*child));
       }
-    }
-    else if(auto child = workspace_edit.object_optional("documentChanges")) {
-      LanguageProtocol::TextDocumentEdit document_edit(*child);
-      if(filesystem::file_in_path(document_edit.file, project_path))
-        document_edits.emplace_back(std::move(document_edit.file), std::move(document_edit.text_edits));
+      for(auto &document_change : document_changes) {
+        if(auto kind = document_change.string_optional("kind")) {
+          if(*kind == "rename") {
+            auto old_path = filesystem::get_path_from_uri(document_change.string("oldUri"));
+            auto new_path = filesystem::get_path_from_uri(document_change.string("newUri"));
+            if(filesystem::file_in_path(old_path, project_path) && filesystem::file_in_path(new_path, project_path))
+              this->document_changes.emplace_back(RenameFile{std::move(old_path), std::move(new_path)});
+          }
+        }
+        else {
+          LanguageProtocol::TextDocumentEdit document_edit(document_change);
+          if(filesystem::file_in_path(document_edit.file, project_path))
+            this->document_changes.emplace_back(TextDocumentEdit(std::move(document_edit.file), std::move(document_edit.text_edits)));
+        }
+      }
     }
   }
   catch(...) {
-    document_edits.clear();
+    document_changes.clear();
   }
 }
 
@@ -544,67 +555,56 @@ void LanguageProtocol::Client::handle_server_request(size_t id, const std::strin
           return;
         }
 
-        struct DocumentEditAndView {
-          LanguageProtocol::TextDocumentEdit *document_edit;
-          Source::View *view;
-        };
-        std::vector<DocumentEditAndView> document_edits_and_views;
-
-        for(auto &document_edit : workspace_edit.document_edits) {
-          Source::View *view = nullptr;
-          for(auto it = Source::View::views.begin(); it != Source::View::views.end(); ++it) {
-            if((*it)->file_path == document_edit.file) {
-              view = *it;
-              break;
+        for(auto &document_change : workspace_edit.document_changes) {
+          if(auto edit = boost::get<TextDocumentEdit>(&document_change)) {
+            Source::View *view = nullptr;
+            for(auto &e : Source::View::views) {
+              if(e->file_path == edit->file) {
+                view = e;
+                break;
+              }
             }
-          }
-          if(!view) {
-            if(!Notebook::get().open(document_edit.file)) {
+            if(!view) {
+              if(!Notebook::get().open(edit->file)) {
+                applied = false;
+                return;
+              }
+              view = Notebook::get().get_current_view();
+            }
+
+            auto buffer = view->get_buffer();
+            buffer->begin_user_action();
+
+            auto end_iter = buffer->end();
+            // If entire buffer is replaced
+            if(edit->text_edits.size() == 1 &&
+               edit->text_edits[0].range.start.line == 0 && edit->text_edits[0].range.start.character == 0 &&
+               (edit->text_edits[0].range.end.line > end_iter.get_line() ||
+                (edit->text_edits[0].range.end.line == end_iter.get_line() && edit->text_edits[0].range.end.character >= current_view->get_line_pos(end_iter)))) {
+              view->replace_text(edit->text_edits[0].new_text);
+            }
+            else {
+              for(auto text_edit_it = edit->text_edits.rbegin(); text_edit_it != edit->text_edits.rend(); ++text_edit_it) {
+                auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+                auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
+                if(view != current_view)
+                  view->get_buffer()->place_cursor(start_iter);
+                buffer->erase(start_iter, end_iter);
+                start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+                buffer->insert(start_iter, text_edit_it->new_text);
+              }
+            }
+
+            buffer->end_user_action();
+            if(!view->save()) {
               applied = false;
               return;
             }
-            view = Notebook::get().get_current_view();
-            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
           }
-          else
-            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
         }
 
         if(current_view)
           Notebook::get().open(current_view);
-
-        for(auto &document_edit_and_view : document_edits_and_views) {
-          auto document_edit = document_edit_and_view.document_edit;
-          auto view = document_edit_and_view.view;
-          auto buffer = view->get_buffer();
-          buffer->begin_user_action();
-
-          auto end_iter = buffer->end();
-          // If entire buffer is replaced
-          if(document_edit->text_edits.size() == 1 &&
-             document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
-             (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
-              (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= current_view->get_line_pos(end_iter)))) {
-            view->replace_text(document_edit->text_edits[0].new_text);
-          }
-          else {
-            for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
-              auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-              auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
-              if(view != current_view)
-                view->get_buffer()->place_cursor(start_iter);
-              buffer->erase(start_iter, end_iter);
-              start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-              buffer->insert(start_iter, text_edit_it->new_text);
-            }
-          }
-
-          buffer->end_user_action();
-          if(!view->save()) {
-            applied = false;
-            return;
-          }
-        }
       }
     });
     result_processed.get_future().get();
@@ -1007,19 +1007,19 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
         ++c;
         usages.emplace_back(Offset(location.range.start.line, location.range.start.character, location.file), std::string());
         auto &usage = usages.back();
-        auto view_it = views.end();
-        for(auto it = views.begin(); it != views.end(); ++it) {
-          if(location.file == (*it)->file_path) {
-            view_it = it;
+        Source::View *view = nullptr;
+        for(auto &e : views) {
+          if(e->file_path == location.file) {
+            view = e;
             break;
           }
         }
-        if(view_it != views.end()) {
-          if(location.range.start.line < (*view_it)->get_buffer()->get_line_count()) {
-            auto start = (*view_it)->get_buffer()->get_iter_at_line(location.range.start.line);
+        if(view) {
+          if(location.range.start.line < view->get_buffer()->get_line_count()) {
+            auto start = view->get_buffer()->get_iter_at_line(location.range.start.line);
             auto end = start;
             end.forward_to_line_end();
-            usage.second = Glib::Markup::escape_text((*view_it)->get_buffer()->get_text(start, end));
+            usage.second = Glib::Markup::escape_text(view->get_buffer()->get_text(start, end));
             embolden_token(usage.second, location.range.start.character, location.range.end.character);
           }
         }
@@ -1089,10 +1089,10 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
               std::vector<LanguageProtocol::TextEdit> edits;
               for(auto &edit : result.array_or_empty())
                 edits.emplace_back(edit, text);
-              workspace_edit.document_edits.emplace_back(file_path.string(), std::move(edits));
+              workspace_edit.document_changes.emplace_back(LanguageProtocol::TextDocumentEdit(file_path.string(), std::move(edits)));
             }
             catch(...) {
-              workspace_edit.document_edits.clear();
+              workspace_edit.document_changes.clear();
             }
           }
           result_processed.set_value();
@@ -1100,106 +1100,124 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
       }
       result_processed.get_future().get();
 
+      if(workspace_edit.document_changes.empty())
+        return;
+
+      Terminal::get().print("Renamed ");
+      Terminal::get().print(previous_text, true);
+      Terminal::get().print(" to ");
+      Terminal::get().print(text, true);
+      Terminal::get().print(" at:\n");
+
       auto current_view = Notebook::get().get_current_view();
 
-      struct DocumentEditAndView {
-        LanguageProtocol::TextDocumentEdit *document_edit;
-        Source::View *view;
-        bool close;
-      };
-      std::vector<DocumentEditAndView> document_edits_and_views;
+      std::set<Source::View *> views_to_be_closed;
 
-      for(auto &document_edit : workspace_edit.document_edits) {
-        Source::View *view = nullptr;
-        for(auto it = views.begin(); it != views.end(); ++it) {
-          if((*it)->file_path == document_edit.file) {
-            view = *it;
-            break;
+      bool update_directories = false;
+      for(auto &document_change : workspace_edit.document_changes) {
+        if(auto edit = boost::get<LanguageProtocol::TextDocumentEdit>(&document_change)) {
+          Source::View *view = nullptr;
+          for(auto &e : views) {
+            if(e->file_path == edit->file) {
+              view = e;
+              break;
+            }
           }
-        }
-        if(!view) {
-          if(!Notebook::get().open(document_edit.file))
+          if(!view) {
+            if(!Notebook::get().open(edit->file))
+              return;
+            view = Notebook::get().get_current_view();
+            views_to_be_closed.emplace(view);
+          }
+
+          auto buffer = view->get_buffer();
+          buffer->begin_user_action();
+
+          auto end_iter = buffer->end();
+          // If entire buffer is replaced
+          if(edit->text_edits.size() == 1 &&
+             edit->text_edits[0].range.start.line == 0 && edit->text_edits[0].range.start.character == 0 &&
+             (edit->text_edits[0].range.end.line > end_iter.get_line() ||
+              (edit->text_edits[0].range.end.line == end_iter.get_line() && edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
+            view->replace_text(edit->text_edits[0].new_text);
+
+            Terminal::get().print(filesystem::get_short_path(view->file_path).string() + ":1:1\n");
+          }
+          else {
+            struct TerminalOutput {
+              std::string prefix;
+              std::string new_text;
+              std::string postfix;
+            };
+            std::list<TerminalOutput> terminal_output_list;
+
+            for(auto text_edit_it = edit->text_edits.rbegin(); text_edit_it != edit->text_edits.rend(); ++text_edit_it) {
+              auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+              auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
+              if(view != current_view)
+                view->get_buffer()->place_cursor(start_iter);
+              buffer->erase(start_iter, end_iter);
+              start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+
+              auto start_line_iter = buffer->get_iter_at_line(start_iter.get_line());
+              while((*start_line_iter == ' ' || *start_line_iter == '\t') && start_line_iter < start_iter && start_line_iter.forward_char()) {
+              }
+              auto end_line_iter = start_iter;
+              while(!end_line_iter.ends_line() && end_line_iter.forward_char()) {
+              }
+              terminal_output_list.emplace_front(TerminalOutput{filesystem::get_short_path(view->file_path).string() + ':' + std::to_string(text_edit_it->range.start.line + 1) + ':' + std::to_string(text_edit_it->range.start.character + 1) + ": " + buffer->get_text(start_line_iter, start_iter),
+                                                                text_edit_it->new_text,
+                                                                buffer->get_text(start_iter, end_line_iter) + '\n'});
+
+              buffer->insert(start_iter, text_edit_it->new_text);
+            }
+
+            for(auto &output : terminal_output_list) {
+              Terminal::get().print(output.prefix);
+              Terminal::get().print(output.new_text, true);
+              Terminal::get().print(output.postfix);
+            }
+          }
+
+          buffer->end_user_action();
+          if(!view->save())
             return;
-          view = Notebook::get().get_current_view();
-          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view, true});
         }
-        else
-          document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view, false});
+        else if(auto rename_file = boost::get<LanguageProtocol::RenameFile>(&document_change)) {
+          Source::View *view = nullptr;
+          for(auto &e : views) {
+            if(e->file_path == rename_file->old_path) {
+              view = e;
+              break;
+            }
+          }
+          if(!view) {
+            if(!Notebook::get().open(rename_file->new_path))
+              return;
+          }
+          boost::system::error_code ec;
+          boost::filesystem::rename(rename_file->old_path, rename_file->new_path, ec);
+          if(ec) {
+            Terminal::get().print("\e[31mError\e[m: could not rename file: " + ec.message() + '\n', true);
+            return;
+          }
+          if(view)
+            view->rename(rename_file->new_path);
+          else {
+            Notebook::get().get_current_view()->rename(rename_file->new_path);
+            Notebook::get().close_current();
+          }
+          update_directories = true;
+        }
       }
+      if(update_directories)
+        Directories::get().update();
 
       if(current_view)
         Notebook::get().open(current_view);
 
-      if(!document_edits_and_views.empty()) {
-        Terminal::get().print("Renamed ");
-        Terminal::get().print(previous_text, true);
-        Terminal::get().print(" to ");
-        Terminal::get().print(text, true);
-        Terminal::get().print(" at:\n");
-      }
-
-      for(auto &document_edit_and_view : document_edits_and_views) {
-        auto document_edit = document_edit_and_view.document_edit;
-        auto view = document_edit_and_view.view;
-        auto buffer = view->get_buffer();
-        buffer->begin_user_action();
-
-        auto end_iter = buffer->end();
-        // If entire buffer is replaced
-        if(document_edit->text_edits.size() == 1 &&
-           document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
-           (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
-            (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
-          view->replace_text(document_edit->text_edits[0].new_text);
-
-          Terminal::get().print(filesystem::get_short_path(view->file_path).string() + ":1:1\n");
-        }
-        else {
-          struct TerminalOutput {
-            std::string prefix;
-            std::string new_text;
-            std::string postfix;
-          };
-          std::list<TerminalOutput> terminal_output_list;
-
-          for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
-            auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-            auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
-            if(view != current_view)
-              view->get_buffer()->place_cursor(start_iter);
-            buffer->erase(start_iter, end_iter);
-            start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-
-            auto start_line_iter = buffer->get_iter_at_line(start_iter.get_line());
-            while((*start_line_iter == ' ' || *start_line_iter == '\t') && start_line_iter < start_iter && start_line_iter.forward_char()) {
-            }
-            auto end_line_iter = start_iter;
-            while(!end_line_iter.ends_line() && end_line_iter.forward_char()) {
-            }
-            terminal_output_list.emplace_front(TerminalOutput{filesystem::get_short_path(view->file_path).string() + ':' + std::to_string(text_edit_it->range.start.line + 1) + ':' + std::to_string(text_edit_it->range.start.character + 1) + ": " + buffer->get_text(start_line_iter, start_iter),
-                                                              text_edit_it->new_text,
-                                                              buffer->get_text(start_iter, end_line_iter) + '\n'});
-
-            buffer->insert(start_iter, text_edit_it->new_text);
-          }
-
-          for(auto &output : terminal_output_list) {
-            Terminal::get().print(output.prefix);
-            Terminal::get().print(output.new_text, true);
-            Terminal::get().print(output.postfix);
-          }
-        }
-
-        buffer->end_user_action();
-        if(!view->save())
-          return;
-      }
-
-      for(auto &document_edit_and_view : document_edits_and_views) {
-        if(document_edit_and_view.close)
-          Notebook::get().close(document_edit_and_view.view);
-        document_edit_and_view.close = false;
-      }
+      for(auto &view : views_to_be_closed)
+        Notebook::get().close(view);
     };
   }
 
@@ -1325,63 +1343,52 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
         auto current_view = Notebook::get().get_current_view();
 
-        struct DocumentEditAndView {
-          LanguageProtocol::TextDocumentEdit *document_edit;
-          Source::View *view;
-        };
-        std::vector<DocumentEditAndView> document_edits_and_views;
-
-        for(auto &document_edit : workspace_edit.document_edits) {
-          Source::View *view = nullptr;
-          for(auto it = views.begin(); it != views.end(); ++it) {
-            if((*it)->file_path == document_edit.file) {
-              view = *it;
-              break;
+        for(auto &document_change : workspace_edit.document_changes) {
+          if(auto edit = boost::get<LanguageProtocol::TextDocumentEdit>(&document_change)) {
+            Source::View *view = nullptr;
+            for(auto &e : views) {
+              if(e->file_path == edit->file) {
+                view = e;
+                break;
+              }
             }
-          }
-          if(!view) {
-            if(!Notebook::get().open(document_edit.file))
+            if(!view) {
+              if(!Notebook::get().open(edit->file))
+                return;
+              view = Notebook::get().get_current_view();
+            }
+
+            auto buffer = view->get_buffer();
+            buffer->begin_user_action();
+
+            auto end_iter = buffer->end();
+            // If entire buffer is replaced
+            if(edit->text_edits.size() == 1 &&
+               edit->text_edits[0].range.start.line == 0 && edit->text_edits[0].range.start.character == 0 &&
+               (edit->text_edits[0].range.end.line > end_iter.get_line() ||
+                (edit->text_edits[0].range.end.line == end_iter.get_line() && edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
+              view->replace_text(edit->text_edits[0].new_text);
+            }
+            else {
+              for(auto text_edit_it = edit->text_edits.rbegin(); text_edit_it != edit->text_edits.rend(); ++text_edit_it) {
+                auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+                auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
+                if(view != current_view)
+                  view->get_buffer()->place_cursor(start_iter);
+                buffer->erase(start_iter, end_iter);
+                start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
+                buffer->insert(start_iter, text_edit_it->new_text);
+              }
+            }
+
+            buffer->end_user_action();
+            if(!view->save())
               return;
-            view = Notebook::get().get_current_view();
-            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
           }
-          else
-            document_edits_and_views.emplace_back(DocumentEditAndView{&document_edit, view});
         }
 
         if(current_view)
           Notebook::get().open(current_view);
-
-        for(auto &document_edit_and_view : document_edits_and_views) {
-          auto document_edit = document_edit_and_view.document_edit;
-          auto view = document_edit_and_view.view;
-          auto buffer = view->get_buffer();
-          buffer->begin_user_action();
-
-          auto end_iter = buffer->end();
-          // If entire buffer is replaced
-          if(document_edit->text_edits.size() == 1 &&
-             document_edit->text_edits[0].range.start.line == 0 && document_edit->text_edits[0].range.start.character == 0 &&
-             (document_edit->text_edits[0].range.end.line > end_iter.get_line() ||
-              (document_edit->text_edits[0].range.end.line == end_iter.get_line() && document_edit->text_edits[0].range.end.character >= get_line_pos(end_iter)))) {
-            view->replace_text(document_edit->text_edits[0].new_text);
-          }
-          else {
-            for(auto text_edit_it = document_edit->text_edits.rbegin(); text_edit_it != document_edit->text_edits.rend(); ++text_edit_it) {
-              auto start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-              auto end_iter = view->get_iter_at_line_pos(text_edit_it->range.end.line, text_edit_it->range.end.character);
-              if(view != current_view)
-                view->get_buffer()->place_cursor(start_iter);
-              buffer->erase(start_iter, end_iter);
-              start_iter = view->get_iter_at_line_pos(text_edit_it->range.start.line, text_edit_it->range.start.character);
-              buffer->insert(start_iter, text_edit_it->new_text);
-            }
-          }
-
-          buffer->end_user_action();
-          if(!view->save())
-            return;
-        }
       }
 
       if(capabilities.execute_command) {
@@ -1939,33 +1946,35 @@ void Source::LanguageProtocolView::update_diagnostics_async(std::vector<Language
                   }
                   if(edit) {
                     LanguageProtocol::WorkspaceEdit workspace_edit(*edit, file_path);
-                    for(auto &document_edit : workspace_edit.document_edits) {
-                      for(auto &text_edit : document_edit.text_edits) {
-                        if(!quickfix_diagnostics.empty()) {
-                          for(auto &diagnostic : diagnostics) {
-                            for(auto &quickfix_diagnostic : quickfix_diagnostics) {
-                              if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                    for(auto &document_change : workspace_edit.document_changes) {
+                      if(auto edit = boost::get<LanguageProtocol::TextDocumentEdit>(&document_change)) {
+                        for(auto &text_edit : edit->text_edits) {
+                          if(!quickfix_diagnostics.empty()) {
+                            for(auto &diagnostic : diagnostics) {
+                              for(auto &quickfix_diagnostic : quickfix_diagnostics) {
+                                if(diagnostic.message == quickfix_diagnostic.message && diagnostic.range == quickfix_diagnostic.range) {
+                                  auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
+                                  pair.first->second.emplace(
+                                      text_edit.new_text,
+                                      edit->file,
+                                      std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
+                                                                     Offset(text_edit.range.end.line, text_edit.range.end.character)));
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                          else { // Workaround for language server that does not report quickfix diagnostics
+                            for(auto &diagnostic : diagnostics) {
+                              if(text_edit.range.start.line == diagnostic.range.start.line) {
                                 auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
                                 pair.first->second.emplace(
                                     text_edit.new_text,
-                                    document_edit.file,
+                                    edit->file,
                                     std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
                                                                    Offset(text_edit.range.end.line, text_edit.range.end.character)));
                                 break;
                               }
-                            }
-                          }
-                        }
-                        else { // Workaround for language server that does not report quickfix diagnostics
-                          for(auto &diagnostic : diagnostics) {
-                            if(text_edit.range.start.line == diagnostic.range.start.line) {
-                              auto pair = diagnostic.quickfixes.emplace(title, std::set<Source::FixIt>{});
-                              pair.first->second.emplace(
-                                  text_edit.new_text,
-                                  document_edit.file,
-                                  std::make_pair<Offset, Offset>(Offset(text_edit.range.start.line, text_edit.range.start.character),
-                                                                 Offset(text_edit.range.end.line, text_edit.range.end.character)));
-                              break;
                             }
                           }
                         }

@@ -102,11 +102,16 @@ namespace LanguageProtocol {
     std::vector<TextEdit> text_edits;
   };
 
+  struct RenameFile {
+    boost::filesystem::path old_path;
+    boost::filesystem::path new_path;
+  };
+
   class WorkspaceEdit {
   public:
     WorkspaceEdit() = default;
     WorkspaceEdit(const JSON &workspace_edit, boost::filesystem::path file_path);
-    std::vector<TextDocumentEdit> document_edits;
+    std::vector<boost::variant<TextDocumentEdit, RenameFile>> document_changes;
   };
 
   class Capabilities {
