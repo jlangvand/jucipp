@@ -396,40 +396,39 @@ void LanguageProtocol::Client::parse_server_message() {
           std::cout << std::setw(2) << object << '\n';
         }
 
-        auto message_id = object.integer_optional("id");
         {
           LockGuard lock(read_write_mutex);
           if(auto result = object.child_optional("result")) {
-            if(message_id) {
-              auto id_it = handlers.find(*message_id);
-              if(id_it != handlers.end()) {
-                auto function = std::move(id_it->second.second);
-                handlers.erase(id_it);
-                lock.unlock();
-                function(JSON::make_owner(std::move(*result)), false);
-                lock.lock();
-              }
+            auto id_it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
+            if(id_it != handlers.end()) {
+              auto function = std::move(id_it->second.second);
+              handlers.erase(id_it);
+              lock.unlock();
+              function(JSON::make_owner(std::move(*result)), false);
+              lock.lock();
             }
           }
           else if(auto error = object.child_optional("error")) {
             if(!Config::get().log.language_server)
               std::cerr << std::setw(2) << object << '\n';
-            if(message_id) {
-              auto id_it = handlers.find(*message_id);
-              if(id_it != handlers.end()) {
-                auto function = std::move(id_it->second.second);
-                handlers.erase(id_it);
-                lock.unlock();
-                function(JSON::make_owner(std::move(*error)), true);
-                lock.lock();
-              }
+            auto id_it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
+            if(id_it != handlers.end()) {
+              auto function = std::move(id_it->second.second);
+              handlers.erase(id_it);
+              lock.unlock();
+              function(JSON::make_owner(std::move(*error)), true);
+              lock.lock();
             }
           }
           else if(auto method = object.string_optional("method")) {
             if(auto params = object.object_optional("params")) {
               lock.unlock();
-              if(message_id)
-                handle_server_request(*message_id, *method, JSON::make_owner(std::move(*params)));
+              if(auto id = object.child_optional("id")) {
+                if(auto integer = id->integer_optional())
+                  handle_server_request(*integer, *method, JSON::make_owner(std::move(*params)));
+                else
+                  handle_server_request(id->string(), *method, JSON::make_owner(std::move(*params)));
+              }
               else
                 handle_server_notification(*method, JSON::make_owner(std::move(*params)));
               lock.lock();
@@ -498,9 +497,10 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
   }
 }
 
-void LanguageProtocol::Client::write_response(size_t id, const std::string &result) {
+void LanguageProtocol::Client::write_response(const boost::variant<size_t, std::string> &id, const std::string &result) {
   LockGuard lock(read_write_mutex);
-  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(id) + ",\"result\":" + result + "}");
+  auto integer = boost::get<size_t>(&id);
+  std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + (integer ? std::to_string(*integer) : '"' + boost::get<std::string>(id) + '"') + ",\"result\":" + result + "}");
   if(Config::get().log.language_server)
     std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
@@ -537,7 +537,7 @@ void LanguageProtocol::Client::handle_server_notification(const std::string &met
   }
 }
 
-void LanguageProtocol::Client::handle_server_request(size_t id, const std::string &method, JSON &&params) {
+void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t, std::string> &id, const std::string &method, JSON &&params) {
   if(method == "workspace/applyEdit") {
     std::promise<void> result_processed;
     bool applied = true;

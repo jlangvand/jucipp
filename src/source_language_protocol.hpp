@@ -184,10 +184,10 @@ namespace LanguageProtocol {
 
     void parse_server_message();
     void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(JSON &&result, bool)> &&function = nullptr);
-    void write_response(size_t id, const std::string &result);
+    void write_response(const boost::variant<size_t, std::string> &id, const std::string &result);
     void write_notification(const std::string &method, const std::string &params = {});
     void handle_server_notification(const std::string &method, JSON &&params);
-    void handle_server_request(size_t id, const std::string &method, JSON &&params);
+    void handle_server_request(const boost::variant<size_t, std::string> &id, const std::string &method, JSON &&params);
 
     std::function<void(int exit_status)> on_exit_status;
   };
