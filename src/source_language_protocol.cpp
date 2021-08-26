@@ -596,10 +596,6 @@ void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t
             }
 
             buffer->end_user_action();
-            if(!view->save()) {
-              applied = false;
-              return;
-            }
           }
         }
 
@@ -1111,6 +1107,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
       auto current_view = Notebook::get().get_current_view();
 
+      std::set<Source::View *> views_to_be_saved;
       std::set<Source::View *> views_to_be_closed;
 
       bool update_directories = false;
@@ -1180,8 +1177,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           }
 
           buffer->end_user_action();
-          if(!view->save())
-            return;
+          views_to_be_saved.emplace(view);
         }
         else if(auto rename_file = boost::get<LanguageProtocol::RenameFile>(&document_change)) {
           Source::View *view = nullptr;
@@ -1210,6 +1206,10 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           update_directories = true;
         }
       }
+
+      for(auto &view : views_to_be_saved)
+        view->save();
+
       if(update_directories)
         Directories::get().update();
 
@@ -1382,8 +1382,6 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             }
 
             buffer->end_user_action();
-            if(!view->save())
-              return;
           }
         }
 
