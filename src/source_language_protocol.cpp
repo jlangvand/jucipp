@@ -436,6 +436,10 @@ void LanguageProtocol::Client::parse_server_message() {
           }
         }
       }
+      catch(const std::exception &e) {
+        auto server_message_stream_str = server_message_stream.str();
+        Terminal::get().async_print(std::string("\e[31mError\e[m: failed to parse message from language server: ") + e.what() + " in:\n" + server_message_stream_str.substr(server_message_content_pos < server_message_stream_str.size() ? server_message_content_pos : 0) + "\n", true);
+      }
       catch(...) {
         Terminal::get().async_print("\e[31mError\e[m: failed to parse message from language server\n", true);
       }
