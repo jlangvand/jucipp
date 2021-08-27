@@ -399,10 +399,10 @@ void LanguageProtocol::Client::parse_server_message() {
         {
           LockGuard lock(read_write_mutex);
           if(auto result = object.child_optional("result")) {
-            auto id_it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
-            if(id_it != handlers.end()) {
-              auto function = std::move(id_it->second.second);
-              handlers.erase(id_it);
+            auto it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
+            if(it != handlers.end()) {
+              auto function = std::move(it->second.second);
+              handlers.erase(it);
               lock.unlock();
               function(JSON::make_owner(std::move(*result)), false);
               lock.lock();
@@ -411,10 +411,10 @@ void LanguageProtocol::Client::parse_server_message() {
           else if(auto error = object.child_optional("error")) {
             if(!Config::get().log.language_server)
               std::cerr << std::setw(2) << object << '\n';
-            auto id_it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
-            if(id_it != handlers.end()) {
-              auto function = std::move(id_it->second.second);
-              handlers.erase(id_it);
+            auto it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
+            if(it != handlers.end()) {
+              auto function = std::move(it->second.second);
+              handlers.erase(it);
               lock.unlock();
               function(JSON::make_owner(std::move(*error)), true);
               lock.lock();
@@ -1130,6 +1130,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             view = Notebook::get().get_current_view();
             views_to_be_closed.emplace(view);
           }
+          views_to_be_saved.emplace(view);
 
           auto buffer = view->get_buffer();
           buffer->begin_user_action();
@@ -1181,7 +1182,6 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           }
 
           buffer->end_user_action();
-          views_to_be_saved.emplace(view);
         }
         else if(auto rename_file = boost::get<LanguageProtocol::RenameFile>(&document_change)) {
           Source::View *view = nullptr;
@@ -1194,6 +1194,8 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
           if(!view) {
             if(!Notebook::get().open(rename_file->new_path))
               return;
+            view = Notebook::get().get_current_view();
+            views_to_be_closed.emplace(view);
           }
           boost::system::error_code ec;
           boost::filesystem::rename(rename_file->old_path, rename_file->new_path, ec);
@@ -1201,12 +1203,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             Terminal::get().print("\e[31mError\e[m: could not rename file: " + ec.message() + '\n', true);
             return;
           }
-          if(view)
-            view->rename(rename_file->new_path);
-          else {
-            Notebook::get().get_current_view()->rename(rename_file->new_path);
-            Notebook::get().close_current();
-          }
+          view->rename(rename_file->new_path);
           update_directories = true;
         }
       }
