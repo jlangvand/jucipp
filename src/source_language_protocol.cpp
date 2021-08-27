@@ -180,28 +180,27 @@ LanguageProtocol::Client::~Client() {
 
   if(on_exit_status)
     on_exit_status(exit_status);
-  if(Config::get().log.language_server)
+  if(Config::get().log.language_server) {
+    std::lock_guard<std::mutex> lock(log_mutex);
     std::cout << "Language server exit status: " << exit_status << std::endl;
+  }
 }
 
-boost::optional<LanguageProtocol::Capabilities> LanguageProtocol::Client::get_capabilities(Source::LanguageProtocolView *view) {
+void LanguageProtocol::Client::add(Source::LanguageProtocolView *view) {
   if(view) {
     LockGuard lock(views_mutex);
     views.emplace(view);
   }
+}
 
+boost::optional<LanguageProtocol::Capabilities> LanguageProtocol::Client::get_capabilities() {
   LockGuard lock(initialize_mutex);
   if(initialized)
     return capabilities;
   return {};
 }
 
-LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::LanguageProtocolView *view) {
-  if(view) {
-    LockGuard lock(views_mutex);
-    views.emplace(view);
-  }
-
+LanguageProtocol::Capabilities LanguageProtocol::Client::initialize() {
   LockGuard lock(initialize_mutex);
 
   if(initialized)
@@ -331,7 +330,7 @@ LanguageProtocol::Capabilities LanguageProtocol::Client::initialize(Source::Lang
   return capabilities;
 }
 
-void LanguageProtocol::Client::close(Source::LanguageProtocolView *view) {
+void LanguageProtocol::Client::remove(Source::LanguageProtocolView *view) {
   {
     LockGuard lock(views_mutex);
     auto it = views.find(view);
@@ -392,8 +391,8 @@ void LanguageProtocol::Client::parse_server_message() {
         JSON object(server_message_stream);
 
         if(Config::get().log.language_server) {
-          std::cout << "language server: ";
-          std::cout << std::setw(2) << object << '\n';
+          std::lock_guard<std::mutex> lock(log_mutex);
+          std::cout << "language server: " << std::setw(2) << object << '\n';
         }
 
         {
@@ -409,8 +408,10 @@ void LanguageProtocol::Client::parse_server_message() {
             }
           }
           else if(auto error = object.child_optional("error")) {
-            if(!Config::get().log.language_server)
+            if(!Config::get().log.language_server) {
+              std::lock_guard<std::mutex> lock(log_mutex);
               std::cerr << std::setw(2) << object << '\n';
+            }
             auto it = handlers.find(object.integer("id", JSON::ParseOptions::accept_string));
             if(it != handlers.end()) {
               auto function = std::move(it->second.second);
@@ -486,8 +487,10 @@ void LanguageProtocol::Client::write_request(Source::LanguageProtocolView *view,
     });
   }
   std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + std::to_string(message_id++) + ",\"method\":\"" + method + "\"" + (params.empty() ? "" : ",\"params\":{" + params + '}') + '}');
-  if(Config::get().log.language_server)
+  if(Config::get().log.language_server) {
+    std::lock_guard<std::mutex> lock(log_mutex);
     std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
+  }
   if(!process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content)) {
     Terminal::get().async_print("\e[31mError\e[m: could not write to language server. Please close and reopen all project files.\n", true);
     auto id_it = handlers.find(message_id - 1);
@@ -505,16 +508,20 @@ void LanguageProtocol::Client::write_response(const boost::variant<size_t, std::
   LockGuard lock(read_write_mutex);
   auto integer = boost::get<size_t>(&id);
   std::string content("{\"jsonrpc\":\"2.0\",\"id\":" + (integer ? std::to_string(*integer) : '"' + boost::get<std::string>(id) + '"') + ",\"result\":" + result + "}");
-  if(Config::get().log.language_server)
+  if(Config::get().log.language_server) {
+    std::lock_guard<std::mutex> lock(log_mutex);
     std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
+  }
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
 void LanguageProtocol::Client::write_notification(const std::string &method, const std::string &params) {
   LockGuard lock(read_write_mutex);
   std::string content("{\"jsonrpc\":\"2.0\",\"method\":\"" + method + "\",\"params\":{" + params + "}}");
-  if(Config::get().log.language_server)
+  if(Config::get().log.language_server) {
+    std::lock_guard<std::mutex> lock(log_mutex);
     std::cout << "Language client: " << std::setw(2) << JSON(content) << std::endl;
+  }
   process->write("Content-Length: " + std::to_string(content.size()) + "\r\n\r\n" + content);
 }
 
@@ -615,8 +622,22 @@ void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t
   else if(method == "client/registerCapability") {
     try {
       for(auto &registration : params.array("registrations")) {
-        if(registration.string("method") == "workspace/didChangeWorkspaceFolders")
+        if(registration.string("method") == "workspace/didChangeWorkspaceFolders") {
           write_notification("workspace/didChangeWorkspaceFolders", "\"event\":{\"added\":[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}],\"removed\":[]}");
+          if(language_id == "python") { // Workaround for pyright
+            dispatcher->post([this] {
+              LockGuard lock(views_mutex);
+              for(auto &view : views) {
+                while(!view->initialized) {
+                  while(Gtk::Main::events_pending())
+                    Gtk::Main::iteration();
+                }
+                view->write_notification("textDocument/didClose");
+                view->write_did_open_notification();
+              }
+            });
+          }
+        }
       }
     }
     catch(...) {
@@ -667,11 +688,12 @@ void Source::LanguageProtocolView::initialize() {
     initialized = true;
   };
 
-  if(auto capabilities = client->get_capabilities(this))
+  client->add(this);
+  if(auto capabilities = client->get_capabilities())
     init(*capabilities);
   else {
     initialize_thread = std::thread([this, init] {
-      auto capabilities = client->initialize(this);
+      auto capabilities = client->initialize();
       dispatcher.post([init, capabilities] {
         init(capabilities);
       });
@@ -679,7 +701,7 @@ void Source::LanguageProtocolView::initialize() {
   }
 }
 
-void Source::LanguageProtocolView::close() {
+Source::LanguageProtocolView::~LanguageProtocolView() {
   autocomplete_delayed_show_arguments_connection.disconnect();
   update_type_coverage_connection.disconnect();
 
@@ -693,13 +715,8 @@ void Source::LanguageProtocolView::close() {
   }
 
   write_notification("textDocument/didClose");
-  client->close(this);
-  client = nullptr;
-}
-
-Source::LanguageProtocolView::~LanguageProtocolView() {
-  close();
   thread_pool.shutdown(true);
+  client->remove(this);
 }
 
 int Source::LanguageProtocolView::get_line_pos(const Gtk::TextIter &iter) {
@@ -765,6 +782,7 @@ void Source::LanguageProtocolView::write_notification(const std::string &method)
 }
 
 void Source::LanguageProtocolView::write_did_open_notification() {
+  document_version = 1;
   client->write_notification("textDocument/didOpen", "\"textDocument\":{\"uri\":\"" + uri_escaped + "\",\"version\":" + std::to_string(document_version++) + ",\"languageId\":\"" + language_id + "\",\"text\":\"" + JSON::escape_string(get_buffer()->get_text().raw()) + "\"}");
 }
 
@@ -773,14 +791,23 @@ void Source::LanguageProtocolView::write_did_change_notification(const std::vect
 }
 
 void Source::LanguageProtocolView::rename(const boost::filesystem::path &path) {
-  // Reset view
-  close();
+  while(!initialized) {
+    while(Gtk::Main::events_pending())
+      Gtk::Main::iteration();
+  }
+  write_notification("textDocument/didClose");
+
+  while(thread_pool.unprocessed()) // TODO: does this include tasks in progress?
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  client->remove(this);
   dispatcher.reset();
+
   Source::DiffView::rename(path);
   uri = filesystem::get_uri_from_path(path);
   uri_escaped = JSON::escape_string(uri);
-  client = LanguageProtocol::Client::get(file_path, language_id, language_server);
-  initialize();
+
+  client->add(this);
+  write_did_open_notification();
 }
 
 bool Source::LanguageProtocolView::save() {
@@ -1192,7 +1219,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
             }
           }
           if(!view) {
-            if(!Notebook::get().open(rename_file->new_path))
+            if(!Notebook::get().open(rename_file->old_path))
               return;
             view = Notebook::get().get_current_view();
             views_to_be_closed.emplace(view);

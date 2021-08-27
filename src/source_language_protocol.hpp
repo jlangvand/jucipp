@@ -173,14 +173,17 @@ namespace LanguageProtocol {
     Mutex timeout_threads_mutex;
     std::vector<std::thread> timeout_threads GUARDED_BY(timeout_threads_mutex);
 
+    std::mutex log_mutex;
+
   public:
     static std::shared_ptr<Client> get(const boost::filesystem::path &file_path, const std::string &language_id, const std::string &language_server);
 
     ~Client();
 
-    boost::optional<Capabilities> get_capabilities(Source::LanguageProtocolView *view);
-    Capabilities initialize(Source::LanguageProtocolView *view);
-    void close(Source::LanguageProtocolView *view);
+    void add(Source::LanguageProtocolView *view);
+    boost::optional<Capabilities> get_capabilities();
+    Capabilities initialize();
+    void remove(Source::LanguageProtocolView *view);
 
     void parse_server_message();
     void write_request(Source::LanguageProtocolView *view, const std::string &method, const std::string &params, std::function<void(JSON &&result, bool)> &&function = nullptr);
@@ -195,10 +198,11 @@ namespace LanguageProtocol {
 
 namespace Source {
   class LanguageProtocolView : public View {
+    friend class LanguageProtocol::Client;
+
   public:
     LanguageProtocolView(const boost::filesystem::path &file_path, const Glib::RefPtr<Gsv::Language> &language, std::string language_id_, std::string language_server_);
     void initialize();
-    void close();
     ~LanguageProtocolView() override;
 
     void rename(const boost::filesystem::path &path) override;
