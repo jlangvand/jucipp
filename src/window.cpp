@@ -1774,7 +1774,7 @@ void Window::set_menu_actions() {
     bool not_zen_mode = std::any_of(Notebook::get().notebooks.begin(),
                                     Notebook::get().notebooks.end(),
                                     [](const Gtk::Notebook &notebook) { return notebook.get_show_tabs(); }) ||
-                        directories_scrolled_window.is_visible() || terminal_scrolled_window.is_visible() || get_show_menubar();
+                        directories_scrolled_window.is_visible() || terminal_scrolled_window.is_visible() || status_overlay.is_visible() || get_show_menubar();
 
     for(auto &notebook : Notebook::get().notebooks)
       notebook.set_show_tabs(!not_zen_mode);
