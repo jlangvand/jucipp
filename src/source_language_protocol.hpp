@@ -193,6 +193,9 @@ namespace LanguageProtocol {
     void handle_server_request(const boost::variant<size_t, std::string> &id, const std::string &method, JSON &&params);
 
     std::function<void(int exit_status)> on_exit_status;
+
+    /// Detecting pyright language server since workarounds need to be applied
+    std::atomic<bool> pyright = {false};
   };
 } // namespace LanguageProtocol
 

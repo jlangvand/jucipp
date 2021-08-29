@@ -58,6 +58,38 @@ int main() {
     g_assert(buffer->get_text() == "# test");
   }
   {
+    auto tooltip = get_markdown_tooltip("test\\\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test&nbsp;&nbsp;test");
+    g_assert(tooltip->buffer->get_text() == "test  test");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n---\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n-----\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n***\n\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---\n\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n___\n\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---\n\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n---\n\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---\n\ntest");
+  }
+  {
+    auto tooltip = get_markdown_tooltip("test\n\n---test---\n\ntest");
+    g_assert(tooltip->buffer->get_text() == "test\n\n---test---\n\ntest");
+  }
+  {
     auto tooltip = get_markdown_tooltip("# test");
     auto buffer = tooltip->buffer;
     g_assert(buffer->get_text() == "test");

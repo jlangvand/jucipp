@@ -176,6 +176,7 @@ namespace Source {
   protected:
     std::pair<Gtk::TextIter, Gtk::TextIter> get_token_iters(Gtk::TextIter iter);
     std::string get_token(const Gtk::TextIter &iter);
+    std::string get_token(const Glib::ustring &string, size_t pos = 0);
     void cleanup_whitespace_characters();
     void cleanup_whitespace_characters(const Gtk::TextIter &iter);
 

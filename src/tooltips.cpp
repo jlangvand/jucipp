@@ -729,7 +729,16 @@ void Tooltip::insert_markdown(const std::string &input) {
     };
 
     for(; i < to; i++) {
-      if(!unescape(i) && (insert_code() || insert_emphasis() || insert_strikethrough() || insert_link()))
+      if(unescape(i)) {
+        partial += input[i];
+        continue;
+      }
+      else if(starts_with(input, i, "&nbsp;")) {
+        partial += ' ';
+        i += 5;
+        continue;
+      }
+      else if(insert_code() || insert_emphasis() || insert_strikethrough() || insert_link())
         continue;
       if(input[i] == '\n' && i + 1 < to)
         partial += ' ';
@@ -788,6 +797,26 @@ void Tooltip::insert_markdown(const std::string &input) {
     auto i_saved = i;
     if(forward_passed({' ', '\t'}) && input[i] == '\n')
       return true;
+    i = i_saved;
+    return false;
+  };
+
+  auto insert_horizontal_line = [&] {
+    auto i_saved = i;
+    char symbol = 0;
+    if(starts_with(input, i, "---") || starts_with(input, i, "***") || starts_with(input, i, "___"))
+      symbol = input[i];
+    if(symbol != 0) {
+      forward_passed({symbol});
+      if(i == input.size() || input[i] == '\n') {
+        if(i < input.size())
+          ++i;
+        buffer->insert_at_cursor("---\n");
+        if(is_empty_line())
+          buffer->insert_at_cursor("\n");
+        return true;
+      }
+    }
     i = i_saved;
     return false;
   };
@@ -907,7 +936,7 @@ void Tooltip::insert_markdown(const std::string &input) {
   };
 
   while(forward_passed_empty_line()) {
-    if(insert_header() || insert_code_block() || insert_reference() || insert_list())
+    if(insert_header() || insert_horizontal_line() || insert_code_block() || insert_reference() || insert_list())
       continue;
     // Insert paragraph:
     auto start = i;

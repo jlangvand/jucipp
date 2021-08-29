@@ -881,6 +881,18 @@ std::string Source::BaseView::get_token(const Gtk::TextIter &iter) {
   return get_buffer()->get_text(range.first, range.second);
 }
 
+std::string Source::BaseView::get_token(const Glib::ustring &string, size_t pos) {
+  if(pos >= string.size())
+    return {};
+  auto start = pos;
+  auto end = pos;
+  for(auto i = pos - 1; i != Glib::ustring::npos && is_token_char(string[i]); --i)
+    start = pos;
+  for(; end < string.size() && is_token_char(string[end]); ++end) {
+  }
+  return string.substr(start, end - start);
+}
+
 void Source::BaseView::cleanup_whitespace_characters() {
   auto buffer = get_buffer();
   buffer->begin_user_action();

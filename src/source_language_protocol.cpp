@@ -546,6 +546,14 @@ void LanguageProtocol::Client::handle_server_notification(const std::string &met
       }
     }
   }
+  else if(method == "window/logMessage") {
+    if(language_id == "python" && !pyright) {
+      if(auto message = params.string_optional("message")) {
+        if(starts_with(*message, "Pyright language server"))
+          pyright = true;
+      }
+    }
+  }
 }
 
 void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t, std::string> &id, const std::string &method, JSON &&params) {
@@ -624,7 +632,7 @@ void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t
       for(auto &registration : params.array("registrations")) {
         if(registration.string("method") == "workspace/didChangeWorkspaceFolders") {
           write_notification("workspace/didChangeWorkspaceFolders", "\"event\":{\"added\":[{\"uri\": \"" + JSON::escape_string(filesystem::get_uri_from_path(root_path)) + "\",\"name\":\"" + JSON::escape_string(root_path.filename().string()) + "\"}],\"removed\":[]}");
-          if(language_id == "python") { // Workaround for pyright
+          if(pyright) {
             dispatcher->post([this] {
               LockGuard lock(views_mutex);
               for(auto &view : views) {
@@ -1707,7 +1715,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                   if(parameter_position == current_parameter_position || using_named_parameters) {
                     auto label = parameter.string_or("label", "");
                     auto insert = label;
-                    if(!using_named_parameters || used_named_parameters.find(insert) == used_named_parameters.end()) {
+                    if(!using_named_parameters || used_named_parameters.find(get_token(insert)) == used_named_parameters.end()) {
                       autocomplete->rows.emplace_back(std::move(label));
                       autocomplete_rows.emplace_back(AutocompleteRow{std::move(insert), {}, LanguageProtocol::Documentation(parameter.child_optional("documentation")), {}, {}});
                     }
@@ -1772,7 +1780,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
                       insert += "(${1:})";
 
                     std::shared_ptr<JSON> item_object;
-                    if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js || language_id == "python")) // Workaround for typescript-language-server (is_js) and python-lsp-server
+                    if(detail.empty() && documentation.value.empty() && (is_incomplete || is_js || (language_id == "python" && !client->pyright))) // Workaround for typescript-language-server (is_js) and python-lsp-server
                       item_object = std::make_shared<JSON>(JSON::make_owner(std::move(item)));
 
                     autocomplete->rows.emplace_back(std::move(label));
@@ -1837,14 +1845,17 @@ void Source::LanguageProtocolView::setup_autocomplete() {
 
     if(hide_window) {
       if(autocomplete_show_arguments) {
-        if(auto symbol = get_named_parameter_symbol()) // Do not select named parameters in for instance Python
-          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert + *symbol);
-        else {
-          get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
-          int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
-          int end_offset = CompletionDialog::get()->start_mark->get_iter().get_offset() + insert.size();
-          get_buffer()->select_range(get_buffer()->get_iter_at_offset(start_offset), get_buffer()->get_iter_at_offset(end_offset));
+        if(auto symbol = get_named_parameter_symbol()) { // Do not select named parameters in for instance Python
+          auto named_parameter = get_token(insert);
+          if(!named_parameter.empty()) {
+            get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), named_parameter + *symbol);
+            return;
+          }
         }
+        get_buffer()->insert(CompletionDialog::get()->start_mark->get_iter(), insert);
+        int start_offset = CompletionDialog::get()->start_mark->get_iter().get_offset();
+        int end_offset = CompletionDialog::get()->start_mark->get_iter().get_offset() + insert.size();
+        get_buffer()->select_range(get_buffer()->get_iter_at_offset(start_offset), get_buffer()->get_iter_at_offset(end_offset));
         return;
       }
 
@@ -1878,7 +1889,7 @@ void Source::LanguageProtocolView::setup_autocomplete() {
     auto &autocomplete_row = autocomplete_rows[index];
 
     const static auto insert_documentation = [](Source::LanguageProtocolView *view, Tooltip &tooltip, const std::string &detail, const LanguageProtocol::Documentation &documentation) {
-      if(view->language_id == "python") // Python might support markdown in the future
+      if(view->language_id == "python" && !view->client->pyright) // pylsp might support markdown in the future
         tooltip.insert_docstring(documentation.value);
       else {
         if(!detail.empty()) {
@@ -2082,7 +2093,7 @@ void Source::LanguageProtocolView::update_diagnostics(std::vector<LanguageProtoc
       fix_its.insert(fix_its.end(), quickfix.second.begin(), quickfix.second.end());
 
     add_diagnostic_tooltip(start, end, error, [this, diagnostic = std::move(diagnostic)](Tooltip &tooltip) {
-      if(language_id == "python") { // Python might support markdown in the future
+      if(language_id == "python" && !client->pyright) { // pylsp might support markdown in the future
         tooltip.insert_with_links_tagged(diagnostic.message);
         return;
       }
@@ -2206,7 +2217,7 @@ void Source::LanguageProtocolView::show_type_tooltips(const Gdk::Rectangle &rect
           auto token_iters = get_token_iters(get_buffer()->get_iter_at_offset(offset));
           type_tooltips.emplace_back(this, token_iters.first, token_iters.second, [this, offset, contents = std::move(contents)](Tooltip &tooltip) mutable {
             bool first = true;
-            if(language_id == "python") { // Python might support markdown in the future
+            if(language_id == "python" && !client->pyright) { // pylsp might support markdown in the future
               for(auto &content : contents) {
                 if(!first)
                   tooltip.buffer->insert_at_cursor("\n\n");
