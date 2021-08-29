@@ -628,10 +628,6 @@ void LanguageProtocol::Client::handle_server_request(const boost::variant<size_t
             dispatcher->post([this] {
               LockGuard lock(views_mutex);
               for(auto &view : views) {
-                while(!view->initialized) {
-                  while(Gtk::Main::events_pending())
-                    Gtk::Main::iteration();
-                }
                 view->write_notification("textDocument/didClose");
                 view->write_did_open_notification();
               }
