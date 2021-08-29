@@ -35,7 +35,7 @@ int main() {
 }
 )");
 
-  view->format_style(false);
+  view->format_style(false, false);
   g_assert(view->get_buffer()->get_text() == R"(fn main() {
     let a = 2;
     println!("{}", a);

@@ -84,7 +84,7 @@ namespace Source {
     void configure() override;
 
     std::function<void()> non_interactive_completion;
-    std::function<void(bool)> format_style;
+    std::function<void(bool, bool)> format_style;
     std::function<Offset()> get_declaration_location;
     std::function<Offset()> get_type_declaration_location;
     std::function<std::vector<Offset>()> get_implementation_locations;

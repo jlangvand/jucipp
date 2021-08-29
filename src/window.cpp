@@ -797,7 +797,7 @@ void Window::set_menu_actions() {
     auto view = Notebook::get().get_current_view();
     if(view && view->format_style) {
       view->disable_spellcheck = true;
-      view->format_style(true);
+      view->format_style(true, false);
       view->disable_spellcheck = false;
       view->hide_tooltips();
     }

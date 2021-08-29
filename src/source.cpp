@@ -394,9 +394,9 @@ bool Source::View::save() {
 
   if(format_style && file_path.filename() != "package.json") {
     if(Config::get().source.format_style_on_save)
-      format_style(true);
+      format_style(true, true);
     else if(Config::get().source.format_style_on_save_if_style_file_found)
-      format_style(false);
+      format_style(false, true);
     hide_tooltips();
   }
 
@@ -749,7 +749,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
           update_status_diagnostics(this);
       });
     }
-    format_style = [this, is_generic_view](bool continue_without_style_file) {
+    format_style = [this, is_generic_view](bool continue_without_style_file, bool ignore_selection) {
       if(!continue_without_style_file) {
         auto search_path = file_path.parent_path();
         while(true) {
@@ -925,7 +925,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         }
 
         std::string options = "filepath: \"" + escape(file_path.string(), {'"'}) + "\"";
-        if(get_buffer()->get_has_selection()) { // Cannot be used together with cursorOffset
+        if(!ignore_selection && get_buffer()->get_has_selection()) { // Cannot be used together with cursorOffset
           Gtk::TextIter start, end;
           get_buffer()->get_selection_bounds(start, end);
           options += ", rangeStart: " + std::to_string(start.get_offset()) + ", rangeEnd: " + std::to_string(end.get_offset());
@@ -982,7 +982,7 @@ void Source::View::setup_format_style(bool is_generic_view) {
         auto command = prettier.string();
         command += " --stdin-filepath " + filesystem::escape_argument(this->file_path.string());
 
-        if(get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
+        if(!ignore_selection && get_buffer()->get_has_selection()) { // Cannot be used together with --cursor-offset
           Gtk::TextIter start, end;
           get_buffer()->get_selection_bounds(start, end);
           command += " --range-start " + std::to_string(start.get_offset());
@@ -1047,12 +1047,12 @@ void Source::View::setup_format_style(bool is_generic_view) {
     };
   }
   else if(is_bracket_language) {
-    format_style = [this](bool continue_without_style_file) {
+    format_style = [this](bool continue_without_style_file, bool ignore_selection) {
       static auto clang_format_command = filesystem::get_executable("clang-format").string();
 
       auto command = clang_format_command + " -output-replacements-xml -assume-filename=" + filesystem::escape_argument(this->file_path.string());
 
-      if(get_buffer()->get_has_selection()) {
+      if(!ignore_selection && get_buffer()->get_has_selection()) {
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
         command += " -lines=" + std::to_string(start.get_line() + 1) + ':' + std::to_string(end.get_line() + 1);
@@ -1172,6 +1172,38 @@ void Source::View::setup_format_style(bool is_generic_view) {
         get_buffer()->end_user_action();
       }
     };
+  }
+  else if(language_id == "python") {
+    static auto yapf = filesystem::find_executable("yapf");
+    if(!yapf.empty()) {
+      format_style = [this](bool continue_without_style_file, bool ignore_selection) {
+        std::string command = "yapf";
+
+        if(!ignore_selection && get_buffer()->get_has_selection()) {
+          Gtk::TextIter start, end;
+          get_buffer()->get_selection_bounds(start, end);
+          command += " -l " + std::to_string(start.get_line() + 1) + '-' + std::to_string(end.get_line() + 1);
+        }
+
+        if(!continue_without_style_file) {
+          auto search_path = file_path.parent_path();
+          while(true) {
+            boost::system::error_code ec;
+            if(boost::filesystem::exists(search_path / ".python-format", ec) || boost::filesystem::exists(search_path / ".style.yapf", ec))
+              break;
+            if(search_path == search_path.root_directory())
+              return;
+            search_path = search_path.parent_path();
+          }
+        }
+
+        std::stringstream stdin_stream(get_buffer()->get_text()), stdout_stream;
+
+        auto exit_status = Terminal::get().process(stdin_stream, stdout_stream, command, this->file_path.parent_path());
+        if(exit_status == 0)
+          replace_text(stdout_stream.str());
+      };
+    }
   }
 }
 

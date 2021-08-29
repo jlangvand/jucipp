@@ -819,38 +819,52 @@ bool Source::LanguageProtocolView::save() {
 
 void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
   if(capabilities.document_formatting && !(format_style && is_js /* Use Prettier instead */)) {
-    format_style = [this](bool continue_without_style_file) {
+    format_style = [this](bool continue_without_style_file, bool ignore_selection) {
       if(!continue_without_style_file) {
         bool has_style_file = false;
-        auto style_file_search_path = file_path.parent_path();
+        auto search_path = file_path.parent_path();
         auto style_file = '.' + language_id + "-format";
 
         boost::system::error_code ec;
         while(true) {
-          if(boost::filesystem::exists(style_file_search_path / style_file, ec)) {
+          if(boost::filesystem::exists(search_path / style_file, ec)) {
             has_style_file = true;
             break;
           }
-          if(style_file_search_path == style_file_search_path.root_directory())
+          if(search_path == search_path.root_directory())
             break;
-          style_file_search_path = style_file_search_path.parent_path();
+          search_path = search_path.parent_path();
         }
 
-        if(!has_style_file && language_id == "rust") {
-          auto style_file_search_path = file_path.parent_path();
-          while(true) {
-            if(boost::filesystem::exists(style_file_search_path / "rustfmt.toml", ec) ||
-               boost::filesystem::exists(style_file_search_path / ".rustfmt.toml", ec)) {
-              has_style_file = true;
-              break;
+        if(!has_style_file) {
+          if(language_id == "rust") {
+            auto search_path = file_path.parent_path();
+            while(true) {
+              if(boost::filesystem::exists(search_path / "rustfmt.toml", ec) ||
+                 boost::filesystem::exists(search_path / ".rustfmt.toml", ec)) {
+                has_style_file = true;
+                break;
+              }
+              if(search_path == search_path.root_directory())
+                break;
+              search_path = search_path.parent_path();
             }
-            if(style_file_search_path == style_file_search_path.root_directory())
-              break;
-            style_file_search_path = style_file_search_path.parent_path();
+          }
+          else if(language_id == "python") {
+            auto search_path = file_path.parent_path();
+            while(true) {
+              if(boost::filesystem::exists(search_path / ".style.yapf", ec)) {
+                has_style_file = true;
+                break;
+              }
+              if(search_path == search_path.root_directory())
+                break;
+              search_path = search_path.parent_path();
+            }
           }
         }
 
-        if(!has_style_file && !continue_without_style_file)
+        if(!has_style_file)
           return;
       }
 
@@ -859,7 +873,7 @@ void Source::LanguageProtocolView::setup_navigation_and_refactoring() {
 
       std::string method;
       std::vector<std::pair<std::string, std::string>> params = {{"options", '{' + to_string({{"tabSize", std::to_string(tab_size)}, {"insertSpaces", tab_char == ' ' ? "true" : "false"}}) + '}'}};
-      if(get_buffer()->get_has_selection() && capabilities.document_range_formatting) {
+      if(!ignore_selection && get_buffer()->get_has_selection() && capabilities.document_range_formatting) {
         method = "textDocument/rangeFormatting";
         Gtk::TextIter start, end;
         get_buffer()->get_selection_bounds(start, end);
