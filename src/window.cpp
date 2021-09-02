@@ -748,6 +748,64 @@ void Window::set_menu_actions() {
     search_and_replace_entry();
   });
 
+  menu.add_action("edit_go_to_beginning_of_line", []() {
+    if(auto view = Notebook::get().get_current_view()) {
+      auto buffer = view->get_buffer();
+      auto iter = buffer->get_insert()->get_iter();
+      // If we're already at the beginning of the line, move to
+      // first character excluding spaces.
+      if(iter.starts_line())
+        while(iter.get_char() == 0x20)
+          iter.forward_char();
+      else if(iter.backward_line())
+        iter.forward_line();
+      buffer->place_cursor(iter);
+    }
+  });
+  menu.add_action("edit_go_to_end_of_line", []() {
+    if(auto view = Notebook::get().get_current_view()) {
+      auto buffer = view->get_buffer();
+      auto iter = buffer->get_insert()->get_iter();
+      if(!iter.ends_line()) {
+        iter.forward_to_line_end();
+        buffer->place_cursor(iter);
+      }
+    }
+  });
+  menu.add_action("edit_go_to_previous_line", []() {
+    if(auto view = Notebook::get().get_current_view()) {
+      auto buffer = view->get_buffer();
+      auto iter = buffer->get_insert()->get_iter();
+      int offset = iter.get_visible_line_offset();
+      if(iter.backward_line()) {
+        int length = iter.get_chars_in_line();
+        iter.set_visible_line_offset(length < offset ? length : offset);
+      }
+      buffer->place_cursor(iter);
+    }
+  });
+  menu.add_action("edit_go_to_next_line", []() {
+    if(auto view = Notebook::get().get_current_view()) {
+      auto buffer = view->get_buffer();
+      auto iter = buffer->get_insert()->get_iter();
+      int offset = iter.get_visible_line_offset();
+      if(iter.forward_line()) {
+        int length = iter.get_chars_in_line();
+        iter.set_visible_line_offset(length < offset ? length : offset);
+      }
+      buffer->place_cursor(iter);
+    }
+  });
+
+  menu.add_action("edit_insert_line", []() {
+    if(auto view = Notebook::get().get_current_view()) {
+      auto buffer = view->get_buffer();
+      auto iter = buffer->get_insert()->get_iter();
+      if(iter.forward_line())
+        buffer->insert(iter, "\n");
+    }
+  });
+
   menu.add_action("source_spellcheck", []() {
     if(auto view = Notebook::get().get_current_view()) {
       view->remove_spellcheck_errors();
